@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/ChannelItem"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <!-- Channel Number -->
+    <TextView
+        android:id="@+id/tvChannelNumber"
+        style="@style/BodyText"
+        android:layout_width="40dp"
+        android:layout_height="wrap_content"
+        android:text="1"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:gravity="center"/>
+
+    <!-- Channel Logo Placeholder -->
+    <View
+        android:id="@+id/channelLogo"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginStart="@dimen/spacing_small"
+        android:layout_marginEnd="@dimen/spacing_small"
+        android:background="@color/surface_light"/>
+
+    <!-- Channel Name and Category -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvChannelName"
+            style="@style/BodyText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Channel Name"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <TextView
+            android:id="@+id/tvChannelCategory"
+            style="@style/CaptionText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Category"
+            android:layout_marginTop="2dp"/>
+
+    </LinearLayout>
+
+    <!-- HD/SD Badge -->
+    <TextView
+        android:id="@+id/tvQualityBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/quality_hd"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:textSize="10sp"
+        android:background="@drawable/badge_hd"
+        android:layout_marginStart="@dimen/spacing_small"/>
+
+    <!-- Favorite Indicator -->
+    <ImageView
+        android:id="@+id/ivFavorite"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:src="@drawable/ic_star"
+        android:visibility="gone"
+        android:layout_marginStart="@dimen/spacing_small"
+        android:contentDescription="Favorite"/>
+
+</LinearLayout>

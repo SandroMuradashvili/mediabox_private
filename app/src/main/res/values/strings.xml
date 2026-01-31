@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mediabox</string>
+
+    <!-- Main Menu -->
+    <string name="menu_tv">TV</string>
+    <string name="menu_profile">Profile</string>
+    <string name="menu_settings">Settings</string>
+
+    <!-- Player Controls -->
+    <string name="control_play">Play</string>
+    <string name="control_pause">Pause</string>
+    <string name="control_live">LIVE</string>
+    <string name="control_favorite">Favorite</string>
+    <string name="control_rewind_15s">15s</string>
+    <string name="control_rewind_1m">1m</string>
+    <string name="control_rewind_5m">5m</string>
+    <string name="control_forward_15s">15s</string>
+    <string name="control_forward_1m">1m</string>
+    <string name="control_forward_5m">5m</string>
+
+    <!-- EPG -->
+    <string name="epg_title">TV Guide</string>
+    <string name="category_all">All</string>
+    <string name="category_favorites">Favorites</string>
+
+    <!-- Quality Badges -->
+    <string name="quality_hd">HD</string>
+    <string name="quality_sd">SD</string>
+
+    <!-- Messages -->
+    <string name="loading">Loading…</string>
+    <string name="no_channels">No channels available</string>
+    <string name="error_playback">Playback error occurred</string>
+</resources>

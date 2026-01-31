@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <!-- Logo/Title -->
+    <TextView
+        android:id="@+id/tvLogo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/app_name"
+        android:textSize="56sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:letterSpacing="0.1"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/menuContainer"
+        app:layout_constraintVertical_chainStyle="packed"
+        android:layout_marginBottom="64dp"/>
+
+    <!-- Menu Container -->
+    <LinearLayout
+        android:id="@+id/menuContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/tvLogo"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- TV Button -->
+        <TextView
+            android:id="@+id/btnTv"
+            style="@style/MenuButton"
+            android:text="@string/menu_tv"
+            android:drawableTop="@drawable/ic_tv"
+            android:drawablePadding="12dp"
+            android:nextFocusRight="@id/btnProfile"
+            android:nextFocusLeft="@id/btnSettings"/>
+
+        <!-- Profile Button -->
+        <TextView
+            android:id="@+id/btnProfile"
+            style="@style/MenuButton"
+            android:text="@string/menu_profile"
+            android:drawableTop="@drawable/ic_profile"
+            android:drawablePadding="12dp"
+            android:nextFocusRight="@id/btnSettings"
+            android:nextFocusLeft="@id/btnTv"/>
+
+        <!-- Settings Button -->
+        <TextView
+            android:id="@+id/btnSettings"
+            style="@style/MenuButton"
+            android:text="@string/menu_settings"
+            android:drawableTop="@drawable/ic_settings"
+            android:drawablePadding="12dp"
+            android:nextFocusRight="@id/btnTv"
+            android:nextFocusLeft="@id/btnProfile"/>
+
+    </LinearLayout>
+
+    <!-- Footer -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="www.telecom1.ge"
+            style="@style/CaptionText"
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="info@telecom1.ge • (995 32) 3 100 100"
+            style="@style/CaptionText"/>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

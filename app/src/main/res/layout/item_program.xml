@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="@dimen/spacing_small"
+    app:cardBackgroundColor="@color/card_background"
+    app:cardCornerRadius="@dimen/corner_radius_small"
+    app:cardElevation="0dp"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:foreground="@drawable/channel_item_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/spacing_medium">
+
+        <!-- Time -->
+        <TextView
+            android:id="@+id/tvProgramTime"
+            style="@style/CaptionText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="13:00 - 15:00"
+            android:textStyle="bold"
+            android:textColor="@color/primary"/>
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tvProgramTitle"
+            style="@style/BodyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Program Title"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Description -->
+        <TextView
+            android:id="@+id/tvProgramDescription"
+            style="@style/CaptionText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Program description goes here"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Progress Bar (for current program) -->
+        <ProgressBar
+            android:id="@+id/programProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:progressDrawable="@drawable/progress_bar_drawable"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"/>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>
