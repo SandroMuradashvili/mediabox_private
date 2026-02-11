@@ -15,14 +15,16 @@
         android:textSize="20sp"
         android:gravity="center"/>
 
-    <!-- Channel Logo Placeholder -->
-    <View
+    <!-- Channel Logo -->
+    <ImageView
         android:id="@+id/channelLogo"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:layout_marginStart="@dimen/spacing_small"
-        android:layout_marginEnd="@dimen/spacing_small"
-        android:background="@color/surface_light"/>
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:scaleType="fitCenter"
+        android:background="@color/surface_light"
+        android:contentDescription="Channel Logo"/>
 
     <!-- Channel Name and Category -->
     <LinearLayout
@@ -61,7 +63,7 @@
         android:textStyle="bold"
         android:textSize="10sp"
         android:background="@drawable/badge_hd"
-        android:layout_marginStart="@dimen/spacing_small"/>
+        android:layout_marginStart="8dp"/>
 
     <!-- Favorite Indicator -->
     <ImageView
@@ -70,7 +72,7 @@
         android:layout_height="20dp"
         android:src="@drawable/ic_star"
         android:visibility="gone"
-        android:layout_marginStart="@dimen/spacing_small"
+        android:layout_marginStart="8dp"
         android:contentDescription="Favorite"/>
 
 </LinearLayout>

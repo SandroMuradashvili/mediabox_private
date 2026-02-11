@@ -1,16 +1,19 @@
 package ge.mediabox.mediabox.ui.player
 
 import android.os.Bundle
+import ge.mediabox.mediabox.R
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
+import kotlinx.coroutines.launch
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -34,9 +37,17 @@ class PlayerActivity : AppCompatActivity() {
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        initializePlayer()
-        setupOverlays()
-        playChannel(0)
+        // Initialize repository and load channels
+        lifecycleScope.launch {
+            binding.loadingIndicator.visibility = View.VISIBLE
+            repository.initialize()
+            channels = repository.getAllChannels()
+
+            initializePlayer()
+            setupOverlays()
+            playChannel(0)
+            binding.loadingIndicator.visibility = View.GONE
+        }
     }
 
     private fun initializePlayer() {
@@ -51,9 +62,6 @@ class PlayerActivity : AppCompatActivity() {
                         }
                         Player.STATE_READY -> {
                             binding.loadingIndicator.visibility = View.GONE
-                        }
-                        else -> {
-                            // Handle other states if needed
                         }
                     }
                 }
@@ -87,16 +95,34 @@ class PlayerActivity : AppCompatActivity() {
         currentChannelIndex = index
         val channel = channels[index]
 
-        player?.apply {
-            setMediaItem(MediaItem.fromUri(channel.streamUrl))
-            prepare()
-            play()
-        }
+        binding.loadingIndicator.visibility = View.VISIBLE
 
-        controlOverlayManager.updateChannelInfo(
-            channel = channel,
-            currentProgram = repository.getCurrentProgram(channel.id)
-        )
+        // Fetch stream URL from API
+        lifecycleScope.launch {
+            try {
+                val streamUrl = repository.getStreamUrl(channel.id)
+
+                if (streamUrl != null) {
+                    player?.apply {
+                        setMediaItem(MediaItem.fromUri(streamUrl))
+                        prepare()
+                        play()
+                    }
+                } else {
+                    // Handle error - stream URL couldn't be fetched
+                    binding.loadingIndicator.visibility = View.GONE
+                    // You could show an error message here
+                }
+
+                controlOverlayManager.updateChannelInfo(
+                    channel = channel,
+                    currentProgram = repository.getCurrentProgram(channel.id)
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                binding.loadingIndicator.visibility = View.GONE
+            }
+        }
     }
 
     private fun changeChannel(direction: Int) {
@@ -119,7 +145,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun showControls() {
         isControlsVisible = true
-        binding.controlOverlay.root.visibility = View.VISIBLE
+        binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         controlOverlayManager.updateChannelInfo(
             channels[currentChannelIndex],
             repository.getCurrentProgram(channels[currentChannelIndex].id)
@@ -130,20 +156,20 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun hideControls() {
         isControlsVisible = false
-        binding.controlOverlay.root.visibility = View.GONE
+        binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.GONE
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
     }
 
     private fun showEpg() {
         isEpgVisible = true
-        binding.epgOverlay.root.visibility = View.VISIBLE
+        binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
         epgOverlayManager.refreshData(channels)
         epgOverlayManager.requestFocus()
     }
 
     private fun hideEpg() {
         isEpgVisible = false
-        binding.epgOverlay.root.visibility = View.GONE
+        binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

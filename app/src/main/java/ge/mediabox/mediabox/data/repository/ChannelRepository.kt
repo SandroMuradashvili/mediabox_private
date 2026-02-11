@@ -1,15 +1,80 @@
 package ge.mediabox.mediabox.data.repository
 
+import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 object ChannelRepository {
 
     private val channels = mutableListOf<Channel>()
+    private var isInitialized = false
 
-    init {
-        channels.addAll(createMockChannels())
+    suspend fun initialize() {
+        if (isInitialized) return
+
+        withContext(Dispatchers.IO) {
+            try {
+                val apiChannels = ApiService.fetchChannels()
+
+                if (apiChannels.isNotEmpty()) {
+                    channels.clear()
+                    apiChannels.forEachIndexed { index, apiChannel ->
+                        channels.add(
+                            Channel(
+                                id = index + 1,  // Sequential ID for app
+                                apiId = apiChannel.id,
+                                uuid = apiChannel.uuid,
+                                name = apiChannel.name,
+                                streamUrl = "", // Will be fetched on demand
+                                logoUrl = apiChannel.logo,
+                                category = apiChannel.category,
+                                number = apiChannel.number,
+                                isHD = true,
+                                programs = generatePrograms(index + 1, System.currentTimeMillis())
+                            )
+                        )
+                    }
+                    isInitialized = true
+                } else {
+                    // Fallback to mock data if API fails
+                    channels.addAll(createMockChannels())
+                    isInitialized = true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Fallback to mock data
+                channels.addAll(createMockChannels())
+                isInitialized = true
+            }
+        }
+    }
+
+    suspend fun getStreamUrl(channelId: Int): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val channel = channels.find { it.id == channelId } ?: return@withContext null
+
+                // If stream URL already exists and not expired, return it
+                if (channel.streamUrl.isNotEmpty()) {
+                    return@withContext channel.streamUrl
+                }
+
+                // Fetch fresh stream URL from API
+                val streamResponse = ApiService.fetchStreamUrl(channel.apiId)
+                if (streamResponse != null) {
+                    channel.streamUrl = streamResponse.url
+                    return@withContext streamResponse.url
+                }
+
+                return@withContext null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
     }
 
     fun getAllChannels(): List<Channel> = channels
@@ -47,7 +112,7 @@ object ChannelRepository {
                 id = 1,
                 name = "Test Channel 1",
                 streamUrl = testStreamUrl,
-                category = "Entertainment",
+                category = "General",
                 isHD = true,
                 programs = generatePrograms(1, currentTime)
             ),
@@ -55,41 +120,17 @@ object ChannelRepository {
                 id = 2,
                 name = "Test Channel 2",
                 streamUrl = alternateStream,
-                category = "News",
+                category = "General",
                 isHD = true,
                 programs = generatePrograms(2, currentTime)
             ),
             Channel(
                 id = 3,
-                name = "Sports Channel",
+                name = "Test Channel 3",
                 streamUrl = testStreamUrl,
-                category = "Sports",
+                category = "General",
                 isHD = false,
                 programs = generatePrograms(3, currentTime)
-            ),
-            Channel(
-                id = 4,
-                name = "Movie Channel",
-                streamUrl = alternateStream,
-                category = "Movies",
-                isHD = true,
-                programs = generatePrograms(4, currentTime)
-            ),
-            Channel(
-                id = 5,
-                name = "Georgian Channel",
-                streamUrl = testStreamUrl,
-                category = "Georgian",
-                isHD = true,
-                programs = generatePrograms(5, currentTime)
-            ),
-            Channel(
-                id = 6,
-                name = "Kids Channel",
-                streamUrl = alternateStream,
-                category = "Kids",
-                isHD = false,
-                programs = generatePrograms(6, currentTime)
             )
         )
     }

@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Channel
 
@@ -18,6 +19,7 @@ class ChannelAdapter(
 
     inner class ChannelViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val channelNumber: TextView = itemView.findViewById(R.id.tvChannelNumber)
+        val channelLogo: View = itemView.findViewById(R.id.channelLogo)
         val channelName: TextView = itemView.findViewById(R.id.tvChannelName)
         val channelCategory: TextView = itemView.findViewById(R.id.tvChannelCategory)
         val qualityBadge: TextView = itemView.findViewById(R.id.tvQualityBadge)
@@ -46,9 +48,20 @@ class ChannelAdapter(
         }
 
         fun bind(channel: Channel, isSelected: Boolean) {
-            channelNumber.text = channel.id.toString()
+            channelNumber.text = channel.number.toString()
             channelName.text = channel.name
             channelCategory.text = channel.category
+
+            // Load channel logo using Glide
+            if (!channel.logoUrl.isNullOrEmpty()) {
+                if (channelLogo is ImageView) {
+                    Glide.with(itemView.context)
+                        .load(channel.logoUrl)
+                        .placeholder(R.color.surface_light)
+                        .error(R.color.surface_light)
+                        .into(channelLogo)
+                }
+            }
 
             qualityBadge.text = if (channel.isHD) "HD" else "SD"
             qualityBadge.setBackgroundResource(
