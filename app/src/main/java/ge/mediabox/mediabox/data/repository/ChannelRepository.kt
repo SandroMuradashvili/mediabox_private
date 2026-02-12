@@ -77,6 +77,25 @@ object ChannelRepository {
         }
     }
 
+    suspend fun getArchiveUrl(channelId: Int, timestamp: Long): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val channel = channels.find { it.id == channelId } ?: return@withContext null
+
+                // Fetch archive stream URL from API
+                val streamResponse = ApiService.fetchArchiveUrl(channel.apiId, timestamp)
+                if (streamResponse != null) {
+                    return@withContext streamResponse.url
+                }
+
+                return@withContext null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
     fun getAllChannels(): List<Channel> = channels
 
     fun getChannelById(id: Int): Channel? = channels.find { it.id == id }

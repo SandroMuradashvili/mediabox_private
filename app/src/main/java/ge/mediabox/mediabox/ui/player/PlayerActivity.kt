@@ -1,16 +1,17 @@
 package ge.mediabox.mediabox.ui.player
 
 import android.os.Bundle
-import ge.mediabox.mediabox.R
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
+import android.widget.ImageButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.launch
@@ -25,6 +26,10 @@ class PlayerActivity : AppCompatActivity() {
     private var channels = repository.getAllChannels()
     private var isControlsVisible = false
     private var isEpgVisible = false
+
+    // Archive mode tracking
+    private var isLiveMode = true
+    private var currentArchiveTimestamp: Long = 0
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
@@ -45,6 +50,7 @@ class PlayerActivity : AppCompatActivity() {
 
             initializePlayer()
             setupOverlays()
+            setupControlButtons()
             playChannel(0)
             binding.loadingIndicator.visibility = View.GONE
         }
@@ -89,18 +95,56 @@ class PlayerActivity : AppCompatActivity() {
         )
     }
 
-    private fun playChannel(index: Int) {
+    private fun setupControlButtons() {
+        // Rewind buttons
+        binding.root.findViewById<ImageButton>(R.id.btnRewind15s)?.setOnClickListener {
+            rewindSeconds(15)
+        }
+        binding.root.findViewById<ImageButton>(R.id.btnRewind1m)?.setOnClickListener {
+            rewindMinutes(1)
+        }
+        binding.root.findViewById<ImageButton>(R.id.btnRewind5m)?.setOnClickListener {
+            rewindMinutes(5)
+        }
+
+        // Forward buttons
+        binding.root.findViewById<ImageButton>(R.id.btnForward15s)?.setOnClickListener {
+            forwardSeconds(15)
+        }
+        binding.root.findViewById<ImageButton>(R.id.btnForward1m)?.setOnClickListener {
+            forwardMinutes(1)
+        }
+        binding.root.findViewById<ImageButton>(R.id.btnForward5m)?.setOnClickListener {
+            forwardMinutes(5)
+        }
+
+        // LIVE button
+        binding.root.findViewById<View>(R.id.btnLive)?.setOnClickListener {
+            returnToLive()
+        }
+
+        // Play/Pause button
+        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener {
+            togglePlayPause()
+        }
+    }
+
+    private fun playChannel(index: Int, goLive: Boolean = true) {
         if (index < 0 || index >= channels.size) return
 
         currentChannelIndex = index
         val channel = channels[index]
+        isLiveMode = goLive
 
         binding.loadingIndicator.visibility = View.VISIBLE
 
-        // Fetch stream URL from API
         lifecycleScope.launch {
             try {
-                val streamUrl = repository.getStreamUrl(channel.id)
+                val streamUrl = if (goLive) {
+                    repository.getStreamUrl(channel.id)
+                } else {
+                    repository.getArchiveUrl(channel.id, currentArchiveTimestamp)
+                }
 
                 if (streamUrl != null) {
                     player?.apply {
@@ -109,20 +153,105 @@ class PlayerActivity : AppCompatActivity() {
                         play()
                     }
                 } else {
-                    // Handle error - stream URL couldn't be fetched
                     binding.loadingIndicator.visibility = View.GONE
-                    // You could show an error message here
                 }
 
                 controlOverlayManager.updateChannelInfo(
                     channel = channel,
                     currentProgram = repository.getCurrentProgram(channel.id)
                 )
+
+                updateLiveIndicator()
             } catch (e: Exception) {
                 e.printStackTrace()
                 binding.loadingIndicator.visibility = View.GONE
             }
         }
+    }
+
+    private fun rewindSeconds(seconds: Int) {
+        val targetTime = if (isLiveMode) {
+            System.currentTimeMillis() / 1000 - seconds
+        } else {
+            currentArchiveTimestamp - seconds
+        }
+        playArchiveAt(targetTime)
+    }
+
+    private fun rewindMinutes(minutes: Int) {
+        rewindSeconds(minutes * 60)
+    }
+
+    private fun forwardSeconds(seconds: Int) {
+        if (isLiveMode) {
+            // Can't go forward from live
+            return
+        }
+
+        val targetTime = currentArchiveTimestamp + seconds
+        val now = System.currentTimeMillis() / 1000
+
+        if (targetTime >= now) {
+            // Would go past live, return to live instead
+            returnToLive()
+        } else {
+            playArchiveAt(targetTime)
+        }
+    }
+
+    private fun forwardMinutes(minutes: Int) {
+        forwardSeconds(minutes * 60)
+    }
+
+    private fun playArchiveAt(timestamp: Long) {
+        currentArchiveTimestamp = timestamp
+        isLiveMode = false
+
+        val channel = channels[currentChannelIndex]
+        binding.loadingIndicator.visibility = View.VISIBLE
+
+        lifecycleScope.launch {
+            try {
+                val streamUrl = repository.getArchiveUrl(channel.id, timestamp)
+
+                if (streamUrl != null) {
+                    player?.apply {
+                        setMediaItem(MediaItem.fromUri(streamUrl))
+                        prepare()
+                        play()
+                    }
+                    updateLiveIndicator()
+                } else {
+                    binding.loadingIndicator.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                binding.loadingIndicator.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun returnToLive() {
+        isLiveMode = true
+        playChannel(currentChannelIndex, goLive = true)
+    }
+
+    private fun togglePlayPause() {
+        player?.let {
+            if (it.isPlaying) {
+                it.pause()
+                binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_play)
+            } else {
+                it.play()
+                binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_pause)
+            }
+        }
+    }
+
+    private fun updateLiveIndicator() {
+        val liveButton = binding.root.findViewById<View>(R.id.btnLive)
+        // Visual feedback: dimmed when watching archive
+        liveButton?.alpha = if (isLiveMode) 1.0f else 0.5f
     }
 
     private fun changeChannel(direction: Int) {
@@ -151,7 +280,7 @@ class PlayerActivity : AppCompatActivity() {
             repository.getCurrentProgram(channels[currentChannelIndex].id)
         )
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
-        hideControlsHandler.postDelayed(hideControlsRunnable, 15000)
+        hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
     }
 
     private fun hideControls() {
@@ -183,11 +312,11 @@ class PlayerActivity : AppCompatActivity() {
     private fun handlePlayerKeyPress(keyCode: Int): Boolean {
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                changeChannel(-1)
+                changeChannel(1)
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                changeChannel(1)
+                changeChannel(-1)
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
@@ -214,7 +343,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             else -> {
                 hideControlsHandler.removeCallbacks(hideControlsRunnable)
-                hideControlsHandler.postDelayed(hideControlsRunnable, 15000)
+                hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
                 false
             }
         }

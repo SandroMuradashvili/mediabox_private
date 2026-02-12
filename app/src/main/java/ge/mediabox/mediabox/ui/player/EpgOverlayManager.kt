@@ -70,7 +70,12 @@ class EpgOverlayManager(
         categories.forEach { category ->
             val button = TextView(activity).apply {
                 text = category
-                setTextAppearance(R.style.CategoryButton)
+                if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    setTextAppearance(R.style.CategoryButton)
+                } else {
+                    @Suppress("DEPRECATION")
+                    setTextAppearance(activity, R.style.CategoryButton)
+                }
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT

@@ -35,34 +35,97 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <!-- TV Button -->
-        <TextView
+        <LinearLayout
             android:id="@+id/btnTv"
-            style="@style/MenuButton"
-            android:text="@string/menu_tv"
-            android:drawableTop="@drawable/ic_tv"
-            android:drawablePadding="12dp"
+            android:layout_width="240dp"
+            android:layout_height="140dp"
+            android:layout_margin="16dp"
+            android:background="@drawable/button_background"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:nextFocusRight="@id/btnProfile"
-            android:nextFocusLeft="@id/btnSettings"/>
+            android:nextFocusLeft="@id/btnSettings"
+            android:padding="16dp">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_tv"
+                android:contentDescription="TV Icon"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_tv"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+        </LinearLayout>
 
         <!-- Profile Button -->
-        <TextView
+        <LinearLayout
             android:id="@+id/btnProfile"
-            style="@style/MenuButton"
-            android:text="@string/menu_profile"
-            android:drawableTop="@drawable/ic_profile"
-            android:drawablePadding="12dp"
+            android:layout_width="240dp"
+            android:layout_height="140dp"
+            android:layout_margin="16dp"
+            android:background="@drawable/button_background"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:nextFocusRight="@id/btnSettings"
-            android:nextFocusLeft="@id/btnTv"/>
+            android:nextFocusLeft="@id/btnTv"
+            android:padding="16dp">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_profile"
+                android:contentDescription="Profile Icon"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_profile"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+        </LinearLayout>
 
         <!-- Settings Button -->
-        <TextView
+        <LinearLayout
             android:id="@+id/btnSettings"
-            style="@style/MenuButton"
-            android:text="@string/menu_settings"
-            android:drawableTop="@drawable/ic_settings"
-            android:drawablePadding="12dp"
+            android:layout_width="240dp"
+            android:layout_height="140dp"
+            android:layout_margin="16dp"
+            android:background="@drawable/button_background"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:nextFocusRight="@id/btnTv"
-            android:nextFocusLeft="@id/btnProfile"/>
+            android:nextFocusLeft="@id/btnProfile"
+            android:padding="16dp">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_settings"
+                android:contentDescription="Settings Icon"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_settings"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+        </LinearLayout>
 
     </LinearLayout>
 

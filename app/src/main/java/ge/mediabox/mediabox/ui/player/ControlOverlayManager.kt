@@ -2,8 +2,10 @@ package ge.mediabox.mediabox.ui.player
 
 import android.view.View
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import com.bumptech.glide.Glide
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
@@ -31,11 +33,21 @@ class ControlOverlayManager(
     }
 
     fun updateChannelInfo(channel: Channel, currentProgram: Program?) {
+        // Load channel logo
+        val channelLogo = binding.root.findViewById<ImageView>(R.id.channelLogo)
+        if (!channel.logoUrl.isNullOrEmpty() && channelLogo != null) {
+            Glide.with(binding.root.context)
+                .load(channel.logoUrl)
+                .placeholder(R.color.surface_light)
+                .error(R.color.surface_light)
+                .into(channelLogo)
+        }
+
         binding.root.findViewById<TextView>(R.id.tvChannelName)?.text = channel.name
         binding.root.findViewById<TextView>(R.id.tvCurrentTime)?.text =
             dateTimeFormat.format(Date())
         binding.root.findViewById<TextView>(R.id.tvChannelNumber)?.text =
-            channel.id.toString()
+            channel.number.toString()
 
         val qualityBadge = binding.root.findViewById<TextView>(R.id.tvQualityBadge)
         qualityBadge?.apply {

@@ -104,4 +104,39 @@ object ApiService {
 
         return null
     }
-}
+
+    fun fetchArchiveUrl(channelId: String, timestamp: Long): StreamResponse? {
+        try {
+            val url = URL("$BASE_URL/channels/$channelId/archive?timestamp=$timestamp")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = StringBuilder()
+                var line: String?
+
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+                reader.close()
+
+                val jsonObject = JSONObject(response.toString())
+                connection.disconnect()
+
+                return StreamResponse(
+                    url = jsonObject.getString("url"),
+                    expiresAt = jsonObject.getLong("expires_at"),
+                    serverTime = jsonObject.getLong("server_time")
+                )
+            }
+            connection.disconnect()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return null
+    }}

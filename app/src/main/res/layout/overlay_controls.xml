@@ -9,20 +9,22 @@
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/top_bar_height"
+        android:layout_height="100dp"
         android:orientation="horizontal"
         android:background="@drawable/gradient_top"
-        android:padding="@dimen/spacing_medium"
+        android:padding="20dp"
         android:gravity="center_vertical"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Channel Logo Placeholder -->
-        <View
+        <!-- Channel Logo -->
+        <ImageView
             android:id="@+id/channelLogo"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_marginEnd="@dimen/spacing_medium"
-            android:background="@color/surface_light"/>
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:layout_marginEnd="16dp"
+            android:scaleType="fitCenter"
+            android:background="@color/surface_light"
+            android:contentDescription="Channel Logo"/>
 
         <!-- Channel Info -->
         <LinearLayout
@@ -37,7 +39,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Channel Name"
-                android:textSize="24sp"/>
+                android:textSize="26sp"
+                android:maxLines="1"
+                android:ellipsize="end"/>
 
             <TextView
                 android:id="@+id/tvCurrentTime"
@@ -45,7 +49,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="13:35  03.11.26"
-                android:layout_marginTop="4dp"/>
+                android:textSize="16sp"
+                android:layout_marginTop="6dp"/>
 
         </LinearLayout>
 
@@ -57,9 +62,13 @@
             android:text="@string/quality_hd"
             android:textColor="@android:color/white"
             android:textStyle="bold"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:background="@drawable/badge_hd"
-            android:layout_marginEnd="@dimen/spacing_medium"/>
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:layout_marginEnd="16dp"/>
 
         <!-- Channel Number -->
         <TextView
@@ -68,7 +77,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="1"
-            android:textSize="32sp"/>
+            android:textSize="36sp"/>
 
     </LinearLayout>
 
@@ -150,13 +159,20 @@
                 android:layout_marginTop="4dp"/>
         </LinearLayout>
 
-        <!-- Play/Pause -->
+        <!-- Play/Pause - BIGGER -->
         <ImageButton
             android:id="@+id/btnPlayPause"
-            style="@style/ControlButton"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:background="@drawable/control_button_background"
             android:src="@drawable/ic_pause"
+            android:scaleType="centerInside"
+            android:padding="16dp"
             android:contentDescription="Play/Pause"
-            android:layout_margin="@dimen/spacing_medium"/>
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"/>
 
         <!-- Forward 15 seconds -->
         <LinearLayout
@@ -279,36 +295,46 @@
 
             </LinearLayout>
 
-            <!-- Live Button -->
-            <LinearLayout
+            <!-- Live Button - RECTANGULAR NOT OVAL -->
+            <androidx.cardview.widget.CardView
                 android:id="@+id/btnLive"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:background="@drawable/control_button_background"
-                android:padding="12dp"
-                android:gravity="center"
                 android:layout_marginStart="@dimen/spacing_medium"
                 android:layout_marginEnd="@dimen/spacing_small"
+                app:cardBackgroundColor="@color/live_red"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="0dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true">
 
-                <View
-                    android:id="@+id/liveIndicator"
-                    android:layout_width="10dp"
-                    android:layout_height="10dp"
-                    android:background="@drawable/live_indicator"
-                    android:layout_marginEnd="6dp"/>
-
-                <TextView
-                    style="@style/BodyText"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/control_live"
-                    android:textStyle="bold"
-                    android:textSize="14sp"/>
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:gravity="center">
 
-            </LinearLayout>
+                    <View
+                        android:id="@+id/liveIndicator"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@drawable/live_indicator"
+                        android:layout_marginEnd="6dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/control_live"
+                        android:textColor="@android:color/white"
+                        android:textStyle="bold"
+                        android:textSize="14sp"/>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
             <!-- Favorite Button -->
             <ImageButton

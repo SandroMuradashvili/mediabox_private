@@ -53,7 +53,7 @@
 
         <!-- Channel List -->
         <androidx.cardview.widget.CardView
-            android:layout_width="320dp"
+            android:layout_width="360dp"
             android:layout_height="match_parent"
             android:layout_margin="@dimen/spacing_medium"
             app:cardBackgroundColor="@color/surface"
@@ -78,6 +78,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:clipToPadding="false"
+                    android:descendantFocusability="afterDescendants"
                     android:padding="@dimen/spacing_small"/>
 
             </LinearLayout>
@@ -115,6 +116,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:clipToPadding="false"
+                    android:descendantFocusability="afterDescendants"
                     android:padding="@dimen/spacing_small"/>
 
             </LinearLayout>
