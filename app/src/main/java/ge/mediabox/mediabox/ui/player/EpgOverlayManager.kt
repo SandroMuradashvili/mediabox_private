@@ -1,6 +1,7 @@
 package ge.mediabox.mediabox.ui.player
 
 import android.app.Activity
+import android.view.KeyEvent
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -29,6 +30,10 @@ class EpgOverlayManager(
 
     private val categoryButtons = mutableMapOf<String, TextView>()
 
+    // Track which EPG section currently has focus
+    private enum class FocusSection { CATEGORIES, CHANNELS, PROGRAMS }
+    private var currentFocusSection: FocusSection = FocusSection.CATEGORIES
+
     init {
         setupEpg()
     }
@@ -39,6 +44,14 @@ class EpgOverlayManager(
         channelAdapter = ChannelAdapter(filteredChannels) { position ->
             selectedChannelIndex = position
             updateProgramList(position)
+            // Also notify activity so the actual playing channel changes when user moves selection
+            val channel = filteredChannels.getOrNull(position)
+            if (channel != null) {
+                val globalIndex = channels.indexOfFirst { it.id == channel.id }
+                if (globalIndex >= 0) {
+                    onChannelSelected(globalIndex)
+                }
+            }
         }
         channelList?.apply {
             layoutManager = LinearLayoutManager(activity)
@@ -139,6 +152,123 @@ class EpgOverlayManager(
     }
 
     fun requestFocus() {
+        // When EPG is opened, always start in the category row
+        currentFocusSection = FocusSection.CATEGORIES
         categoryButtons.values.firstOrNull()?.requestFocus()
+    }
+
+    /**
+     * Custom DPAD navigation for EPG sections:
+     * - Left/Right in categories stay within the category row
+     * - Down from categories moves into channel list
+     * - Left/Right between channel list and program list
+     * - Channel selection triggers playback on OK/ENTER
+     */
+    fun handleKeyEvent(keyCode: Int): Boolean {
+        return when (currentFocusSection) {
+            FocusSection.CATEGORIES -> handleCategoryKeyEvent(keyCode)
+            FocusSection.CHANNELS -> handleChannelKeyEvent(keyCode)
+            FocusSection.PROGRAMS -> handleProgramKeyEvent(keyCode)
+        }
+    }
+
+    private fun handleCategoryKeyEvent(keyCode: Int): Boolean {
+        val buttons = categoryButtons.values.toList()
+        if (buttons.isEmpty()) return false
+
+        val focusedIndex = buttons.indexOfFirst { it.isFocused }
+
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (focusedIndex > 0) {
+                    buttons[focusedIndex - 1].requestFocus()
+                }
+                // Always consume so focus doesn't drop into lists
+                true
+            }
+
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (focusedIndex in buttons.indices && focusedIndex < buttons.lastIndex) {
+                    buttons[focusedIndex + 1].requestFocus()
+                }
+                // Stay in category row even at the ends
+                true
+            }
+
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                // Move into channel list
+                val channelList =
+                    binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
+                currentFocusSection = FocusSection.CHANNELS
+                channelList.requestFocus()
+                true
+            }
+
+            else -> false
+        }
+    }
+
+    private fun handleChannelKeyEvent(keyCode: Int): Boolean {
+        val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList)
+        val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
+
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                // Go back to categories
+                currentFocusSection = FocusSection.CATEGORIES
+                // Focus currently selected category button
+                categoryButtons[currentCategory]?.requestFocus()
+                true
+            }
+
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                // Move into program list
+                if (programList != null) {
+                    currentFocusSection = FocusSection.PROGRAMS
+                    programList.requestFocus()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                // Confirm current channel selection and notify activity
+                selectCurrentChannel()
+                true
+            }
+
+            // Let UP/DOWN be handled by RecyclerView so it can scroll naturally
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> false
+
+            else -> false
+        }
+    }
+
+    private fun handleProgramKeyEvent(keyCode: Int): Boolean {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                // Return focus to channel list
+                val channelList =
+                    binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
+                currentFocusSection = FocusSection.CHANNELS
+                channelList.requestFocus()
+                true
+            }
+
+            // Let UP/DOWN/RIGHT behave normally inside the program list
+            else -> false
+        }
+    }
+
+    private fun selectCurrentChannel() {
+        if (filteredChannels.isEmpty()) return
+
+        val channel = filteredChannels.getOrNull(selectedChannelIndex) ?: return
+        // Find this channel in the full list so PlayerActivity can play it
+        val globalIndex = channels.indexOfFirst { it.id == channel.id }
+        if (globalIndex >= 0) {
+            onChannelSelected(globalIndex)
+        }
     }
 }

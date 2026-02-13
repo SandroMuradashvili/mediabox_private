@@ -2,7 +2,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/ChannelItem"
     android:orientation="horizontal"
-    android:gravity="center_vertical">
+    android:gravity="center_vertical"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
     <!-- Channel Number -->
     <TextView
@@ -23,7 +25,7 @@
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:scaleType="fitCenter"
-        android:background="@color/surface_light"
+        android:adjustViewBounds="true"
         android:contentDescription="Channel Logo"/>
 
     <!-- Channel Name and Category -->
