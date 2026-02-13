@@ -6,6 +6,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.widget.ImageButton
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
@@ -29,7 +30,6 @@ class PlayerActivity : AppCompatActivity() {
 
     // Archive mode tracking
     private var isLiveMode = true
-    private var currentArchiveTimestamp: Long = 0    // kept for future true archive usage
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
@@ -51,7 +51,11 @@ class PlayerActivity : AppCompatActivity() {
             initializePlayer()
             setupOverlays()
             setupControlButtons()
-            playChannel(0)
+            if (channels.isNotEmpty()) {
+                playChannel(0)
+            } else {
+                Toast.makeText(this@PlayerActivity, "No channels found", Toast.LENGTH_LONG).show()
+            }
             binding.loadingIndicator.visibility = View.GONE
         }
     }
@@ -91,6 +95,20 @@ class PlayerActivity : AppCompatActivity() {
                 currentChannelIndex = channelIndex
                 playChannel(channelIndex)
                 hideEpg()
+            },
+            onArchiveSelected = { instruction ->
+                // Instruction format: "ARCHIVE_ID:123:TIME:17000000"
+                if (instruction.startsWith("ARCHIVE_ID")) {
+                    val parts = instruction.split(":")
+                    if (parts.size >= 4) {
+                        val channelId = parts[1].toIntOrNull()
+                        val timeMs = parts[3].toLongOrNull()
+                        if (channelId != null && timeMs != null) {
+                            playArchiveAt(channelId, timeMs)
+                            hideEpg()
+                        }
+                    }
+                }
             }
         )
     }
@@ -128,7 +146,6 @@ class PlayerActivity : AppCompatActivity() {
             liveButton.setOnClickListener {
                 returnToLive()
             }
-            // Make focus state clearly visible
             liveButton.setOnFocusChangeListener { v, hasFocus ->
                 v.scaleX = if (hasFocus) 1.1f else 1.0f
                 v.scaleY = if (hasFocus) 1.1f else 1.0f
@@ -141,22 +158,18 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun playChannel(index: Int, goLive: Boolean = true) {
+    private fun playChannel(index: Int) {
         if (index < 0 || index >= channels.size) return
 
         currentChannelIndex = index
         val channel = channels[index]
-        isLiveMode = goLive
+        isLiveMode = true
 
         binding.loadingIndicator.visibility = View.VISIBLE
 
         lifecycleScope.launch {
             try {
-                val streamUrl = if (goLive) {
-                    repository.getStreamUrl(channel.id)
-                } else {
-                    repository.getArchiveUrl(channel.id, currentArchiveTimestamp)
-                }
+                val streamUrl = repository.getStreamUrl(channel.id)
 
                 if (streamUrl != null) {
                     player?.apply {
@@ -165,6 +178,7 @@ class PlayerActivity : AppCompatActivity() {
                         play()
                     }
                 } else {
+                    Toast.makeText(this@PlayerActivity, "Stream unavailable", Toast.LENGTH_SHORT).show()
                     binding.loadingIndicator.visibility = View.GONE
                 }
 
@@ -182,7 +196,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     /**
-     * Rewind using backend archive API by N seconds from live.
+     * Rewind using backend archive API by N seconds from live/current server time.
      */
     private fun rewindArchiveSeconds(secondsBack: Int) {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
@@ -200,6 +214,8 @@ class PlayerActivity : AppCompatActivity() {
                         play()
                     }
                     updateLiveIndicator()
+                } else {
+                    Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -209,16 +225,21 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun playArchiveAt(timestamp: Long) {
-        currentArchiveTimestamp = timestamp
+    /**
+     * Triggered by EPG click (Catch-up)
+     */
+    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
         isLiveMode = false
-
-        val channel = channels[currentChannelIndex]
         binding.loadingIndicator.visibility = View.VISIBLE
+
+        // Find channel index just in case we jumped channels
+        val index = channels.indexOfFirst { it.id == channelId }
+        if (index != -1) currentChannelIndex = index
+        val channel = channels[currentChannelIndex]
 
         lifecycleScope.launch {
             try {
-                val streamUrl = repository.getArchiveUrl(channel.id, timestamp)
+                val streamUrl = repository.getArchiveUrl(channelId, timestampMs)
 
                 if (streamUrl != null) {
                     player?.apply {
@@ -226,8 +247,18 @@ class PlayerActivity : AppCompatActivity() {
                         prepare()
                         play()
                     }
+
+                    // Update UI info
+                    controlOverlayManager.updateChannelInfo(
+                        channel = channel,
+                        currentProgram = channel.programs.find {
+                            timestampMs >= it.startTime && timestampMs < it.endTime
+                        }
+                    )
+
                     updateLiveIndicator()
                 } else {
+                    Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
                     binding.loadingIndicator.visibility = View.GONE
                 }
             } catch (e: Exception) {
@@ -238,21 +269,14 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun returnToLive() {
-        player?.let { p ->
-            // For live/DVR streams this should jump to the live edge
-            p.seekToDefaultPosition()
-        }
-        isLiveMode = true
-        updateLiveIndicator()
+        if (isLiveMode) return // Already live
+        playChannel(currentChannelIndex)
     }
 
     private fun togglePlayPause() {
         player?.let { exo ->
             if (exo.isPlaying) {
                 exo.pause()
-                // When paused, consider we are no longer "live"
-                isLiveMode = false
-                updateLiveIndicator()
                 binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_play)
             } else {
                 exo.play()
@@ -262,9 +286,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     /**
-     * Simple seek helper used for forward buttons while in archive playback.
-     * This keeps using the currently loaded media item (live or archive) and just moves
-     * the ExoPlayer position relative to now.
+     * Seeks within the currently playing media item (works for both Live and Archive stream if manifest allows)
      */
     private fun seekBySeconds(deltaSeconds: Int) {
         val p = player ?: return
@@ -273,23 +295,25 @@ class PlayerActivity : AppCompatActivity() {
         val duration = p.duration
 
         val target = current + deltaMs
-        val clamped = when {
-            duration > 0 -> target.coerceIn(0L, duration)
-            else -> target.coerceAtLeast(0L)
+        // Coerce target
+        val clamped = if (duration != android.util.Log.ERROR.toLong() && duration > 0) {
+            target.coerceIn(0L, duration)
+        } else {
+            target.coerceAtLeast(0L)
         }
 
-        if (clamped != current) {
-            p.seekTo(clamped)
-        }
+        p.seekTo(clamped)
     }
 
     private fun updateLiveIndicator() {
         val liveButton = binding.root.findViewById<View>(R.id.btnLive)
-        // Visual feedback: dimmed when watching archive
-        liveButton?.alpha = if (isLiveMode) 1.0f else 0.5f
+        // Dim the live indicator if we are watching archive
+        liveButton?.alpha = if (isLiveMode) 1.0f else 0.4f
+        // Optional: Change text to "REC" or "CATCHUP" if you wanted
     }
 
     private fun changeChannel(direction: Int) {
+        if (channels.isEmpty()) return
         val newIndex = (currentChannelIndex + direction).let { index ->
             when {
                 index < 0 -> channels.size - 1
@@ -301,6 +325,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun toggleFavorite() {
+        if (channels.isEmpty()) return
         val channel = channels[currentChannelIndex]
         repository.toggleFavorite(channel.id)
         channel.isFavorite = !channel.isFavorite
@@ -308,6 +333,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
+        if (channels.isEmpty()) return
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         controlOverlayManager.updateChannelInfo(
@@ -376,7 +402,12 @@ class PlayerActivity : AppCompatActivity() {
                 hideControls()
                 true
             }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                currentFocus?.performClick()
+                true
+            }
             else -> {
+                // Reset timer on interaction
                 hideControlsHandler.removeCallbacks(hideControlsRunnable)
                 hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
                 false
@@ -391,7 +422,6 @@ class PlayerActivity : AppCompatActivity() {
                 true
             }
             else -> {
-                // Delegate directional/navigation keys to EPG overlay for custom behavior
                 epgOverlayManager.handleKeyEvent(keyCode)
             }
         }

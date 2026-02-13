@@ -9,6 +9,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ApiService {
+    // TODO: Ensure this IP is correct for your Laravel backend
     private const val BASE_URL = "http://159.89.20.100/api"
 
     data class ApiChannel(
@@ -57,7 +58,7 @@ object ApiService {
                             name = jsonObject.getString("name"),
                             logo = jsonObject.getString("logo"),
                             number = jsonObject.getInt("number"),
-                            category = jsonObject.getString("category")
+                            category = jsonObject.optString("category", "General")
                         )
                     )
                 }
@@ -70,9 +71,12 @@ object ApiService {
         return channels
     }
 
-    fun fetchStreamUrl(channelId: String): StreamResponse? {
+    /**
+     * Updated to send device_id
+     */
+    fun fetchStreamUrl(channelId: String, deviceId: String): StreamResponse? {
         try {
-            val url = URL("$BASE_URL/channels/$channelId/stream")
+            val url = URL("$BASE_URL/channels/$channelId/stream?device_id=$deviceId")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connectTimeout = 10000
@@ -94,44 +98,9 @@ object ApiService {
 
                 return StreamResponse(
                     url = jsonObject.getString("url"),
-                    expiresAt = jsonObject.getLong("expires_at"),
-                    serverTime = jsonObject.getLong("server_time")
-                )
-            }
-            connection.disconnect()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        return null
-    }
-
-    fun fetchArchiveUrl(channelId: String, timestamp: Long): StreamResponse? {
-        try {
-            val url = URL("$BASE_URL/channels/$channelId/archive?timestamp=$timestamp")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
-
-            val responseCode = connection.responseCode
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                val response = StringBuilder()
-                var line: String?
-
-                while (reader.readLine().also { line = it } != null) {
-                    response.append(line)
-                }
-                reader.close()
-
-                val jsonObject = JSONObject(response.toString())
-                connection.disconnect()
-
-                return StreamResponse(
-                    url = jsonObject.getString("url"),
-                    expiresAt = jsonObject.getLong("expires_at"),
-                    serverTime = jsonObject.getLong("server_time")
+                    // Handle nullable fields gracefully
+                    expiresAt = jsonObject.optLong("expires_at", 0),
+                    serverTime = jsonObject.optLong("server_time", System.currentTimeMillis() / 1000)
                 )
             }
             connection.disconnect()
@@ -143,8 +112,47 @@ object ApiService {
     }
 
     /**
-     * Fetch EPG programs for a given channel and date, e.g.
-     * GET /api/channels/22/programs?date=2026-02-12
+     * Updated to send timestamp (Epoch Seconds) and device_id
+     */
+    fun fetchArchiveUrl(channelId: String, timestamp: Long, deviceId: String): StreamResponse? {
+        try {
+            val url = URL("$BASE_URL/channels/$channelId/archive?timestamp=$timestamp&device_id=$deviceId")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = StringBuilder()
+                var line: String?
+
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+                reader.close()
+
+                val jsonObject = JSONObject(response.toString())
+                connection.disconnect()
+
+                return StreamResponse(
+                    url = jsonObject.getString("url"),
+                    expiresAt = jsonObject.optLong("expires_at", 0),
+                    serverTime = jsonObject.optLong("server_time", 0)
+                )
+            }
+            connection.disconnect()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return null
+    }
+
+    /**
+     * Fetch EPG programs for a given channel and date
+     * URL: /api/channels/{id}/programs?date=YYYY-MM-DD
      */
     fun fetchPrograms(channelId: String, date: String): List<Program> {
         val programs = mutableListOf<Program>()
@@ -170,23 +178,28 @@ object ApiService {
                 val jsonArray = JSONArray(response.toString())
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
-                    val uid = obj.getInt("UID")
-                    val channelNumericId = obj.getInt("CHANNEL_ID")
-                    val startSeconds = obj.getLong("START_TIME")
-                    val endSeconds = obj.getLong("END_TIME")
-                    val title = obj.getString("TITLE")
-                    val description = obj.optString("DESCRIPTION", "")
+                    // Map JSON fields carefully.
+                    // Assuming backend returns: uid, channel_id, start (seconds), end (seconds), title, description
+                    // Adjust keys below if your Laravel resource returns slightly different names (e.g. snake_case)
+                    val uid = obj.optInt("id", obj.optInt("UID", 0))
+                    val startSeconds = obj.optLong("start", obj.optLong("START_TIME", 0))
+                    val endSeconds = obj.optLong("end", obj.optLong("END_TIME", 0))
+                    val title = obj.optString("title", obj.optString("TITLE", "No Title"))
+                    val description = obj.optString("description", obj.optString("DESCRIPTION", ""))
+                    val channelIdFromApi = obj.optInt("channel_id", obj.optInt("CHANNEL_ID", 0))
 
-                    programs.add(
-                        Program(
-                            id = uid,
-                            title = title,
-                            description = description,
-                            startTime = startSeconds * 1000L,
-                            endTime = endSeconds * 1000L,
-                            channelId = channelNumericId
+                    if (uid != 0 && startSeconds != 0L) {
+                        programs.add(
+                            Program(
+                                id = uid,
+                                title = title,
+                                description = description,
+                                startTime = startSeconds * 1000L, // Backend seconds -> Android MS
+                                endTime = endSeconds * 1000L,     // Backend seconds -> Android MS
+                                channelId = channelIdFromApi
+                            )
                         )
-                    )
+                    }
                 }
             }
             connection.disconnect()
