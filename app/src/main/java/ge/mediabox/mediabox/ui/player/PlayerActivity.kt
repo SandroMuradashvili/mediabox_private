@@ -29,7 +29,7 @@ class PlayerActivity : AppCompatActivity() {
 
     // Archive mode tracking
     private var isLiveMode = true
-    private var currentArchiveTimestamp: Long = 0
+    private var currentArchiveTimestamp: Long = 0    // kept for future true archive usage
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
@@ -98,29 +98,41 @@ class PlayerActivity : AppCompatActivity() {
     private fun setupControlButtons() {
         // Rewind buttons
         binding.root.findViewById<ImageButton>(R.id.btnRewind15s)?.setOnClickListener {
-            rewindSeconds(15)
+            rewindArchiveSeconds(15)
         }
         binding.root.findViewById<ImageButton>(R.id.btnRewind1m)?.setOnClickListener {
-            rewindMinutes(1)
+            rewindArchiveSeconds(60)
         }
         binding.root.findViewById<ImageButton>(R.id.btnRewind5m)?.setOnClickListener {
-            rewindMinutes(5)
+            rewindArchiveSeconds(300)
         }
 
         // Forward buttons
         binding.root.findViewById<ImageButton>(R.id.btnForward15s)?.setOnClickListener {
-            forwardSeconds(15)
+            seekBySeconds(15)
         }
         binding.root.findViewById<ImageButton>(R.id.btnForward1m)?.setOnClickListener {
-            forwardMinutes(1)
+            seekBySeconds(60)
         }
         binding.root.findViewById<ImageButton>(R.id.btnForward5m)?.setOnClickListener {
-            forwardMinutes(5)
+            seekBySeconds(300)
+        }
+
+        // Time control button – for now, jump back 30 minutes
+        binding.root.findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener {
+            rewindArchiveSeconds(30 * 60)
         }
 
         // LIVE button
-        binding.root.findViewById<View>(R.id.btnLive)?.setOnClickListener {
-            returnToLive()
+        binding.root.findViewById<View>(R.id.btnLive)?.let { liveButton ->
+            liveButton.setOnClickListener {
+                returnToLive()
+            }
+            // Make focus state clearly visible
+            liveButton.setOnFocusChangeListener { v, hasFocus ->
+                v.scaleX = if (hasFocus) 1.1f else 1.0f
+                v.scaleY = if (hasFocus) 1.1f else 1.0f
+            }
         }
 
         // Play/Pause button
@@ -169,38 +181,32 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun rewindSeconds(seconds: Int) {
-        val targetTime = if (isLiveMode) {
-            System.currentTimeMillis() / 1000 - seconds
-        } else {
-            currentArchiveTimestamp - seconds
+    /**
+     * Rewind using backend archive API by N seconds from live.
+     */
+    private fun rewindArchiveSeconds(secondsBack: Int) {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+
+        binding.loadingIndicator.visibility = View.VISIBLE
+
+        lifecycleScope.launch {
+            try {
+                val streamUrl = repository.getArchiveUrlByOffsetSeconds(channel.id, secondsBack)
+                if (streamUrl != null) {
+                    isLiveMode = false
+                    player?.apply {
+                        setMediaItem(MediaItem.fromUri(streamUrl))
+                        prepare()
+                        play()
+                    }
+                    updateLiveIndicator()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                binding.loadingIndicator.visibility = View.GONE
+            }
         }
-        playArchiveAt(targetTime)
-    }
-
-    private fun rewindMinutes(minutes: Int) {
-        rewindSeconds(minutes * 60)
-    }
-
-    private fun forwardSeconds(seconds: Int) {
-        if (isLiveMode) {
-            // Can't go forward from live
-            return
-        }
-
-        val targetTime = currentArchiveTimestamp + seconds
-        val now = System.currentTimeMillis() / 1000
-
-        if (targetTime >= now) {
-            // Would go past live, return to live instead
-            returnToLive()
-        } else {
-            playArchiveAt(targetTime)
-        }
-    }
-
-    private fun forwardMinutes(minutes: Int) {
-        forwardSeconds(minutes * 60)
     }
 
     private fun playArchiveAt(timestamp: Long) {
@@ -232,19 +238,48 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun returnToLive() {
+        player?.let { p ->
+            // For live/DVR streams this should jump to the live edge
+            p.seekToDefaultPosition()
+        }
         isLiveMode = true
-        playChannel(currentChannelIndex, goLive = true)
+        updateLiveIndicator()
     }
 
     private fun togglePlayPause() {
-        player?.let {
-            if (it.isPlaying) {
-                it.pause()
+        player?.let { exo ->
+            if (exo.isPlaying) {
+                exo.pause()
+                // When paused, consider we are no longer "live"
+                isLiveMode = false
+                updateLiveIndicator()
                 binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_play)
             } else {
-                it.play()
+                exo.play()
                 binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_pause)
             }
+        }
+    }
+
+    /**
+     * Simple seek helper used for forward buttons while in archive playback.
+     * This keeps using the currently loaded media item (live or archive) and just moves
+     * the ExoPlayer position relative to now.
+     */
+    private fun seekBySeconds(deltaSeconds: Int) {
+        val p = player ?: return
+        val deltaMs = deltaSeconds * 1000L
+        val current = p.currentPosition
+        val duration = p.duration
+
+        val target = current + deltaMs
+        val clamped = when {
+            duration > 0 -> target.coerceIn(0L, duration)
+            else -> target.coerceAtLeast(0L)
+        }
+
+        if (clamped != current) {
+            p.seekTo(clamped)
         }
     }
 
@@ -355,7 +390,10 @@ class PlayerActivity : AppCompatActivity() {
                 hideEpg()
                 true
             }
-            else -> false
+            else -> {
+                // Delegate directional/navigation keys to EPG overlay for custom behavior
+                epgOverlayManager.handleKeyEvent(keyCode)
+            }
         }
     }
 

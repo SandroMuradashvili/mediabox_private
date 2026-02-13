@@ -10,6 +10,8 @@ data class Channel(
     val category: String,
     val number: Int = id,           // Channel number for display
     val isHD: Boolean = true,
-    val programs: List<Program> = emptyList(),
-    var isFavorite: Boolean = false
+    var programs: List<Program> = emptyList(),
+    var isFavorite: Boolean = false,
+    // Last known server time for this channel (from live stream response)
+    var lastServerTime: Long = 0L
 )

@@ -5,7 +5,10 @@ import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 object ChannelRepository {
 
@@ -33,10 +36,21 @@ object ChannelRepository {
                                 category = apiChannel.category,
                                 number = apiChannel.number,
                                 isHD = true,
-                                programs = generatePrograms(index + 1, System.currentTimeMillis())
+                                programs = emptyList()
                             )
                         )
                     }
+
+                    // Preload today's EPG for all channels so the EPG shows real data
+                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    channels.forEach { channel ->
+                        try {
+                            channel.programs = ApiService.fetchPrograms(channel.apiId, today)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
                     isInitialized = true
                 } else {
                     // Fallback to mock data if API fails
@@ -66,6 +80,38 @@ object ChannelRepository {
                 val streamResponse = ApiService.fetchStreamUrl(channel.apiId)
                 if (streamResponse != null) {
                     channel.streamUrl = streamResponse.url
+                    channel.lastServerTime = streamResponse.serverTime
+                    return@withContext streamResponse.url
+                }
+
+                return@withContext null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    /**
+     * Helper for "rewind X seconds from live" buttons.
+     * Uses the last known server time from the live stream response.
+     */
+    suspend fun getArchiveUrlByOffsetSeconds(channelId: Int, offsetSeconds: Int): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val channel = channels.find { it.id == channelId } ?: return@withContext null
+
+                // Ensure we have a baseline server time; if not, fetch a live URL first
+                if (channel.lastServerTime == 0L || channel.streamUrl.isEmpty()) {
+                    val liveResponse = ApiService.fetchStreamUrl(channel.apiId) ?: return@withContext null
+                    channel.streamUrl = liveResponse.url
+                    channel.lastServerTime = liveResponse.serverTime
+                }
+
+                val targetTimestamp = channel.lastServerTime - offsetSeconds
+
+                val streamResponse = ApiService.fetchArchiveUrl(channel.apiId, targetTimestamp)
+                if (streamResponse != null) {
                     return@withContext streamResponse.url
                 }
 
