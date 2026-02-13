@@ -66,6 +66,11 @@ class ProgramAdapter(
                 programTime.setTextColor(
                     ContextCompat.getColor(itemView.context, R.color.primary)
                 )
+                
+                // DEBUG: Highlight currently playing program in RED
+                container.setBackgroundColor(
+                    ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
+                )
             } else {
                 programProgress.visibility = View.GONE
 
@@ -75,6 +80,9 @@ class ProgramAdapter(
                 programTime.setTextColor(
                     ContextCompat.getColor(itemView.context, R.color.text_tertiary)
                 )
+                
+                // Reset background to default (transparent or original drawable)
+                container.setBackgroundResource(R.drawable.channel_item_background)
             }
         }
     }

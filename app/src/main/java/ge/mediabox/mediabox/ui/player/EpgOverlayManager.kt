@@ -77,25 +77,19 @@ class EpgOverlayManager(
     private fun handleProgramClick(program: Program) {
         val currentTime = System.currentTimeMillis()
 
-        if (program.isCurrentlyPlaying(currentTime)) {
-            // Program is Live: Switch to that channel
-            val globalIndex = channels.indexOfFirst { it.id == program.channelId } // Actually match by ID
-            // If the programs store internal ID, map correctly.
-            // The Repository logic ensures Program.channelId matches Channel.id
+        // Use the currently selected channel in EPG (not program.channelId which is backend ID)
+        val selectedChannel = filteredChannels.getOrNull(selectedChannelIndex) ?: return
+        val globalIndex = channels.indexOfFirst { it.id == selectedChannel.id }
 
+        if (program.isCurrentlyPlaying(currentTime)) {
+            // Program is currently playing: Switch to that channel
             if (globalIndex >= 0) {
                 onChannelSelected(globalIndex)
             }
         } else if (program.endTime < currentTime) {
             // Program is in the past: Request Archive
-            // The logic to fetch the URL is async, so we notify activity
-            // We pass a special string "ARCHIVE_Request:${program.channelId}:${program.startTime}"
-            // Or better, handle async in activity.
-            // Let's pass the intent to Play Activity
-
-            // To do this purely here we need scope. Let's delegate to Activity via callback.
-            // We pass the "instruction" to play archive.
-            onArchiveSelected("ARCHIVE_ID:${program.channelId}:TIME:${program.startTime}")
+            // Use the selected channel's internal ID, not program.channelId (backend ID)
+            onArchiveSelected("ARCHIVE_ID:${selectedChannel.id}:TIME:${program.startTime}")
         } else {
             // Future program
             Toast.makeText(activity, "This program has not started yet.", Toast.LENGTH_SHORT).show()
