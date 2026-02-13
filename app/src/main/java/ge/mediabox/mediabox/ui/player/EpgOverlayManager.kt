@@ -5,6 +5,8 @@ import android.view.KeyEvent
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ge.mediabox.mediabox.R
@@ -53,6 +55,9 @@ class EpgOverlayManager(
         channelList?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = channelAdapter
+            // Enable smooth scrolling for TV remote navigation
+            isFocusable = true
+            isFocusableInTouchMode = true
         }
 
         // Initialize Program Adapter with Click Logic
@@ -192,6 +197,9 @@ class EpgOverlayManager(
         if (buttons.isEmpty()) return false
 
         val focusedIndex = buttons.indexOfFirst { it.isFocused }
+        
+        // Remove border highlight when in categories
+        updateChannelListBorder(false)
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -205,6 +213,7 @@ class EpgOverlayManager(
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
                 currentFocusSection = FocusSection.CHANNELS
+                updateChannelListBorder(true)
                 channelList.requestFocus()
                 true
             }
@@ -213,17 +222,23 @@ class EpgOverlayManager(
     }
 
     private fun handleChannelKeyEvent(keyCode: Int): Boolean {
+        val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList)
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
+        
+        // Update channel list border highlight
+        updateChannelListBorder(true)
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 currentFocusSection = FocusSection.CATEGORIES
+                updateChannelListBorder(false)
                 categoryButtons[currentCategory]?.requestFocus()
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (programList != null) {
                     currentFocusSection = FocusSection.PROGRAMS
+                    updateChannelListBorder(false)
                     programList.requestFocus()
                     true
                 } else {
@@ -234,17 +249,25 @@ class EpgOverlayManager(
                 selectCurrentChannel()
                 true
             }
-            // UP/DOWN handled by Recycler
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> false
+            // UP/DOWN: Let RecyclerView handle scrolling naturally
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                // Ensure focus stays in channel list and scrolls
+                channelList?.requestFocus()
+                false // Return false to let RecyclerView handle the scroll
+            }
             else -> false
         }
     }
 
     private fun handleProgramKeyEvent(keyCode: Int): Boolean {
+        // Remove border highlight from channel list when in programs
+        updateChannelListBorder(false)
+        
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
                 currentFocusSection = FocusSection.CHANNELS
+                updateChannelListBorder(true)
                 channelList.requestFocus()
                 true
             }
@@ -256,6 +279,20 @@ class EpgOverlayManager(
                 true
             }
             else -> false
+        }
+    }
+    
+    private fun updateChannelListBorder(highlight: Boolean) {
+        val channelListCard = binding.root.findViewById<CardView>(R.id.channelListCard) ?: return
+        
+        if (highlight) {
+            channelListCard.strokeWidth = 8
+            channelListCard.strokeColor = ContextCompat.getColor(
+                activity,
+                android.R.color.holo_blue_bright
+            )
+        } else {
+            channelListCard.strokeWidth = 0
         }
     }
 

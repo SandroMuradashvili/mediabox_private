@@ -19,6 +19,7 @@ class ProgramAdapter(
 ) : RecyclerView.Adapter<ProgramAdapter.ProgramViewHolder>() {
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private var focusedPosition = RecyclerView.NO_POSITION
 
     inner class ProgramViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
@@ -39,16 +40,19 @@ class ProgramAdapter(
 
             // Focus listener (for TV navigation)
             itemView.setOnFocusChangeListener { view, hasFocus ->
-                view.isSelected = hasFocus
-                view.animate()
-                    .scaleX(if (hasFocus) 1.02f else 1f)
-                    .scaleY(if (hasFocus) 1.02f else 1f)
-                    .setDuration(150)
-                    .start()
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    if (hasFocus) {
+                        focusedPosition = position
+                    } else if (focusedPosition == position) {
+                        focusedPosition = RecyclerView.NO_POSITION
+                    }
+                    notifyItemChanged(position)
+                }
             }
         }
 
-        fun bind(program: Program) {
+        fun bind(program: Program, isFocused: Boolean) {
             val startTime = timeFormat.format(Date(program.startTime))
             val endTime = timeFormat.format(Date(program.endTime))
             programTime.text = "$startTime - $endTime"
@@ -58,31 +62,35 @@ class ProgramAdapter(
 
             val isPlaying = program.isCurrentlyPlaying()
 
-            if (isPlaying) {
-                programProgress.visibility = View.VISIBLE
-                programProgress.progress = (program.getProgress() * 100).toInt()
-                itemView.alpha = 1.0f
-
-                programTime.setTextColor(
-                    ContextCompat.getColor(itemView.context, R.color.primary)
-                )
-                
-                // DEBUG: Highlight currently playing program in RED
+            // Highlight focused program (user is scrolling on it)
+            if (isFocused) {
                 container.setBackgroundColor(
-                    ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
+                    ContextCompat.getColor(itemView.context, android.R.color.holo_blue_light)
                 )
             } else {
-                programProgress.visibility = View.GONE
+                // Show currently playing program with progress bar
+                if (isPlaying) {
+                    programProgress.visibility = View.VISIBLE
+                    programProgress.progress = (program.getProgress() * 100).toInt()
+                    itemView.alpha = 1.0f
 
-                itemView.alpha =
-                    if (program.endTime < System.currentTimeMillis()) 0.8f else 1.0f
+                    programTime.setTextColor(
+                        ContextCompat.getColor(itemView.context, R.color.primary)
+                    )
+                    
+                    container.setBackgroundResource(R.drawable.channel_item_background)
+                } else {
+                    programProgress.visibility = View.GONE
 
-                programTime.setTextColor(
-                    ContextCompat.getColor(itemView.context, R.color.text_tertiary)
-                )
-                
-                // Reset background to default (transparent or original drawable)
-                container.setBackgroundResource(R.drawable.channel_item_background)
+                    itemView.alpha =
+                        if (program.endTime < System.currentTimeMillis()) 0.8f else 1.0f
+
+                    programTime.setTextColor(
+                        ContextCompat.getColor(itemView.context, R.color.text_tertiary)
+                    )
+                    
+                    container.setBackgroundResource(R.drawable.channel_item_background)
+                }
             }
         }
     }
@@ -94,7 +102,7 @@ class ProgramAdapter(
     }
 
     override fun onBindViewHolder(holder: ProgramViewHolder, position: Int) {
-        holder.bind(programs[position])
+        holder.bind(programs[position], position == focusedPosition)
     }
 
     override fun getItemCount(): Int = programs.size

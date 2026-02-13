@@ -16,6 +16,7 @@ class ChannelAdapter(
 ) : RecyclerView.Adapter<ChannelAdapter.ChannelViewHolder>() {
 
     private var selectedPosition = 0
+    private var focusedPosition = RecyclerView.NO_POSITION
 
     inner class ChannelViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val channelNumber: TextView = itemView.findViewById(R.id.tvChannelNumber)
@@ -36,18 +37,23 @@ class ChannelAdapter(
             }
 
             itemView.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
-                    val position = adapterPosition
-                    if (position != RecyclerView.NO_POSITION) {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    if (hasFocus) {
+                        focusedPosition = position
                         selectedPosition = position
-                        notifyDataSetChanged()
+                    } else if (focusedPosition == position) {
+                        focusedPosition = RecyclerView.NO_POSITION
+                    }
+                    notifyDataSetChanged()
+                    if (hasFocus) {
                         onChannelClick(position)
                     }
                 }
             }
         }
 
-        fun bind(channel: Channel, isSelected: Boolean) {
+        fun bind(channel: Channel, isSelected: Boolean, isFocused: Boolean) {
             channelNumber.text = channel.number.toString()
             channelName.text = channel.name
             channelCategory.text = channel.category
@@ -69,7 +75,17 @@ class ChannelAdapter(
             )
 
             favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
-            itemView.alpha = if (isSelected) 1.0f else 0.7f
+            
+            // Blue highlight for focused channel
+            if (isFocused) {
+                itemView.setBackgroundColor(
+                    androidx.core.content.ContextCompat.getColor(itemView.context, android.R.color.holo_blue_light)
+                )
+                itemView.alpha = 1.0f
+            } else {
+                itemView.setBackgroundResource(android.R.color.transparent)
+                itemView.alpha = if (isSelected) 1.0f else 0.7f
+            }
         }
     }
 
@@ -80,7 +96,7 @@ class ChannelAdapter(
     }
 
     override fun onBindViewHolder(holder: ChannelViewHolder, position: Int) {
-        holder.bind(channels[position], position == selectedPosition)
+        holder.bind(channels[position], position == selectedPosition, position == focusedPosition)
     }
 
     override fun getItemCount() = channels.size

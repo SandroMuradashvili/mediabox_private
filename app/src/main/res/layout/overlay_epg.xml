@@ -53,12 +53,14 @@
 
         <!-- Channel List -->
         <androidx.cardview.widget.CardView
+            android:id="@+id/channelListCard"
             android:layout_width="360dp"
             android:layout_height="match_parent"
             android:layout_margin="@dimen/spacing_medium"
             app:cardBackgroundColor="@color/surface"
             app:cardCornerRadius="@dimen/corner_radius_medium"
-            app:cardElevation="@dimen/elevation_medium">
+            app:cardElevation="@dimen/elevation_medium"
+            app:cardStrokeWidth="0dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
