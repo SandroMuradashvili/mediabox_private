@@ -30,6 +30,7 @@ class PlayerActivity : AppCompatActivity() {
 
     // Archive mode tracking
     private var isLiveMode = true
+    private var currentPlayingTimestamp: Long = 0L // Track what timestamp is currently playing (in milliseconds)
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
@@ -42,7 +43,6 @@ class PlayerActivity : AppCompatActivity() {
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize repository and load channels
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
             repository.initialize()
@@ -97,7 +97,6 @@ class PlayerActivity : AppCompatActivity() {
                 hideEpg()
             },
             onArchiveSelected = { instruction ->
-                // Instruction format: "ARCHIVE_ID:123:TIME:17000000"
                 if (instruction.startsWith("ARCHIVE_ID")) {
                     val parts = instruction.split(":")
                     if (parts.size >= 4) {
@@ -114,34 +113,30 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun setupControlButtons() {
-        // Rewind buttons
         binding.root.findViewById<ImageButton>(R.id.btnRewind15s)?.setOnClickListener {
-            rewindArchiveSeconds(15)
+            rewindSeconds(15)
         }
         binding.root.findViewById<ImageButton>(R.id.btnRewind1m)?.setOnClickListener {
-            rewindArchiveSeconds(60)
+            rewindSeconds(60)
         }
         binding.root.findViewById<ImageButton>(R.id.btnRewind5m)?.setOnClickListener {
-            rewindArchiveSeconds(300)
+            rewindSeconds(300)
         }
 
-        // Forward buttons
         binding.root.findViewById<ImageButton>(R.id.btnForward15s)?.setOnClickListener {
-            seekBySeconds(15)
+            forwardSeconds(15)
         }
         binding.root.findViewById<ImageButton>(R.id.btnForward1m)?.setOnClickListener {
-            seekBySeconds(60)
+            forwardSeconds(60)
         }
         binding.root.findViewById<ImageButton>(R.id.btnForward5m)?.setOnClickListener {
-            seekBySeconds(300)
+            forwardSeconds(300)
         }
 
-        // Time control button – for now, jump back 30 minutes
         binding.root.findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener {
-            rewindArchiveSeconds(30 * 60)
+            rewindSeconds(30 * 60)
         }
 
-        // LIVE button
         binding.root.findViewById<View>(R.id.btnLive)?.let { liveButton ->
             liveButton.setOnClickListener {
                 returnToLive()
@@ -152,7 +147,6 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
 
-        // Play/Pause button
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener {
             togglePlayPause()
         }
@@ -164,6 +158,7 @@ class PlayerActivity : AppCompatActivity() {
         currentChannelIndex = index
         val channel = channels[index]
         isLiveMode = true
+        currentPlayingTimestamp = System.currentTimeMillis()
 
         binding.loadingIndicator.visibility = View.VISIBLE
 
@@ -182,11 +177,7 @@ class PlayerActivity : AppCompatActivity() {
                     binding.loadingIndicator.visibility = View.GONE
                 }
 
-                controlOverlayManager.updateChannelInfo(
-                    channel = channel,
-                    currentProgram = repository.getCurrentProgram(channel.id)
-                )
-
+                updateOverlayInfo()
                 updateLiveIndicator()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -195,24 +186,31 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Rewind using backend archive API by N seconds from live/current server time.
-     */
-    private fun rewindArchiveSeconds(secondsBack: Int) {
+    private fun rewindSeconds(seconds: Int) {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
+
+        val targetTimestamp = if (isLiveMode) {
+            System.currentTimeMillis() - (seconds * 1000L)
+        } else {
+            currentPlayingTimestamp - (seconds * 1000L)
+        }
 
         binding.loadingIndicator.visibility = View.VISIBLE
 
         lifecycleScope.launch {
             try {
-                val streamUrl = repository.getArchiveUrlByOffsetSeconds(channel.id, secondsBack)
+                val streamUrl = repository.getArchiveUrl(channel.id, targetTimestamp)
                 if (streamUrl != null) {
                     isLiveMode = false
+                    currentPlayingTimestamp = targetTimestamp
+
                     player?.apply {
                         setMediaItem(MediaItem.fromUri(streamUrl))
                         prepare()
                         play()
                     }
+
+                    updateOverlayInfo()
                     updateLiveIndicator()
                 } else {
                     Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
@@ -225,17 +223,55 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Triggered by EPG click (Catch-up)
-     */
-    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        isLiveMode = false
+    private fun forwardSeconds(seconds: Int) {
+        if (isLiveMode) {
+            Toast.makeText(this, "Already at live", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        val targetTimestamp = currentPlayingTimestamp + (seconds * 1000L)
+        val nowTimestamp = System.currentTimeMillis()
+
+        if (targetTimestamp >= nowTimestamp) {
+            returnToLive()
+            return
+        }
+
         binding.loadingIndicator.visibility = View.VISIBLE
 
-        // Find channel index just in case we jumped channels
+        lifecycleScope.launch {
+            try {
+                val streamUrl = repository.getArchiveUrl(channel.id, targetTimestamp)
+                if (streamUrl != null) {
+                    currentPlayingTimestamp = targetTimestamp
+
+                    player?.apply {
+                        setMediaItem(MediaItem.fromUri(streamUrl))
+                        prepare()
+                        play()
+                    }
+
+                    updateOverlayInfo()
+                    updateLiveIndicator()
+                } else {
+                    Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                binding.loadingIndicator.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
+        isLiveMode = false
+        currentPlayingTimestamp = timestampMs
+        binding.loadingIndicator.visibility = View.VISIBLE
+
         val index = channels.indexOfFirst { it.id == channelId }
         if (index != -1) currentChannelIndex = index
-        val channel = channels[currentChannelIndex]
 
         lifecycleScope.launch {
             try {
@@ -248,14 +284,7 @@ class PlayerActivity : AppCompatActivity() {
                         play()
                     }
 
-                    // Update UI info
-                    controlOverlayManager.updateChannelInfo(
-                        channel = channel,
-                        currentProgram = channel.programs.find {
-                            timestampMs >= it.startTime && timestampMs < it.endTime
-                        }
-                    )
-
+                    updateOverlayInfo()
                     updateLiveIndicator()
                 } else {
                     Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
@@ -269,7 +298,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun returnToLive() {
-        if (isLiveMode) return // Already live
+        if (isLiveMode) return
         playChannel(currentChannelIndex)
     }
 
@@ -285,31 +314,29 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Seeks within the currently playing media item (works for both Live and Archive stream if manifest allows)
-     */
-    private fun seekBySeconds(deltaSeconds: Int) {
-        val p = player ?: return
-        val deltaMs = deltaSeconds * 1000L
-        val current = p.currentPosition
-        val duration = p.duration
-
-        val target = current + deltaMs
-        // Coerce target
-        val clamped = if (duration != android.util.Log.ERROR.toLong() && duration > 0) {
-            target.coerceIn(0L, duration)
-        } else {
-            target.coerceAtLeast(0L)
-        }
-
-        p.seekTo(clamped)
-    }
-
     private fun updateLiveIndicator() {
         val liveButton = binding.root.findViewById<View>(R.id.btnLive)
-        // Dim the live indicator if we are watching archive
         liveButton?.alpha = if (isLiveMode) 1.0f else 0.4f
-        // Optional: Change text to "REC" or "CATCHUP" if you wanted
+    }
+
+    private fun updateOverlayInfo() {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+
+        val playingTime = if (isLiveMode) {
+            System.currentTimeMillis()
+        } else {
+            currentPlayingTimestamp
+        }
+
+        val currentProgram = channel.programs.find {
+            playingTime >= it.startTime && playingTime < it.endTime
+        }
+
+        controlOverlayManager.updateChannelInfo(
+            channel = channel,
+            currentProgram = currentProgram,
+            streamTimestamp = if (isLiveMode) null else currentPlayingTimestamp
+        )
     }
 
     private fun changeChannel(direction: Int) {
@@ -336,10 +363,7 @@ class PlayerActivity : AppCompatActivity() {
         if (channels.isEmpty()) return
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
-        controlOverlayManager.updateChannelInfo(
-            channels[currentChannelIndex],
-            repository.getCurrentProgram(channels[currentChannelIndex].id)
-        )
+        updateOverlayInfo()
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
         hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
     }
@@ -407,7 +431,6 @@ class PlayerActivity : AppCompatActivity() {
                 true
             }
             else -> {
-                // Reset timer on interaction
                 hideControlsHandler.removeCallbacks(hideControlsRunnable)
                 hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
                 false

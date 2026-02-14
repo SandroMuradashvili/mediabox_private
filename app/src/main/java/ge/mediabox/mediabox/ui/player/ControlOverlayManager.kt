@@ -32,7 +32,11 @@ class ControlOverlayManager(
         }
     }
 
-    fun updateChannelInfo(channel: Channel, currentProgram: Program?) {
+    /**
+     * Update channel info with optional stream timestamp
+     * @param streamTimestamp: If provided (not null), shows this timestamp instead of current time
+     */
+    fun updateChannelInfo(channel: Channel, currentProgram: Program?, streamTimestamp: Long? = null) {
         // Load channel logo
         val channelLogo = binding.root.findViewById<ImageView>(R.id.channelLogo)
         if (!channel.logoUrl.isNullOrEmpty() && channelLogo != null) {
@@ -44,10 +48,16 @@ class ControlOverlayManager(
         }
 
         binding.root.findViewById<TextView>(R.id.tvChannelName)?.text = channel.name
-        binding.root.findViewById<TextView>(R.id.tvCurrentTime)?.text =
+
+        // Show stream timestamp if provided, otherwise show current time
+        val displayTime = if (streamTimestamp != null) {
+            dateTimeFormat.format(Date(streamTimestamp))
+        } else {
             dateTimeFormat.format(Date())
-        binding.root.findViewById<TextView>(R.id.tvChannelNumber)?.text =
-            channel.number.toString()
+        }
+        binding.root.findViewById<TextView>(R.id.tvCurrentTime)?.text = displayTime
+
+        binding.root.findViewById<TextView>(R.id.tvChannelNumber)?.text = channel.number.toString()
 
         val qualityBadge = binding.root.findViewById<TextView>(R.id.tvQualityBadge)
         qualityBadge?.apply {
