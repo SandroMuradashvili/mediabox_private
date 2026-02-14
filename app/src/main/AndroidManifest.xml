@@ -37,6 +37,12 @@
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:theme="@style/Theme.Mediabox.Player" />
+
+        <activity
+            android:name=".ui.LoginActivity"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:windowSoftInputMode="stateVisible" />
     </application>
 
 </manifest>

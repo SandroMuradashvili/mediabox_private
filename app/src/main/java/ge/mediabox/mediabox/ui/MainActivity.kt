@@ -28,7 +28,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnProfile.setOnClickListener {
-            // TODO: Implement Profile screen
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
         }
 
         binding.btnSettings.setOnClickListener {

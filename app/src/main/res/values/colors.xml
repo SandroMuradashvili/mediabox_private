@@ -14,6 +14,7 @@
     <color name="background_light">#1E293B</color>
     <color name="surface">#1E293B</color>
     <color name="surface_light">#334155</color>
+    <color name="surface_bright">#475569</color>
 
     <!-- Text Colors -->
     <color name="text_primary">#F1F5F9</color>
