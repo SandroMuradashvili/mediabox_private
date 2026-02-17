@@ -4,12 +4,19 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.view.LayoutInflater
 import android.view.View
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.data.remote.LoginRequest
+import ge.mediabox.mediabox.data.remote.VerifyRequest
 import ge.mediabox.mediabox.databinding.ActivityLoginBinding
 import kotlinx.coroutines.launch
 
@@ -81,14 +88,8 @@ class LoginActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val response = authApi.login(LoginRequest(login, password))
-                if (response.status == "success" && response.token != null) {
-                    if (binding.cbRememberMe.isChecked) {
-                        saveToken(response.token)
-                    }
-                    val intent = Intent(this@LoginActivity, MainActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                    finish()
+                if (response.user_id != null) {
+                    showVerifyOtpDialog(response.user_id, response.message)
                 } else {
                     Toast.makeText(this@LoginActivity, response.message ?: "Login failed", Toast.LENGTH_LONG).show()
                 }
@@ -99,6 +100,48 @@ class LoginActivity : AppCompatActivity() {
                 binding.btnLogin.isEnabled = true
             }
         }
+    }
+
+    private fun showVerifyOtpDialog(userId: String, message: String?) {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_verify_otp, null)
+        val dialog = AlertDialog.Builder(this, R.style.Theme_Mediabox_Dialog)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        val tvMessage = dialogView.findViewById<TextView>(R.id.tvVerifyMessage)
+        val etOtp = dialogView.findViewById<EditText>(R.id.etOtpCode)
+        val btnVerify = dialogView.findViewById<Button>(R.id.btnVerify)
+
+        tvMessage.text = message ?: "Please enter the verification code"
+
+        btnVerify.setOnClickListener {
+            val code = etOtp.text.toString().trim()
+            if (code.length != 6) {
+                Toast.makeText(this, "Please enter 6-digit code", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            lifecycleScope.launch {
+                try {
+                    val response = authApi.verifyLogin(VerifyRequest(userId, code))
+                    if (response.token != null) {
+                        saveToken(response.token)
+                        dialog.dismiss()
+                        val intent = Intent(this@LoginActivity, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    } else {
+                        Toast.makeText(this@LoginActivity, response.message ?: "Verification failed", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@LoginActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        dialog.show()
     }
 
     private fun saveToken(token: String) {

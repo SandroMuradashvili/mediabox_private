@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="400dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/surface"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Verify OTP"
+        android:textColor="@color/text_primary"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tvVerifyMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Please enter the verification code"
+        android:textColor="@color/text_secondary"
+        android:layout_marginBottom="24dp"
+        android:gravity="center"/>
+
+    <EditText
+        android:id="@+id/etOtpCode"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@drawable/edit_text_background"
+        android:hint="6-digit code"
+        android:textColorHint="@color/text_tertiary"
+        android:textColor="@color/text_primary"
+        android:gravity="center"
+        android:inputType="number"
+        android:maxLength="6"
+        android:textSize="20sp"
+        android:letterSpacing="0.2"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/btnVerify"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Verify"
+        android:backgroundTint="@color/primary"
+        android:textColor="@android:color/white"
+        android:textStyle="bold" />
+
+</LinearLayout>
