@@ -43,6 +43,11 @@
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="stateVisible" />
+
+        <activity
+            android:name=".ui.UserActivity"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation" />
     </application>
 
 </manifest>
