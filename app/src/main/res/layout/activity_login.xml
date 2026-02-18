@@ -78,6 +78,7 @@
             android:textColor="@color/text_primary"
             android:paddingHorizontal="16dp"
             android:inputType="textPassword"
+            android:imeOptions="actionDone"
             android:nextFocusRight="@+id/btnShowPassword" />
 
         <ImageButton

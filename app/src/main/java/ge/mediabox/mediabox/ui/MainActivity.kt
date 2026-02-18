@@ -1,5 +1,6 @@
 package ge.mediabox.mediabox.ui
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
@@ -28,7 +29,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnProfile.setOnClickListener {
-            val intent = Intent(this, LoginActivity::class.java)
+            val token = getSavedToken()
+            val intent = if (!token.isNullOrBlank()) {
+                Intent(this, UserActivity::class.java).apply {
+                    putExtra(UserActivity.EXTRA_TOKEN, token)
+                    putExtra(UserActivity.EXTRA_FROM_REMEMBER_ME, true)
+                }
+            } else {
+                Intent(this, LoginActivity::class.java)
+            }
             startActivity(intent)
         }
 
@@ -46,5 +55,10 @@ class MainActivity : AppCompatActivity() {
             }
             else -> super.onKeyDown(keyCode, event)
         }
+    }
+
+    private fun getSavedToken(): String? {
+        val sharedPrefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
+        return sharedPrefs.getString("auth_token", null)
     }
 }
