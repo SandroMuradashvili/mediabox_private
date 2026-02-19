@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
-    private val authApi = AuthApiService.create()
+    private val authApi by lazy { AuthApiService.create(applicationContext) }
     private var isEmailLogin = true
 
     override fun onCreate(savedInstanceState: Bundle?) {

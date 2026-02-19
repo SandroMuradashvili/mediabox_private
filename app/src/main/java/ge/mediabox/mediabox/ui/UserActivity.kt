@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 class UserActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUserBinding
-    private val authApi = AuthApiService.create()
+    private val authApi by lazy { AuthApiService.create(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +34,7 @@ class UserActivity : AppCompatActivity() {
         }
 
         setupRecyclerView()
-        loadUserData(token)
+        loadUserData()
 
         binding.btnLogout.setOnClickListener {
             clearSavedToken()
@@ -50,7 +50,7 @@ class UserActivity : AppCompatActivity() {
         binding.rvPlans.adapter = PlanAdapter(emptyList())
     }
 
-    private fun loadUserData(token: String) {
+    private fun loadUserData() {
         binding.pbLoadingPlans.visibility = View.VISIBLE
         binding.headerContainer.visibility = View.GONE
         binding.rvPlans.visibility = View.GONE
@@ -58,12 +58,14 @@ class UserActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                // Fetch plans (assuming user data is tied to the token)
-                val plans = authApi.getPlans("Bearer $token")
+                // Balance is not implemented on backend yet
+                binding.tvBalance.text = "Balance: 0.0"
+
+                // Fetch available plans + purchased plans
+                // The token is added automatically by the interceptor in AuthApiService
+                val plans = authApi.getPlans()
+                val myPlans = authApi.getMyPlans()
                 
-                // In this simplified version, we use the token to represent the user
-                // If you have a separate profile endpoint, call it here.
-                // For now, we'll try to find user info from the intent or prefs
                 val sharedPrefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
                 binding.tvUsername.text = sharedPrefs.getString("user_name", "User")
                 binding.tvEmail.text = sharedPrefs.getString("user_email", "Email")
@@ -71,7 +73,8 @@ class UserActivity : AppCompatActivity() {
                 binding.headerContainer.visibility = View.VISIBLE
 
                 if (plans.isNotEmpty()) {
-                    binding.rvPlans.adapter = PlanAdapter(plans)
+                    val purchasedByPlanId = myPlans.associateBy { it.plan_id }
+                    binding.rvPlans.adapter = PlanAdapter(plans, purchasedByPlanId)
                     binding.rvPlans.visibility = View.VISIBLE
                     binding.tvPackagesTitle.visibility = View.VISIBLE
                 } else {
