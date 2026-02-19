@@ -4,12 +4,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.remote.Plan
+import ge.mediabox.mediabox.data.remote.MyPlan
 
 class PlanAdapter(
-    private val plans: List<Plan>
+    private val plans: List<Plan>,
+    private val purchasedPlans: Map<String, MyPlan> = emptyMap()
 ) : RecyclerView.Adapter<PlanAdapter.PlanViewHolder>() {
 
     inner class PlanViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -18,11 +21,20 @@ class PlanAdapter(
         val planPrice: TextView = itemView.findViewById(R.id.tvPlanPrice)
         val planDuration: TextView = itemView.findViewById(R.id.tvPlanDuration)
 
-        fun bind(plan: Plan) {
+        fun bind(plan: Plan, isPurchased: Boolean) {
             planName.text = plan.name_en
             planDescription.text = plan.description_en
-            planPrice.text = "$${plan.price}"
-            planDuration.text = "${plan.duration_days} ${if (plan.duration_days == 1) "day" else "days"}"
+            planPrice.text = plan.price
+            planDuration.text = "${plan.duration_days} days"
+
+            if (isPurchased) {
+                itemView.setBackgroundResource(R.drawable.purchased_plan_background)
+                planName.append(" (Purchased)")
+                planName.setTextColor(ContextCompat.getColor(itemView.context, R.color.success))
+            } else {
+                itemView.setBackgroundResource(R.drawable.plan_item_background)
+                planName.setTextColor(ContextCompat.getColor(itemView.context, R.color.text_primary))
+            }
         }
     }
 
@@ -33,7 +45,8 @@ class PlanAdapter(
     }
 
     override fun onBindViewHolder(holder: PlanViewHolder, position: Int) {
-        holder.bind(plans[position])
+        val plan = plans[position]
+        holder.bind(plan, purchasedPlans.containsKey(plan.id))
     }
 
     override fun getItemCount(): Int = plans.size
