@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#D0000000">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/rewindCard"
+        android:layout_width="680dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        app:cardBackgroundColor="#F01E293B"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="36dp">
+
+            <!-- Header row: title + archive range badge -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Jump to time"
+                    android:textColor="#F1F5F9"
+                    android:textSize="24sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tvArchiveRange"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="168h available"
+                    android:textColor="#818CF8"
+                    android:textSize="13sp"
+                    android:background="@drawable/badge_archive_range"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:visibility="gone"/>
+
+            </LinearLayout>
+
+            <!-- Selected time big display -->
+            <TextView
+                android:id="@+id/tvSelectedTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Today  00:00"
+                android:textColor="#818CF8"
+                android:textSize="36sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="4dp"/>
+
+            <!-- Out of range warning -->
+            <TextView
+                android:id="@+id/tvOutOfRange"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Outside archive window for this channel"
+                android:textColor="#F87171"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:visibility="gone"
+                android:layout_marginBottom="4dp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#26FFFFFF"
+                android:layout_marginVertical="18dp"/>
+
+            <!-- Column headers -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView style="@style/PickerColumnHeader" android:text="DAY"    android:layout_width="0dp" android:layout_weight="2"/>
+                <TextView style="@style/PickerColumnHeader" android:text="HOUR"   android:layout_width="0dp" android:layout_weight="1"/>
+                <TextView style="@style/PickerColumnHeader" android:text="MINUTE" android:layout_width="0dp" android:layout_weight="1"/>
+
+            </LinearLayout>
+
+            <!-- The three scroll columns -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="216dp"
+                android:orientation="horizontal">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvDays"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="2"
+                    android:clipToPadding="false"
+                    android:paddingTop="72dp"
+                    android:paddingBottom="72dp"
+                    android:scrollbars="none"
+                    android:focusable="true"/>
+
+                <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1AFFFFFF"/>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvHours"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:clipToPadding="false"
+                    android:paddingTop="72dp"
+                    android:paddingBottom="72dp"
+                    android:scrollbars="none"
+                    android:focusable="true"/>
+
+                <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1AFFFFFF"/>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvMinutes"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:clipToPadding="false"
+                    android:paddingTop="72dp"
+                    android:paddingBottom="72dp"
+                    android:scrollbars="none"
+                    android:focusable="true"/>
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#26FFFFFF"
+                android:layout_marginVertical="18dp"/>
+
+            <!-- Buttons row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end">
+
+                <Button
+                    android:id="@+id/btnRewindCancel"
+                    android:layout_width="140dp"
+                    android:layout_height="48dp"
+                    android:text="Cancel"
+                    android:textColor="#94A3B8"
+                    android:backgroundTint="#334155"
+                    android:textStyle="bold"
+                    android:layout_marginEnd="12dp"
+                    android:focusable="true"/>
+
+                <Button
+                    android:id="@+id/btnRewindConfirm"
+                    android:layout_width="180dp"
+                    android:layout_height="48dp"
+                    android:text="Go to time"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#6366F1"
+                    android:textStyle="bold"
+                    android:focusable="true"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+</FrameLayout>
