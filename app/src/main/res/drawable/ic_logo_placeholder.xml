@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background pill -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#CC6366F1"/>
+            <corners android:radius="8dp"/>
+        </shape>
+    </item>
+    <!-- "MB" text rendered as overlapping shapes — replace with real logo later -->
+    <item android:top="4dp" android:bottom="4dp" android:left="8dp" android:right="8dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000"/>
+        </shape>
+    </item>
+</layer-list>

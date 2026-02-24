@@ -12,16 +12,15 @@
         style="@style/BodyText"
         android:layout_width="40dp"
         android:layout_height="wrap_content"
-        android:text="1"
         android:textStyle="bold"
-        android:textSize="20sp"
+        android:textSize="18sp"
         android:gravity="center"/>
 
     <!-- Channel Logo -->
     <ImageView
         android:id="@+id/channelLogo"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:scaleType="fitCenter"
@@ -40,7 +39,6 @@
             style="@style/BodyText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Channel Name"
             android:textStyle="bold"
             android:maxLines="1"
             android:ellipsize="end"/>
@@ -50,22 +48,8 @@
             style="@style/CaptionText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Category"
             android:layout_marginTop="2dp"/>
-
     </LinearLayout>
-
-    <!-- HD/SD Badge -->
-    <TextView
-        android:id="@+id/tvQualityBadge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/quality_hd"
-        android:textColor="@android:color/white"
-        android:textStyle="bold"
-        android:textSize="10sp"
-        android:background="@drawable/badge_hd"
-        android:layout_marginStart="8dp"/>
 
     <!-- Favorite Indicator -->
     <ImageView

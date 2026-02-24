@@ -18,66 +18,50 @@ class ChannelAdapter(
     private var selectedPosition = 0
 
     inner class ChannelViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val channelNumber: TextView = itemView.findViewById(R.id.tvChannelNumber)
-        val channelLogo: View = itemView.findViewById(R.id.channelLogo)
-        val channelName: TextView = itemView.findViewById(R.id.tvChannelName)
-        val channelCategory: TextView = itemView.findViewById(R.id.tvChannelCategory)
-        val qualityBadge: TextView = itemView.findViewById(R.id.tvQualityBadge)
-        val favoriteIcon: ImageView = itemView.findViewById(R.id.ivFavorite)
+        val channelNumber:   TextView  = itemView.findViewById(R.id.tvChannelNumber)
+        val channelLogo:     ImageView = itemView.findViewById(R.id.channelLogo)
+        val channelName:     TextView  = itemView.findViewById(R.id.tvChannelName)
+        val channelCategory: TextView  = itemView.findViewById(R.id.tvChannelCategory)
+        val favoriteIcon:    ImageView = itemView.findViewById(R.id.ivFavorite)
 
         init {
             itemView.setOnClickListener {
-                val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    selectedPosition = position
-                    notifyDataSetChanged()
-                    onChannelClick(position)
+                val pos = adapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    selectedPosition = pos; notifyDataSetChanged(); onChannelClick(pos)
                 }
             }
-
             itemView.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
-                    val position = adapterPosition
-                    if (position != RecyclerView.NO_POSITION) {
-                        selectedPosition = position
-                        notifyDataSetChanged()
-                        onChannelClick(position)
+                    val pos = adapterPosition
+                    if (pos != RecyclerView.NO_POSITION) {
+                        selectedPosition = pos; notifyDataSetChanged(); onChannelClick(pos)
                     }
                 }
             }
         }
 
         fun bind(channel: Channel, isSelected: Boolean) {
-            channelNumber.text = channel.number.toString()
-            channelName.text = channel.name
+            channelNumber.text   = channel.number.toString()
+            channelName.text     = channel.name
             channelCategory.text = channel.category
 
-            // Load channel logo using Glide
             if (!channel.logoUrl.isNullOrEmpty()) {
-                if (channelLogo is ImageView) {
-                    Glide.with(itemView.context)
-                        .load(channel.logoUrl)
-                        .placeholder(R.color.surface_light)
-                        .error(R.color.surface_light)
-                        .into(channelLogo)
-                }
+                Glide.with(itemView.context)
+                    .load(channel.logoUrl)
+                    .placeholder(R.color.surface_light)
+                    .error(R.color.surface_light)
+                    .into(channelLogo)
             }
-
-            qualityBadge.text = if (channel.isHD) "HD" else "SD"
-            qualityBadge.setBackgroundResource(
-                if (channel.isHD) R.drawable.badge_hd else R.drawable.badge_sd
-            )
 
             favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
             itemView.alpha = if (isSelected) 1.0f else 0.7f
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChannelViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_channel, parent, false)
-        return ChannelViewHolder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ChannelViewHolder(
+        LayoutInflater.from(parent.context).inflate(R.layout.item_channel, parent, false)
+    )
 
     override fun onBindViewHolder(holder: ChannelViewHolder, position: Int) {
         holder.bind(channels[position], position == selectedPosition)
@@ -86,7 +70,6 @@ class ChannelAdapter(
     override fun getItemCount() = channels.size
 
     fun updateChannels(newChannels: List<Channel>) {
-        channels = newChannels
-        notifyDataSetChanged()
+        channels = newChannels; notifyDataSetChanged()
     }
 }
