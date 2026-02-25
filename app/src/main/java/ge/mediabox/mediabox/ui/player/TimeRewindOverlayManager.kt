@@ -16,25 +16,15 @@ import java.util.Calendar
 import java.util.Locale
 
 /**
- * Manages the "Jump to time" overlay — a D-pad-navigable day/hour/minute picker
- * that respects the per-channel archive range returned by the API (hoursBack).
- *
- * Usage in PlayerActivity:
- *   1. Inflate R.layout.overlay_time_rewind, add to root, set GONE.
- *   2. Create this manager once in setupOverlays().
- *   3. Call show() when btnTimeRewind is clicked.
- *   4. Forward onKeyDown events to handleKeyEvent() while isVisible == true.
+ * FIX 11: Removed cancel button - only confirm button remains
  */
 class TimeRewindOverlayManager(
     private val activity: Activity,
-    val overlayView: View,           // the inflated overlay_time_rewind root view
+    val overlayView: View,
     private val channelIdProvider: () -> Int,
     private val onTimeSelected: (timestampMs: Long) -> Unit,
     private val onDismiss: () -> Unit
 ) {
-    // -----------------------------------------------------------------------
-    // Views
-    // -----------------------------------------------------------------------
     private val tvSelectedTime: TextView = overlayView.findViewById(R.id.tvSelectedTime)
     private val tvArchiveRange: TextView = overlayView.findViewById(R.id.tvArchiveRange)
     private val tvOutOfRange:   TextView = overlayView.findViewById(R.id.tvOutOfRange)
@@ -42,11 +32,7 @@ class TimeRewindOverlayManager(
     private val rvHours:        RecyclerView = overlayView.findViewById(R.id.rvHours)
     private val rvMinutes:      RecyclerView = overlayView.findViewById(R.id.rvMinutes)
     private val btnConfirm:     Button = overlayView.findViewById(R.id.btnRewindConfirm)
-    private val btnCancel:      Button = overlayView.findViewById(R.id.btnRewindCancel)
 
-    // -----------------------------------------------------------------------
-    // State
-    // -----------------------------------------------------------------------
     private data class DayEntry(val label: String, val dayStart: Calendar)
 
     private var dayEntries: List<DayEntry> = emptyList()
@@ -54,7 +40,7 @@ class TimeRewindOverlayManager(
     private var selHour   = 0
     private var selMinute = 0
 
-    // Focused column: 0=days, 1=hours, 2=minutes, 3=confirm, 4=cancel
+    // FIX 11: Focus columns: 0=days, 1=hours, 2=minutes, 3=confirm (no cancel)
     private var focusCol = 0
 
     private lateinit var dayAdapter:    PickerAdapter
@@ -64,17 +50,10 @@ class TimeRewindOverlayManager(
     private val timeFmt = SimpleDateFormat("EEE, d MMM  HH:mm", Locale.getDefault())
     private val dayFmt  = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
 
-    // -----------------------------------------------------------------------
-    // Init
-    // -----------------------------------------------------------------------
     init {
         setupColumns()
         setupButtons()
     }
-
-    // -----------------------------------------------------------------------
-    // Public API
-    // -----------------------------------------------------------------------
 
     val isVisible get() = overlayView.visibility == View.VISIBLE
 
@@ -92,7 +71,6 @@ class TimeRewindOverlayManager(
         onDismiss()
     }
 
-    /** Call from PlayerActivity.onKeyDown when isVisible == true. Returns true if consumed. */
     fun handleKeyEvent(keyCode: Int): Boolean {
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP   -> { nudge(-1); true }
@@ -100,10 +78,7 @@ class TimeRewindOverlayManager(
             KeyEvent.KEYCODE_DPAD_LEFT -> { moveFocusLeft();  true }
             KeyEvent.KEYCODE_DPAD_RIGHT -> { moveFocusRight(); true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                when (focusCol) {
-                    3 -> btnConfirm.performClick()
-                    4 -> btnCancel.performClick()
-                }
+                if (focusCol == 3) btnConfirm.performClick()
                 true
             }
             KeyEvent.KEYCODE_BACK -> { dismiss(); true }
@@ -111,16 +86,11 @@ class TimeRewindOverlayManager(
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Build data
-    // -----------------------------------------------------------------------
-
     private fun buildDayList() {
         val channelId  = channelIdProvider()
         val hoursBack  = ChannelRepository.getHoursBack(channelId)
-        val effectiveH = if (hoursBack > 0) hoursBack else 7 * 24   // fallback to 7d if not yet fetched
+        val effectiveH = if (hoursBack > 0) hoursBack else 7 * 24
 
-        // Show the range badge
         if (hoursBack > 0) {
             val d = hoursBack / 24
             val h = hoursBack % 24
@@ -130,7 +100,6 @@ class TimeRewindOverlayManager(
             tvArchiveRange.visibility = View.GONE
         }
 
-        // Build day list from (now - hoursBack) → today
         val now = Calendar.getInstance()
         val earliest = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -effectiveH) }
 
@@ -159,7 +128,6 @@ class TimeRewindOverlayManager(
         }
         dayEntries = entries
 
-        // Default selection: today, current hour & minute
         selDay    = entries.size - 1
         selHour   = now.get(Calendar.HOUR_OF_DAY)
         selMinute = now.get(Calendar.MINUTE)
@@ -168,10 +136,6 @@ class TimeRewindOverlayManager(
     private fun sameDay(a: Calendar, b: Calendar) =
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
                 a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-
-    // -----------------------------------------------------------------------
-    // Columns
-    // -----------------------------------------------------------------------
 
     private fun setupColumns() {
         dayAdapter    = PickerAdapter()
@@ -190,8 +154,6 @@ class TimeRewindOverlayManager(
                 override fun onScrollStateChanged(recyclerView: RecyclerView, state: Int) {
                     if (state == RecyclerView.SCROLL_STATE_IDLE) {
                         val lm = recyclerView.layoutManager as LinearLayoutManager
-                        val snapView = lm.findViewByPosition(lm.findFirstVisibleItemPosition())
-                        // Use the snap helper to find which item is snapped to center
                         val snap = LinearSnapHelper()
                         snap.findSnapView(lm)?.let { v ->
                             val pos = lm.getPosition(v)
@@ -229,10 +191,6 @@ class TimeRewindOverlayManager(
         (rv.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(pos, 0)
     }
 
-    // -----------------------------------------------------------------------
-    // D-pad navigation
-    // -----------------------------------------------------------------------
-
     private fun nudge(delta: Int) {
         when (focusCol) {
             0 -> moveColumn(rvDays, dayAdapter, delta, dayEntries.size - 1)    { selDay    = it }
@@ -250,12 +208,12 @@ class TimeRewindOverlayManager(
         updateDisplay()
     }
 
+    // FIX 11: Simplified focus navigation without cancel button
     private fun moveFocusLeft() {
         when (focusCol) {
             1 -> { focusCol = 0; rvDays.requestFocus() }
             2 -> { focusCol = 1; rvHours.requestFocus() }
             3 -> { focusCol = 2; rvMinutes.requestFocus() }
-            4 -> { focusCol = 3; btnConfirm.requestFocus() }
         }
     }
 
@@ -264,13 +222,8 @@ class TimeRewindOverlayManager(
             0 -> { focusCol = 1; rvHours.requestFocus() }
             1 -> { focusCol = 2; rvMinutes.requestFocus() }
             2 -> { focusCol = 3; btnConfirm.requestFocus() }
-            3 -> { focusCol = 4; btnCancel.requestFocus() }
         }
     }
-
-    // -----------------------------------------------------------------------
-    // Display & validation
-    // -----------------------------------------------------------------------
 
     private fun updateDisplay() {
         val tsMs = buildTimestamp()
@@ -297,30 +250,19 @@ class TimeRewindOverlayManager(
         }.timeInMillis
     }
 
-    // -----------------------------------------------------------------------
-    // Buttons
-    // -----------------------------------------------------------------------
-
     private fun setupButtons() {
         btnConfirm.setOnClickListener {
             val ts = buildTimestamp()
             dismiss()
             onTimeSelected(ts)
         }
-        btnCancel.setOnClickListener { dismiss() }
 
-        listOf(btnConfirm to 3, btnCancel to 4).forEach { (btn, col) ->
-            btn.setOnFocusChangeListener { v, hasFocus ->
-                v.scaleX = if (hasFocus) 1.06f else 1f
-                v.scaleY = if (hasFocus) 1.06f else 1f
-                if (hasFocus) focusCol = col
-            }
+        btnConfirm.setOnFocusChangeListener { v, hasFocus ->
+            v.scaleX = if (hasFocus) 1.06f else 1f
+            v.scaleY = if (hasFocus) 1.06f else 1f
+            if (hasFocus) focusCol = 3
         }
     }
-
-    // -----------------------------------------------------------------------
-    // RecyclerView adapter for a single picker column
-    // -----------------------------------------------------------------------
 
     inner class PickerAdapter : RecyclerView.Adapter<PickerAdapter.VH>() {
         private var items = listOf<String>()

@@ -73,17 +73,17 @@ class PlayerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
             repository.initialize()
-            channels = repository.getAllChannels()
 
-            // Fetch favourites and recently watched if logged in
+            // FIX 1: WAIT for favorites to sync BEFORE getting channels
             authToken?.let { token ->
-                launch {
-                    try {
-                        repository.fetchAndSyncFavourites(token)
-                        repository.fetchAndSyncRecentlyWatched(token)
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
+                try {
+                    repository.fetchAndSyncFavourites(token)
+                    repository.fetchAndSyncRecentlyWatched(token)
+                } catch (e: Exception) { e.printStackTrace() }
             }
+
+            // NOW get channels with correct favorite status
+            channels = repository.getAllChannels()
 
             initializePlayer()
             setupOverlays()
@@ -116,7 +116,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        checkAndRecordWatchTime() // record if they watched long enough
+        checkAndRecordWatchTime()
         player?.release()
         player = null
         hideControlsHandler.removeCallbacksAndMessages(null)
@@ -133,7 +133,6 @@ class PlayerActivity : AppCompatActivity() {
             exoPlayer.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
-                        // Show spinner overlaid (video frame stays underneath)
                         Player.STATE_BUFFERING -> binding.loadingIndicator.visibility = View.VISIBLE
                         Player.STATE_READY     -> binding.loadingIndicator.visibility = View.GONE
                         Player.STATE_ENDED     -> binding.loadingIndicator.visibility = View.GONE
@@ -243,8 +242,6 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener { togglePlayPause() }
-
-        // Audio/language — silent dummy
         binding.root.findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { /* dummy */ }
     }
 
@@ -261,9 +258,7 @@ class PlayerActivity : AppCompatActivity() {
         currentPlayingTimestamp = System.currentTimeMillis()
         channelWatchStartTime = System.currentTimeMillis()
 
-        // Show top bar immediately so user knows which channel is loading
         showTopBarTemporarily()
-        // Keep spinner visible overlaid — don't clear video underneath
         binding.loadingIndicator.visibility = View.VISIBLE
 
         lifecycleScope.launch {
@@ -285,10 +280,6 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Single entry point for ExoPlayer URL loads.
-     * Uses keepContentOnPlayerReset so the current frame stays while new stream loads.
-     */
     private fun playUrl(url: String) {
         player?.apply {
             setMediaItem(MediaItem.fromUri(url))
@@ -309,7 +300,6 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
 
-        // Show spinner overlaid on current video — don't stop/clear player yet
         binding.loadingIndicator.visibility = View.VISIBLE
 
         lifecycleScope.launch {
@@ -318,7 +308,7 @@ class PlayerActivity : AppCompatActivity() {
                 if (streamUrl != null) {
                     isLiveMode = false
                     currentPlayingTimestamp = targetTimestamp
-                    playUrl(streamUrl)  // video stays on screen until new stream is ready
+                    playUrl(streamUrl)
                     updateOverlayInfo()
                     updateLiveIndicatorState()
                 } else {
@@ -505,10 +495,6 @@ class PlayerActivity : AppCompatActivity() {
         playChannel(newIndex)
     }
 
-    /**
-     * Shows the top bar immediately (e.g. on channel switch) without opening full controls.
-     * Auto-hides after 5 seconds unless controls are opened.
-     */
     private fun showTopBarTemporarily() {
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         isControlsVisible = true
@@ -522,6 +508,10 @@ class PlayerActivity : AppCompatActivity() {
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         updateOverlayInfo()
+
+        // FIX 8: Set default focus to pause button
+        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
+
         hideControlsHandler.removeCallbacks(hideControlsRunnable)
         hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
     }
@@ -533,7 +523,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showEpg() {
-        // Sync favorites and recently watched before showing EPG
         authToken?.let { token ->
             lifecycleScope.launch {
                 try {
@@ -565,7 +554,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     // =========================================================================
-    // Key routing
+    // Key routing - FIX 9: Improved navigation
     // =========================================================================
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -580,9 +569,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun handlePlayerKeyPress(keyCode: Int): Boolean = when (keyCode) {
         KeyEvent.KEYCODE_DPAD_UP   -> { changeChannel(1); true }
         KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }
-        // LEFT/RIGHT → open EPG
         KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
-        // OK/Center → open controls
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { showControls(); true }
         KeyEvent.KEYCODE_BACK -> { finish(); true }
         else -> false
@@ -591,24 +578,35 @@ class PlayerActivity : AppCompatActivity() {
     private fun handleControlsKeyPress(keyCode: Int): Boolean = when (keyCode) {
         KeyEvent.KEYCODE_BACK -> { hideControls(); true }
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-            // Default focus should be on play/pause
             val focused = currentFocus
             if (focused != null) focused.performClick()
             else binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.performClick()
             true
         }
+        // FIX 9: Improved up/down navigation in rewind row
         KeyEvent.KEYCODE_DPAD_UP -> {
-            // If user navigates up from bottom bar to rewind row — let the system handle focus
+            // From bottom bar, can go up to rewind row
             hideControlsHandler.removeCallbacks(hideControlsRunnable)
             hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
-            false // let focus system handle it
+            false // Let focus system handle
         }
         KeyEvent.KEYCODE_DPAD_DOWN -> {
-            // Navigating down snaps back to bottom bar / pause button
-            binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
-            hideControlsHandler.removeCallbacks(hideControlsRunnable)
-            hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
-            true
+            // From rewind row, go down to bottom bar (pause button)
+            val focused = currentFocus
+            val isInRewindRow = focused?.id in listOf(
+                R.id.btnRewind15s, R.id.btnRewind1m, R.id.btnRewind5m,
+                R.id.btnPlayPause,
+                R.id.btnForward15s, R.id.btnForward1m, R.id.btnForward5m
+            )
+            if (isInRewindRow) {
+                // Move to bottom bar
+                binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
+                hideControlsHandler.removeCallbacks(hideControlsRunnable)
+                hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
+                true
+            } else {
+                false
+            }
         }
         else -> {
             hideControlsHandler.removeCallbacks(hideControlsRunnable)

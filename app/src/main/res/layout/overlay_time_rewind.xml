@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- FIX 11: Removed cancel button -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -147,35 +148,16 @@
                 android:background="#26FFFFFF"
                 android:layout_marginVertical="18dp"/>
 
-            <!-- Buttons row -->
-            <LinearLayout
+            <!-- FIX 11: Single confirm button (cancel removed) -->
+            <Button
+                android:id="@+id/btnRewindConfirm"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="end">
-
-                <Button
-                    android:id="@+id/btnRewindCancel"
-                    android:layout_width="140dp"
-                    android:layout_height="48dp"
-                    android:text="Cancel"
-                    android:textColor="#94A3B8"
-                    android:backgroundTint="#334155"
-                    android:textStyle="bold"
-                    android:layout_marginEnd="12dp"
-                    android:focusable="true"/>
-
-                <Button
-                    android:id="@+id/btnRewindConfirm"
-                    android:layout_width="180dp"
-                    android:layout_height="48dp"
-                    android:text="Go to time"
-                    android:textColor="#FFFFFF"
-                    android:backgroundTint="#6366F1"
-                    android:textStyle="bold"
-                    android:focusable="true"/>
-
-            </LinearLayout>
+                android:layout_height="48dp"
+                android:text="Go to time"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#6366F1"
+                android:textStyle="bold"
+                android:focusable="true"/>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

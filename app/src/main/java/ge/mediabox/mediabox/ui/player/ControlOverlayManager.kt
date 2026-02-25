@@ -3,6 +3,7 @@ package ge.mediabox.mediabox.ui.player
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.bumptech.glide.Glide
@@ -30,8 +31,7 @@ class ControlOverlayManager(
     }
 
     /**
-     * @param streamTimestamp  null = live mode; non-null = archive mode timestamp
-     * @param isPlaying        whether ExoPlayer is currently playing (not paused)
+     * FIX 6: Update rewind button visibility - dim when unavailable, don't hide
      */
     fun updateChannelInfo(
         channel: Channel,
@@ -75,11 +75,25 @@ class ControlOverlayManager(
         // Live indicator
         updateLiveIndicator(isLive = isLive, isPlaying = isPlaying)
 
-        // Forward buttons: hidden when live
-        val forwardVisibility = if (isLive) View.GONE else View.VISIBLE
-        binding.root.findViewById<View>(R.id.layoutForward15s)?.visibility = forwardVisibility
-        binding.root.findViewById<View>(R.id.layoutForward1m)?.visibility  = forwardVisibility
-        binding.root.findViewById<View>(R.id.layoutForward5m)?.visibility  = forwardVisibility
+        // FIX 6: Forward buttons - DIM when live, don't hide
+        val forwardAlpha = if (isLive) 0.3f else 1.0f
+        val forwardEnabled = !isLive
+
+        binding.root.findViewById<LinearLayout>(R.id.layoutForward15s)?.apply {
+            alpha = forwardAlpha
+            isEnabled = forwardEnabled
+            findViewById<ImageButton>(R.id.btnForward15s)?.isEnabled = forwardEnabled
+        }
+        binding.root.findViewById<LinearLayout>(R.id.layoutForward1m)?.apply {
+            alpha = forwardAlpha
+            isEnabled = forwardEnabled
+            findViewById<ImageButton>(R.id.btnForward1m)?.isEnabled = forwardEnabled
+        }
+        binding.root.findViewById<LinearLayout>(R.id.layoutForward5m)?.apply {
+            alpha = forwardAlpha
+            isEnabled = forwardEnabled
+            findViewById<ImageButton>(R.id.btnForward5m)?.isEnabled = forwardEnabled
+        }
 
         updateFavoriteButton(channel.isFavorite)
     }

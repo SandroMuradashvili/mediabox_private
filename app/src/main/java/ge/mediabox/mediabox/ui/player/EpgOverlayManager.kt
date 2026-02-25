@@ -118,7 +118,7 @@ class EpgOverlayManager(
     }
 
     // -----------------------------------------------------------------------
-    // Programs
+    // Programs - FIX 3: Improved auto-scroll
     // -----------------------------------------------------------------------
 
     private fun loadProgramsForChannel(channelIndex: Int) {
@@ -132,8 +132,11 @@ class EpgOverlayManager(
                 try { ApiService.fetchAllPrograms(channel.apiId).sortedBy { it.startTime } }
                 catch (e: Exception) { emptyList() }
             }
-            programAdapter.updatePrograms(createProgramListWithDividers(allPrograms))
-            scrollToCurrentProgram(allPrograms)
+            val itemsWithDividers = createProgramListWithDividers(allPrograms)
+            programAdapter.updatePrograms(itemsWithDividers)
+
+            // FIX 3: Better auto-scroll to current program
+            scrollToCurrentProgram(allPrograms, itemsWithDividers)
         }
     }
 
@@ -148,18 +151,29 @@ class EpgOverlayManager(
         return items
     }
 
-    private fun scrollToCurrentProgram(programs: List<Program>) {
+    // FIX 3: Improved auto-scroll using scrollToPositionWithOffset
+    private fun scrollToCurrentProgram(programs: List<Program>, itemsWithDividers: List<ProgramItem>) {
+        val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
+        val lm = programList.layoutManager as? LinearLayoutManager ?: return
+
         val currentTime = System.currentTimeMillis()
-        val idx = programs.indexOfFirst { it.isCurrentlyPlaying(currentTime) }
-        if (idx < 0) return
+        val currentProgramIndex = programs.indexOfFirst { it.isCurrentlyPlaying(currentTime) }
+        if (currentProgramIndex < 0) return
+
+        // Count dividers before current program
         var dividers = 0
-        for (i in 0 until idx) {
+        for (i in 0 until currentProgramIndex) {
             val d = dateFormat.format(Date(programs[i].startTime))
             val p = if (i > 0) dateFormat.format(Date(programs[i - 1].startTime)) else null
             if (d != p) dividers++
         }
-        binding.root.findViewById<RecyclerView>(R.id.programList)
-            ?.scrollToPosition(idx + dividers)
+
+        val targetPosition = currentProgramIndex + dividers
+
+        // Use scrollToPositionWithOffset to ensure item is visible at top
+        programList.post {
+            lm.scrollToPositionWithOffset(targetPosition, 0)
+        }
     }
 
     private fun handleProgramClick(program: Program) {
@@ -179,7 +193,7 @@ class EpgOverlayManager(
 
     fun refreshData(newChannels: List<Channel>) {
         channels = newChannels
-        setupCategories() // rebuild categories in case Recently Watched changed
+        setupCategories()
         filteredChannels = repository.getChannelsByCategory(currentCategory)
         channelAdapter.updateChannels(filteredChannels)
         if (selectedChannelIndex < filteredChannels.size) loadProgramsForChannel(selectedChannelIndex)
@@ -191,7 +205,7 @@ class EpgOverlayManager(
     }
 
     // -----------------------------------------------------------------------
-    // Key handling — fixed navigation
+    // Key handling — FIX 2: Improved EPG scrolling
     // -----------------------------------------------------------------------
 
     fun handleKeyEvent(keyCode: Int): Boolean = when (currentFocusSection) {
@@ -219,34 +233,40 @@ class EpgOverlayManager(
         }
     }
 
+    // FIX 2: Improved channel scrolling with better edge case handling
     private fun handleChannelKey(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
         val lm = channelList.layoutManager as? LinearLayoutManager ?: return false
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                val firstVisible = lm.findFirstCompletelyVisibleItemPosition()
-                if (firstVisible == 0) {
-                    // Already at top — go back to categories
+                if (selectedChannelIndex <= 0) {
+                    // At top - go back to categories
                     currentFocusSection = FocusSection.CATEGORIES
                     categoryButtons[currentCategory]?.requestFocus()
                 } else {
-                    // Scroll up within channel list
-                    val prev = (selectedChannelIndex - 1).coerceAtLeast(0)
+                    // Scroll up
+                    val prev = selectedChannelIndex - 1
                     selectedChannelIndex = prev
                     channelAdapter.setSelected(prev)
-                    lm.smoothScrollToPosition(channelList, RecyclerView.State(), prev)
+                    lm.scrollToPositionWithOffset(prev, 0)
                     loadProgramsForChannel(prev)
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val next = (selectedChannelIndex + 1).coerceAtMost(filteredChannels.lastIndex)
-                selectedChannelIndex = next
-                channelAdapter.setSelected(next)
-                lm.smoothScrollToPosition(channelList, RecyclerView.State(), next)
-                loadProgramsForChannel(next)
-                true
+                if (selectedChannelIndex >= filteredChannels.lastIndex) {
+                    // At bottom - stay here
+                    true
+                } else {
+                    // Scroll down
+                    val next = selectedChannelIndex + 1
+                    selectedChannelIndex = next
+                    channelAdapter.setSelected(next)
+                    lm.scrollToPositionWithOffset(next, 0)
+                    loadProgramsForChannel(next)
+                    true
+                }
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 currentFocusSection = FocusSection.PROGRAMS
@@ -263,9 +283,9 @@ class EpgOverlayManager(
         }
     }
 
+    // FIX 2: Improved program scrolling
     private fun handleProgramKey(keyCode: Int): Boolean {
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return false
-        val lm = programList.layoutManager as? LinearLayoutManager ?: return false
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -273,14 +293,8 @@ class EpgOverlayManager(
                 binding.root.findViewById<RecyclerView>(R.id.channelList)?.requestFocus()
                 true
             }
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                val firstVisible = lm.findFirstCompletelyVisibleItemPosition()
-                if (firstVisible <= 0) {
-                    // At top of programs — jump to categories
-                    currentFocusSection = FocusSection.CATEGORIES
-                    categoryButtons[currentCategory]?.requestFocus()
-                }
-                // else let RecyclerView handle normal scroll
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                // Let RecyclerView handle scrolling within programs list
                 false
             }
             else -> false
