@@ -5,7 +5,7 @@
     android:layout_height="match_parent">
 
     <!-- ================================================================
-         TOP BAR (FIX 7: Separate layer to avoid conflicts)
+         TOP BAR
          ================================================================ -->
     <LinearLayout
         android:id="@+id/topBar"
@@ -53,10 +53,11 @@
                 android:layout_marginTop="4dp"/>
         </LinearLayout>
 
-        <!-- FIX 5: CENTER: MB Logo properly centered -->
+        <!-- CENTER: Dummy Logo -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:gravity="center">
 
             <TextView
@@ -73,17 +74,16 @@
                 android:paddingBottom="8dp"/>
         </LinearLayout>
 
-        <!-- FIX 4: RIGHT: Channel number with proper width -->
+        <!-- RIGHT: Channel number -->
         <TextView
             android:id="@+id/tvChannelNumber"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:minWidth="80dp"
+            android:layout_weight="1"
             android:textColor="@color/text_secondary"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:gravity="end"
-            android:layout_marginStart="16dp"/>
+            android:gravity="end"/>
 
     </LinearLayout>
 
@@ -91,6 +91,7 @@
          BOTTOM SECTION (rewind row + bottom bar stacked at bottom)
          ================================================================ -->
     <LinearLayout
+        android:id="@+id/bottomSection"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -98,7 +99,7 @@
         android:background="@drawable/gradient_bottom">
 
         <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-             FIX 6: REWIND ROW - buttons dim when unavailable, not disappear
+             REWIND ROW  (15s / 1m / 5m  back + forward)
              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
         <LinearLayout
             android:id="@+id/rewindRow"
@@ -113,7 +114,6 @@
 
             <!-- Rewind 5m -->
             <LinearLayout
-                android:id="@+id/layoutRewind5m"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -125,7 +125,7 @@
                     android:src="@drawable/ic_rewind"
                     android:contentDescription="Rewind 5 minutes"
                     android:nextFocusRight="@+id/btnRewind1m"
-                    android:nextFocusDown="@+id/btnLive"/>
+                    android:nextFocusDown="@+id/btnPlayPause"/>
                 <TextView
                     style="@style/CaptionText"
                     android:layout_width="wrap_content"
@@ -136,7 +136,6 @@
 
             <!-- Rewind 1m -->
             <LinearLayout
-                android:id="@+id/layoutRewind1m"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -149,7 +148,7 @@
                     android:contentDescription="Rewind 1 minute"
                     android:nextFocusLeft="@+id/btnRewind5m"
                     android:nextFocusRight="@+id/btnRewind15s"
-                    android:nextFocusDown="@+id/btnLive"/>
+                    android:nextFocusDown="@+id/btnPlayPause"/>
                 <TextView
                     style="@style/CaptionText"
                     android:layout_width="wrap_content"
@@ -160,7 +159,6 @@
 
             <!-- Rewind 15s -->
             <LinearLayout
-                android:id="@+id/layoutRewind15s"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -173,7 +171,7 @@
                     android:contentDescription="Rewind 15 seconds"
                     android:nextFocusLeft="@+id/btnRewind1m"
                     android:nextFocusRight="@+id/btnPlayPause"
-                    android:nextFocusDown="@+id/btnLive"/>
+                    android:nextFocusDown="@+id/btnPlayPause"/>
                 <TextView
                     style="@style/CaptionText"
                     android:layout_width="wrap_content"
@@ -182,7 +180,7 @@
                     android:layout_marginTop="2dp"/>
             </LinearLayout>
 
-            <!-- Play/Pause - center, biggest, DEFAULT FOCUS -->
+            <!-- Play/Pause - center, biggest -->
             <ImageButton
                 android:id="@+id/btnPlayPause"
                 android:layout_width="72dp"
@@ -198,7 +196,8 @@
                 android:layout_marginEnd="8dp"
                 android:nextFocusLeft="@+id/btnRewind15s"
                 android:nextFocusRight="@+id/btnForward15s"
-                android:nextFocusDown="@+id/btnPlayPause"/>
+                android:nextFocusUp="@+id/btnPlayPause"
+                android:nextFocusDown="@+id/btnLive"/>
 
             <!-- Forward 15s -->
             <LinearLayout
@@ -328,7 +327,8 @@
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
-                <!-- FIX 10: Live button with centered broadcast icon -->
+                <!-- Action buttons on the RIGHT -->
+                <!-- Live button -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnLive"
                     android:layout_width="wrap_content"
@@ -350,14 +350,14 @@
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp">
 
-                        <!-- Broadcast icon (shown when NOT live) - FIX 10: Centered -->
+                        <!-- Broadcast icon (shown when NOT live) -->
                         <ImageView
                             android:id="@+id/ivLiveBroadcastIcon"
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             android:src="@drawable/ic_broadcast"
                             android:visibility="gone"
-                            android:layout_gravity="center"
+                            android:layout_marginEnd="4dp"
                             android:contentDescription="Broadcast"/>
 
                         <!-- LIVE text (shown when live) -->
@@ -368,21 +368,20 @@
                             android:text="LIVE"
                             android:textColor="@android:color/white"
                             android:textStyle="bold"
-                            android:textSize="13sp"
-                            android:layout_gravity="center"/>
+                            android:textSize="13sp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Time rewind button -->
+                <!-- Exact time rewind button -->
                 <ImageButton
                     android:id="@+id/btnTimeRewind"
                     style="@style/SmallControlButton"
                     android:src="@drawable/ic_time"
                     android:layout_marginStart="10dp"
                     android:contentDescription="Jump to time"
+                    android:nextFocusUp="@+id/btnPlayPause"
                     android:nextFocusLeft="@+id/btnLive"
-                    android:nextFocusRight="@+id/btnFavorite"
-                    android:nextFocusUp="@+id/btnPlayPause"/>
+                    android:nextFocusRight="@+id/btnFavorite"/>
 
                 <!-- Favorites button -->
                 <ImageButton
@@ -391,9 +390,9 @@
                     android:src="@drawable/ic_star_outline"
                     android:layout_marginStart="10dp"
                     android:contentDescription="Toggle Favorite"
+                    android:nextFocusUp="@+id/btnPlayPause"
                     android:nextFocusLeft="@+id/btnTimeRewind"
-                    android:nextFocusRight="@+id/btnAudioLanguage"
-                    android:nextFocusUp="@+id/btnPlayPause"/>
+                    android:nextFocusRight="@+id/btnAudioLanguage"/>
 
                 <!-- Audio/language switcher (dummy) -->
                 <ImageButton
@@ -402,8 +401,8 @@
                     android:src="@drawable/ic_audio_language"
                     android:layout_marginStart="10dp"
                     android:contentDescription="Audio/Language"
-                    android:nextFocusLeft="@+id/btnFavorite"
-                    android:nextFocusUp="@+id/btnPlayPause"/>
+                    android:nextFocusUp="@+id/btnPlayPause"
+                    android:nextFocusLeft="@+id/btnFavorite"/>
 
             </LinearLayout>
 
