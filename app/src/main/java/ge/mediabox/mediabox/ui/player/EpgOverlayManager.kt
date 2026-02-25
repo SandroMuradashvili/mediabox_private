@@ -86,6 +86,23 @@ class EpgOverlayManager(
             adapter = channelAdapter
             isFocusable = false
             isFocusableInTouchMode = false
+
+            // Add smooth scroll animator
+            itemAnimator = object : androidx.recyclerview.widget.DefaultItemAnimator() {
+                override fun animateChange(
+                    oldHolder: RecyclerView.ViewHolder?,
+                    newHolder: RecyclerView.ViewHolder?,
+                    fromLeft: Int, fromTop: Int, toLeft: Int, toTop: Int
+                ): Boolean {
+                    // Shorter animation duration for smoother feel
+                    changeDuration = 100
+                    return super.animateChange(oldHolder, newHolder, fromLeft, fromTop, toLeft, toTop)
+                }
+            }
+
+            // Smooth scroll configuration
+            setHasFixedSize(true)
+            setItemViewCacheSize(20) // Cache more items for smooth scrolling
         }
 
         // Setup program list
@@ -98,6 +115,8 @@ class EpgOverlayManager(
             adapter = programAdapter
             isFocusable = false
             isFocusableInTouchMode = false
+            setHasFixedSize(true)
+            setItemViewCacheSize(20)
         }
 
         setupCategories()
@@ -343,20 +362,36 @@ class EpgOverlayManager(
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                if (selectedChannelIndex > 0) {
+                if (selectedChannelIndex > 0 && filteredChannels.isNotEmpty()) {
                     selectedChannelIndex--
+                    // Bounds check
+                    selectedChannelIndex = selectedChannelIndex.coerceIn(0, filteredChannels.size - 1)
+
                     channelAdapter.setHighlight(selectedChannelIndex)
-                    lm.scrollToPositionWithOffset(selectedChannelIndex, 0)
+
+                    // Smooth scroll instead of instant snap
+                    channelList.post {
+                        lm.scrollToPositionWithOffset(selectedChannelIndex, channelList.height / 3)
+                    }
+
                     hideProgramPanel()
                 }
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (selectedChannelIndex < filteredChannels.size - 1) {
+                if (selectedChannelIndex < filteredChannels.size - 1 && filteredChannels.isNotEmpty()) {
                     selectedChannelIndex++
+                    // Bounds check
+                    selectedChannelIndex = selectedChannelIndex.coerceIn(0, filteredChannels.size - 1)
+
                     channelAdapter.setHighlight(selectedChannelIndex)
-                    lm.scrollToPositionWithOffset(selectedChannelIndex, 0)
+
+                    // Smooth scroll instead of instant snap
+                    channelList.post {
+                        lm.scrollToPositionWithOffset(selectedChannelIndex, channelList.height / 3)
+                    }
+
                     hideProgramPanel()
                 }
                 true
@@ -371,14 +406,18 @@ class EpgOverlayManager(
             }
 
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                // Load programs and move to program section
-                loadProgramsForChannel(selectedChannelIndex)
-                currentFocusSection = FocusSection.PROGRAMS
-                programAdapter.setHighlight(selectedProgramIndex)
+                // Bounds check before loading
+                if (selectedChannelIndex >= 0 && selectedChannelIndex < filteredChannels.size) {
+                    loadProgramsForChannel(selectedChannelIndex)
+                    currentFocusSection = FocusSection.PROGRAMS
+                    programAdapter.setHighlight(selectedProgramIndex)
 
-                val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
-                val programLm = programList?.layoutManager as? LinearLayoutManager
-                programLm?.scrollToPositionWithOffset(selectedProgramIndex, 0)
+                    val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
+                    val programLm = programList?.layoutManager as? LinearLayoutManager
+                    programList?.post {
+                        programLm?.scrollToPositionWithOffset(selectedProgramIndex, 0)
+                    }
+                }
                 true
             }
 
@@ -488,22 +527,37 @@ class EpgOverlayManager(
                 // Show favorite star
                 favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
 
-                // Clean selection visual - just outline, no animation
+                // Smooth transition for selection
                 if (isHighlighted) {
                     selectionOutline.visibility = View.VISIBLE
-                    itemView.alpha = 1.0f
+                    itemView.animate()
+                        .alpha(1.0f)
+                        .setDuration(100)
+                        .start()
                 } else {
                     selectionOutline.visibility = View.GONE
-                    itemView.alpha = 0.7f
+                    itemView.animate()
+                        .alpha(0.7f)
+                        .setDuration(100)
+                        .start()
                 }
             }
         }
 
         fun setHighlight(pos: Int) {
+            // Bounds check to prevent crashes
+            if (pos < -1 || pos >= channels.size) return
+
             val old = highlightedPos
             highlightedPos = pos
-            if (old >= 0) notifyItemChanged(old)
-            if (pos >= 0) notifyItemChanged(pos)
+
+            // Only notify if positions are valid and within bounds
+            if (old >= 0 && old < channels.size && old < itemCount) {
+                notifyItemChanged(old)
+            }
+            if (pos >= 0 && pos < channels.size && pos < itemCount) {
+                notifyItemChanged(pos)
+            }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
@@ -511,14 +565,27 @@ class EpgOverlayManager(
         )
 
         override fun onBindViewHolder(holder: VH, position: Int) {
+            // Bounds check for safety
+            if (position < 0 || position >= channels.size) return
+
             holder.bind(channels[position], position == highlightedPos)
         }
 
         override fun getItemCount() = channels.size
 
         fun updateChannels(newChannels: List<Channel>) {
+            // Safety check
+            if (newChannels.isEmpty()) {
+                channels = emptyList()
+                highlightedPos = -1
+                notifyDataSetChanged()
+                return
+            }
+
             channels = newChannels
             highlightedPos = -1
+
+            // Use notifyDataSetChanged for safety during fast operations
             notifyDataSetChanged()
         }
     }
