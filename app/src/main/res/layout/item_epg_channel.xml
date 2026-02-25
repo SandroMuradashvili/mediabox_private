@@ -1,49 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:padding="12dp"
-    android:background="@drawable/epg_channel_item_background"
-    android:focusable="true"
-    android:focusableInTouchMode="true">
+    android:layout_margin="4dp">
 
-    <!-- Channel Logo -->
-    <ImageView
-        android:id="@+id/channelLogo"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:scaleType="fitCenter"
-        android:layout_marginEnd="12dp"
-        android:contentDescription="Channel Logo"/>
+    <!-- Selection Outline (visible when selected) -->
+    <View
+        android:id="@+id/selectionOutline"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/epg_channel_selection_outline"
+        android:visibility="gone"/>
 
-    <!-- Channel Info -->
+    <!-- Content -->
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp"
+        android:background="@drawable/epg_channel_item_background">
 
-        <TextView
-            android:id="@+id/tvChannelNumber"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="1"
-            android:textSize="12sp"
-            android:textColor="@color/text_tertiary"/>
+        <!-- Channel Logo -->
+        <ImageView
+            android:id="@+id/channelLogo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:scaleType="fitCenter"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="Channel Logo"/>
 
-        <TextView
-            android:id="@+id/tvChannelName"
-            android:layout_width="wrap_content"
+        <!-- Channel Info -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Channel Name"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary"
-            android:maxLines="1"
-            android:ellipsize="end"/>
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvChannelNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1"
+                android:textSize="12sp"
+                android:textColor="@color/text_tertiary"/>
+
+            <TextView
+                android:id="@+id/tvChannelName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Channel Name"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+
+        </LinearLayout>
+
+        <!-- Favorite Star Icon -->
+        <ImageView
+            android:id="@+id/ivFavorite"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_star"
+            android:visibility="gone"
+            android:layout_marginStart="8dp"
+            android:contentDescription="Favorite"/>
 
     </LinearLayout>
 
-</LinearLayout>
+</FrameLayout>

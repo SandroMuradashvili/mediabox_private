@@ -26,16 +26,16 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * COMPLETELY REWORKED EPG OVERLAY MANAGER
+ * REWRITTEN EPG OVERLAY MANAGER - CLEAN & MODERN
  *
- * Three-section navigation system:
- * 1. CATEGORIES (top horizontal bar) - LEFT/RIGHT to navigate, DOWN to go to channels
- * 2. CHANNELS (left vertical list) - UP/DOWN to navigate, RIGHT to go to programs, LEFT to go back to categories
- * 3. PROGRAMS (right vertical list) - UP/DOWN to scroll, LEFT to go back to channels
- *
- * Focus management is clean and predictable
- * Auto-scrolls to current program on channel selection
- * Proper edge case handling for all boundaries
+ * FEATURES:
+ * - Clean category selection (purple only when focused)
+ * - Clear channel selection with outline border
+ * - Smooth scrolling without animation glitches
+ * - Programs panel shows/hides with "Press → to load" message
+ * - LEFT button jumps from channels to categories (no need to scroll up)
+ * - Favorites category support
+ * - On-demand program loading
  */
 class EpgOverlayManager(
     private val activity: Activity,
@@ -52,18 +52,21 @@ class EpgOverlayManager(
     private lateinit var channelAdapter: ChannelAdapter
     private lateinit var programAdapter: ProgramAdapter
 
-    private val categoryButtons = mutableMapOf<String, TextView>()
+    private val categoryButtons = mutableListOf<TextView>()
     private val dateFormat = SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault())
 
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    // Focus sections: CATEGORIES, CHANNELS, PROGRAMS
+    // Focus: CATEGORIES or CHANNELS or PROGRAMS
     private enum class FocusSection { CATEGORIES, CHANNELS, PROGRAMS }
     private var currentFocusSection = FocusSection.CATEGORIES
 
-    // Track last focused items in each section for better UX
-    private var lastFocusedCategoryIndex = 0
-    private var lastFocusedProgramIndex = 0
+    private var selectedCategoryIndex = 0
+    private var selectedProgramIndex = 0
+
+    // Program panel visibility
+    private val programPanel: View? by lazy { binding.root.findViewById(R.id.programPanel) }
+    private val programPlaceholder: View? by lazy { binding.root.findViewById(R.id.programPlaceholder) }
 
     init { setupEpg() }
 
@@ -76,12 +79,11 @@ class EpgOverlayManager(
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList)
         channelAdapter = ChannelAdapter(filteredChannels) { position ->
             selectedChannelIndex = position
-            loadProgramsForChannel(position)
+            hideProgramPanel()
         }
         channelList?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = channelAdapter
-            // Disable default focus handling - we manage it manually
             isFocusable = false
             isFocusableInTouchMode = false
         }
@@ -94,15 +96,12 @@ class EpgOverlayManager(
         programList?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = programAdapter
-            // Disable default focus handling
             isFocusable = false
             isFocusableInTouchMode = false
         }
 
         setupCategories()
-        if (filteredChannels.isNotEmpty()) {
-            loadProgramsForChannel(0)
-        }
+        hideProgramPanel() // Start with placeholder visible
     }
 
     private fun setupCategories() {
@@ -111,6 +110,7 @@ class EpgOverlayManager(
         categoryButtons.clear()
 
         val categories = repository.getCategories()
+
         categories.forEachIndexed { index, category ->
             val btn = TextView(activity).apply {
                 text = category
@@ -123,50 +123,68 @@ class EpgOverlayManager(
                 setBackgroundResource(R.drawable.category_button_background)
                 isFocusable = false
                 isFocusableInTouchMode = false
-                setOnClickListener { selectCategory(category) }
+                setOnClickListener {
+                    selectedCategoryIndex = index
+                    selectCategory(category)
+                    highlightCategory()
+                }
             }
             container?.addView(btn)
-            categoryButtons[category] = btn
-
-            // Remember first category position
-            if (index == 0) lastFocusedCategoryIndex = 0
+            categoryButtons.add(btn)
         }
 
-        selectCategory("All")
-        highlightCategory(0)
+        selectedCategoryIndex = 0
+        selectCategory(categories.getOrNull(0) ?: "All")
+        highlightCategory()
     }
 
     private fun selectCategory(category: String) {
         currentCategory = category
         filteredChannels = repository.getChannelsByCategory(category)
         channelAdapter.updateChannels(filteredChannels)
+        selectedChannelIndex = 0
+        hideProgramPanel()
+    }
 
-        if (filteredChannels.isNotEmpty()) {
-            selectedChannelIndex = 0
-            loadProgramsForChannel(0)
-        } else {
-            // No channels in this category
-            programAdapter.updatePrograms(emptyList())
-            binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = "No channels in this category"
+    private fun highlightCategory() {
+        categoryButtons.forEachIndexed { index, btn ->
+            // Only highlight when categories have focus AND this is selected
+            if (currentFocusSection == FocusSection.CATEGORIES && index == selectedCategoryIndex) {
+                btn.isSelected = true
+                btn.alpha = 1.0f
+            } else if (index == selectedCategoryIndex) {
+                // Selected but not focused - show it's selected but dimmed
+                btn.isSelected = false
+                btn.alpha = 0.8f
+            } else {
+                // Not selected
+                btn.isSelected = false
+                btn.alpha = 0.6f
+            }
         }
     }
 
-    private fun highlightCategory(index: Int) {
-        categoryButtons.values.forEachIndexed { i, btn ->
-            btn.isSelected = (i == index)
-        }
-        lastFocusedCategoryIndex = index
+    // =========================================================================
+    // Program Panel Show/Hide
+    // =========================================================================
+
+    private fun hideProgramPanel() {
+        programPanel?.visibility = View.GONE
+        programPlaceholder?.visibility = View.VISIBLE
     }
 
-    // =========================================================================
-    // Programs - Auto-scroll to current program
-    // =========================================================================
+    private fun showProgramPanel() {
+        programPlaceholder?.visibility = View.GONE
+        programPanel?.visibility = View.VISIBLE
+    }
 
     private fun loadProgramsForChannel(channelIndex: Int) {
         if (channelIndex < 0 || channelIndex >= filteredChannels.size) return
         val channel = filteredChannels[channelIndex]
+
+        showProgramPanel()
         binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text =
-            "${channel.name} – TV Programs"
+            "${channel.name} – Loading programs..."
 
         scope.launch {
             val allPrograms = withContext(Dispatchers.IO) {
@@ -176,6 +194,9 @@ class EpgOverlayManager(
                     emptyList()
                 }
             }
+
+            binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text =
+                "${channel.name} – TV Programs"
 
             val itemsWithDividers = createProgramListWithDividers(allPrograms)
             programAdapter.updatePrograms(itemsWithDividers)
@@ -209,12 +230,10 @@ class EpgOverlayManager(
         val currentProgramIndex = programs.indexOfFirst { it.isCurrentlyPlaying(currentTime) }
 
         if (currentProgramIndex < 0) {
-            // No current program, scroll to top
-            lastFocusedProgramIndex = 0
+            selectedProgramIndex = 0
             return
         }
 
-        // Count dividers before current program
         var dividers = 0
         for (i in 0 until currentProgramIndex) {
             val d = dateFormat.format(Date(programs[i].startTime))
@@ -223,9 +242,8 @@ class EpgOverlayManager(
         }
 
         val targetPosition = currentProgramIndex + dividers
-        lastFocusedProgramIndex = targetPosition
+        selectedProgramIndex = targetPosition
 
-        // Scroll to position
         programList.post {
             lm.scrollToPositionWithOffset(targetPosition, 0)
         }
@@ -238,15 +256,12 @@ class EpgOverlayManager(
 
         when {
             program.isCurrentlyPlaying(currentTime) -> {
-                // Playing now - switch to this channel
                 if (globalIndex >= 0) onChannelSelected(globalIndex)
             }
             program.endTime < currentTime -> {
-                // Past program - play from archive
                 onArchiveSelected("ARCHIVE_ID:${channel.id}:TIME:${program.startTime}")
             }
             else -> {
-                // Future program
                 Toast.makeText(activity, "This program hasn't started yet", Toast.LENGTH_SHORT).show()
             }
         }
@@ -261,22 +276,18 @@ class EpgOverlayManager(
         setupCategories()
         filteredChannels = repository.getChannelsByCategory(currentCategory)
         channelAdapter.updateChannels(filteredChannels)
-
-        if (selectedChannelIndex < filteredChannels.size) {
-            loadProgramsForChannel(selectedChannelIndex)
-        } else if (filteredChannels.isNotEmpty()) {
-            selectedChannelIndex = 0
-            loadProgramsForChannel(0)
-        }
+        selectedChannelIndex = 0
+        hideProgramPanel()
     }
 
     fun requestFocus() {
         currentFocusSection = FocusSection.CATEGORIES
-        highlightCategory(lastFocusedCategoryIndex)
+        highlightCategory()
+        channelAdapter.setHighlight(-1)
     }
 
     // =========================================================================
-    // Key Handling - Clean 3-Section Navigation
+    // Key Handling
     // =========================================================================
 
     fun handleKeyEvent(keyCode: Int): Boolean {
@@ -287,28 +298,22 @@ class EpgOverlayManager(
         }
     }
 
-    // -------------------------------------------------------------------------
-    // SECTION 1: Categories (Top Bar)
-    // -------------------------------------------------------------------------
     private fun handleCategoryKeys(keyCode: Int): Boolean {
-        val categories = categoryButtons.keys.toList()
-        if (categories.isEmpty()) return false
-
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                val newIndex = (lastFocusedCategoryIndex - 1).coerceAtLeast(0)
-                if (newIndex != lastFocusedCategoryIndex) {
-                    highlightCategory(newIndex)
-                    selectCategory(categories[newIndex])
+                if (selectedCategoryIndex > 0) {
+                    selectedCategoryIndex--
+                    selectCategory(categoryButtons[selectedCategoryIndex].text.toString())
+                    highlightCategory()
                 }
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                val newIndex = (lastFocusedCategoryIndex + 1).coerceAtMost(categories.size - 1)
-                if (newIndex != lastFocusedCategoryIndex) {
-                    highlightCategory(newIndex)
-                    selectCategory(categories[newIndex])
+                if (selectedCategoryIndex < categoryButtons.size - 1) {
+                    selectedCategoryIndex++
+                    selectCategory(categoryButtons[selectedCategoryIndex].text.toString())
+                    highlightCategory()
                 }
                 true
             }
@@ -316,13 +321,15 @@ class EpgOverlayManager(
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (filteredChannels.isNotEmpty()) {
                     currentFocusSection = FocusSection.CHANNELS
+                    selectedChannelIndex = 0
                     channelAdapter.setHighlight(selectedChannelIndex)
+                    highlightCategory() // Update category visual
                 }
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                // Already selected via highlight
+                // Already selected
                 true
             }
 
@@ -330,9 +337,6 @@ class EpgOverlayManager(
         }
     }
 
-    // -------------------------------------------------------------------------
-    // SECTION 2: Channels (Left Panel)
-    // -------------------------------------------------------------------------
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
         val lm = channelList.layoutManager as? LinearLayoutManager ?: return false
@@ -343,12 +347,7 @@ class EpgOverlayManager(
                     selectedChannelIndex--
                     channelAdapter.setHighlight(selectedChannelIndex)
                     lm.scrollToPositionWithOffset(selectedChannelIndex, 0)
-                    loadProgramsForChannel(selectedChannelIndex)
-                } else {
-                    // At top - go back to categories
-                    currentFocusSection = FocusSection.CATEGORIES
-                    channelAdapter.setHighlight(-1)
-                    highlightCategory(lastFocusedCategoryIndex)
+                    hideProgramPanel()
                 }
                 true
             }
@@ -358,27 +357,32 @@ class EpgOverlayManager(
                     selectedChannelIndex++
                     channelAdapter.setHighlight(selectedChannelIndex)
                     lm.scrollToPositionWithOffset(selectedChannelIndex, 0)
-                    loadProgramsForChannel(selectedChannelIndex)
+                    hideProgramPanel()
                 }
-                // Stay at bottom if already there
+                true
+            }
+
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                // Jump directly to categories
+                currentFocusSection = FocusSection.CATEGORIES
+                channelAdapter.setHighlight(-1)
+                highlightCategory()
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                // Move to programs
+                // Load programs and move to program section
+                loadProgramsForChannel(selectedChannelIndex)
                 currentFocusSection = FocusSection.PROGRAMS
-                channelAdapter.setHighlight(selectedChannelIndex)  // Keep channel highlighted
-                programAdapter.setHighlight(lastFocusedProgramIndex)
+                programAdapter.setHighlight(selectedProgramIndex)
 
-                // Ensure program is visible
                 val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
                 val programLm = programList?.layoutManager as? LinearLayoutManager
-                programLm?.scrollToPositionWithOffset(lastFocusedProgramIndex, 0)
+                programLm?.scrollToPositionWithOffset(selectedProgramIndex, 0)
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                // Play this channel live
                 val channel = filteredChannels.getOrNull(selectedChannelIndex) ?: return false
                 val globalIndex = channels.indexOfFirst { it.id == channel.id }
                 if (globalIndex >= 0) onChannelSelected(globalIndex)
@@ -389,9 +393,6 @@ class EpgOverlayManager(
         }
     }
 
-    // -------------------------------------------------------------------------
-    // SECTION 3: Programs (Right Panel)
-    // -------------------------------------------------------------------------
     private fun handleProgramKeys(keyCode: Int): Boolean {
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return false
         val lm = programList.layoutManager as? LinearLayoutManager ?: return false
@@ -399,27 +400,24 @@ class EpgOverlayManager(
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                if (lastFocusedProgramIndex > 0) {
-                    lastFocusedProgramIndex--
-                    programAdapter.setHighlight(lastFocusedProgramIndex)
-                    lm.scrollToPositionWithOffset(lastFocusedProgramIndex, 0)
+                if (selectedProgramIndex > 0) {
+                    selectedProgramIndex--
+                    programAdapter.setHighlight(selectedProgramIndex)
+                    lm.scrollToPositionWithOffset(selectedProgramIndex, 0)
                 }
-                // Stay at top if already there
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (lastFocusedProgramIndex < itemCount - 1) {
-                    lastFocusedProgramIndex++
-                    programAdapter.setHighlight(lastFocusedProgramIndex)
-                    lm.scrollToPositionWithOffset(lastFocusedProgramIndex, 0)
+                if (selectedProgramIndex < itemCount - 1) {
+                    selectedProgramIndex++
+                    programAdapter.setHighlight(selectedProgramIndex)
+                    lm.scrollToPositionWithOffset(selectedProgramIndex, 0)
                 }
-                // Stay at bottom if already there
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                // Go back to channels
                 currentFocusSection = FocusSection.CHANNELS
                 programAdapter.setHighlight(-1)
                 channelAdapter.setHighlight(selectedChannelIndex)
@@ -427,8 +425,7 @@ class EpgOverlayManager(
             }
 
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                // Play this program
-                val item = programAdapter.getItem(lastFocusedProgramIndex)
+                val item = programAdapter.getItem(selectedProgramIndex)
                 if (item is ProgramItem.ProgramData) {
                     handleProgramClick(item.program)
                 }
@@ -449,7 +446,7 @@ class EpgOverlayManager(
     }
 
     // =========================================================================
-    // Channel Adapter
+    // Channel Adapter - CLEAN SELECTION WITH OUTLINE
     // =========================================================================
 
     inner class ChannelAdapter(
@@ -463,6 +460,8 @@ class EpgOverlayManager(
             val logo: ImageView = itemView.findViewById(R.id.channelLogo)
             val number: TextView = itemView.findViewById(R.id.tvChannelNumber)
             val name: TextView = itemView.findViewById(R.id.tvChannelName)
+            val favoriteIcon: ImageView = itemView.findViewById(R.id.ivFavorite)
+            val selectionOutline: View = itemView.findViewById(R.id.selectionOutline)
 
             init {
                 itemView.setOnClickListener {
@@ -486,10 +485,17 @@ class EpgOverlayManager(
                         .into(logo)
                 }
 
-                // Visual feedback for highlighted item
-                itemView.alpha = if (isHighlighted) 1.0f else 0.7f
-                itemView.scaleX = if (isHighlighted) 1.05f else 1.0f
-                itemView.scaleY = if (isHighlighted) 1.05f else 1.0f
+                // Show favorite star
+                favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
+
+                // Clean selection visual - just outline, no animation
+                if (isHighlighted) {
+                    selectionOutline.visibility = View.VISIBLE
+                    itemView.alpha = 1.0f
+                } else {
+                    selectionOutline.visibility = View.GONE
+                    itemView.alpha = 0.7f
+                }
             }
         }
 
@@ -512,7 +518,7 @@ class EpgOverlayManager(
 
         fun updateChannels(newChannels: List<Channel>) {
             channels = newChannels
-            highlightedPos = if (newChannels.isNotEmpty()) 0 else -1
+            highlightedPos = -1
             notifyDataSetChanged()
         }
     }
@@ -558,11 +564,8 @@ class EpgOverlayManager(
 
                 val isPlaying = program.isCurrentlyPlaying()
 
-                // Visual feedback
                 container.isSelected = isPlaying
                 itemView.alpha = if (isHighlighted) 1.0f else if (isPlaying) 0.9f else 0.7f
-                itemView.scaleX = if (isHighlighted) 1.03f else 1.0f
-                itemView.scaleY = if (isHighlighted) 1.03f else 1.0f
             }
         }
 
@@ -608,7 +611,7 @@ class EpgOverlayManager(
 
         fun updatePrograms(newItems: List<ProgramItem>) {
             items = newItems
-            highlightedPos = -1  // Reset highlight on new data
+            highlightedPos = -1
             notifyDataSetChanged()
         }
     }
