@@ -69,6 +69,9 @@ class PlayerActivity : AppCompatActivity() {
         get() = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
             .getString("auth_token", null)
 
+    // Track if we're currently syncing favorites to avoid duplicate requests
+    private var isSyncingFavorites = false
+
     // =========================================================================
     // Lifecycle
     // =========================================================================
@@ -80,18 +83,23 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
-            repository.initialize()
-            channels = repository.getAllChannels()
 
+            // Step 1: Initialize repository (loads channels from API)
+            repository.initialize()
+
+            // Step 2: If user is logged in, sync favorites in background
             authToken?.let { token ->
                 launch {
                     try {
-                        repository.fetchAndSyncFavourites(token)
-                        repository.fetchAndSyncRecentlyWatched(token)
-                    } catch (e: Exception) { e.printStackTrace() }
+                        syncFavoritesAndRecentlyWatched(token)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
 
+            // Step 3: Get channels and setup UI (don't wait for favorites)
+            channels = repository.getAllChannels()
             initializePlayer()
             setupOverlays()
             setupControlButtons()
@@ -101,6 +109,7 @@ class PlayerActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this@PlayerActivity, "No channels found", Toast.LENGTH_LONG).show()
             }
+
             binding.loadingIndicator.visibility = View.GONE
         }
 
@@ -124,6 +133,45 @@ class PlayerActivity : AppCompatActivity() {
         player?.release()
         player = null
         hideControlsHandler.removeCallbacksAndMessages(null)
+    }
+
+    // =========================================================================
+    // Favorites & Recently Watched Sync
+    // =========================================================================
+
+    /**
+     * Syncs favorites and recently watched from server.
+     * Updates UI after sync completes.
+     */
+    private suspend fun syncFavoritesAndRecentlyWatched(token: String) {
+        if (isSyncingFavorites) return
+
+        isSyncingFavorites = true
+        try {
+            // Fetch favorites from server
+            repository.fetchAndSyncFavourites(token)
+
+            // Fetch recently watched from server
+            repository.fetchAndSyncRecentlyWatched(token)
+
+            // Update channels list with new favorite states
+            channels = repository.getAllChannels()
+
+            // Update UI on main thread
+            runOnUiThread {
+                // Update control overlay if current channel is showing
+                if (isControlsVisible || binding.root.findViewById<View>(R.id.controlOverlay)?.visibility == View.VISIBLE) {
+                    updateOverlayInfo()
+                }
+
+                // Update EPG if it's visible
+                if (isEpgVisible) {
+                    epgOverlayManager.refreshData(channels)
+                }
+            }
+        } finally {
+            isSyncingFavorites = false
+        }
     }
 
     // =========================================================================
@@ -288,6 +336,17 @@ class PlayerActivity : AppCompatActivity() {
                 val streamUrl = repository.getStreamUrl(channels[index].id)
                 if (streamUrl != null) {
                     playUrl(streamUrl)
+
+                    // Record watch history if user is logged in
+                    authToken?.let { token ->
+                        launch {
+                            try {
+                                repository.postWatchHistory(token, channels[index].apiId)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
                 } else {
                     Toast.makeText(this@PlayerActivity, "Stream unavailable", Toast.LENGTH_SHORT).show()
                     binding.loadingIndicator.visibility = View.GONE
@@ -562,14 +621,17 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showEpg() {
+        // Sync favorites and recently watched before showing EPG
         authToken?.let { token ->
             lifecycleScope.launch {
                 try {
-                    repository.fetchAndSyncFavourites(token)
-                    repository.fetchAndSyncRecentlyWatched(token)
-                } catch (e: Exception) { e.printStackTrace() }
+                    syncFavoritesAndRecentlyWatched(token)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
+
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
         epgOverlayManager.refreshData(channels)
@@ -607,19 +669,38 @@ class PlayerActivity : AppCompatActivity() {
         val channel = channels[currentChannelIndex]
         val willBeFavorite = !channel.isFavorite
 
+        // Update local state immediately for instant UI feedback
         repository.setFavorite(channel.id, willBeFavorite)
+        channels = repository.getAllChannels()
         controlOverlayManager.updateFavoriteButton(willBeFavorite)
 
+        // Send to server in background
         lifecycleScope.launch {
-            val success = if (willBeFavorite) {
-                repository.addFavouriteRemote(token, channel.apiId)
-            } else {
-                repository.removeFavouriteRemote(token, channel.apiId)
-            }
-            if (!success) {
+            try {
+                val success = if (willBeFavorite) {
+                    repository.addFavouriteRemote(token, channel.apiId)
+                } else {
+                    repository.removeFavouriteRemote(token, channel.apiId)
+                }
+
+                if (!success) {
+                    // Revert on failure
+                    repository.setFavorite(channel.id, !willBeFavorite)
+                    channels = repository.getAllChannels()
+                    runOnUiThread {
+                        controlOverlayManager.updateFavoriteButton(!willBeFavorite)
+                        Toast.makeText(this@PlayerActivity, "Failed to update favorites", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Revert on error
                 repository.setFavorite(channel.id, !willBeFavorite)
-                controlOverlayManager.updateFavoriteButton(!willBeFavorite)
-                Toast.makeText(this@PlayerActivity, "Failed to update favorites", Toast.LENGTH_SHORT).show()
+                channels = repository.getAllChannels()
+                runOnUiThread {
+                    controlOverlayManager.updateFavoriteButton(!willBeFavorite)
+                    Toast.makeText(this@PlayerActivity, "Network error", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

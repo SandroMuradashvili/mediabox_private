@@ -31,7 +31,8 @@ class ControlOverlayManager(
     }
 
     /**
-     * FIX 6: Update rewind button visibility - dim when unavailable, don't hide
+     * Updates all channel info including favorite button state.
+     * This is the main entry point for updating the control overlay.
      */
     fun updateChannelInfo(
         channel: Channel,
@@ -75,7 +76,7 @@ class ControlOverlayManager(
         // Live indicator
         updateLiveIndicator(isLive = isLive, isPlaying = isPlaying)
 
-        // FIX 6: Forward buttons - DIM when live, don't hide
+        // Forward buttons - DIM when live, don't hide
         val forwardAlpha = if (isLive) 0.3f else 1.0f
         val forwardEnabled = !isLive
 
@@ -95,11 +96,12 @@ class ControlOverlayManager(
             findViewById<ImageButton>(R.id.btnForward5m)?.isEnabled = forwardEnabled
         }
 
+        // Update favorite button state
         updateFavoriteButton(channel.isFavorite)
     }
 
     /**
-     * Updates the live indicator button appearance:
+     * Updates the LIVE indicator button appearance:
      * - Live + playing  → red, full opacity, "LIVE" text
      * - Live + paused   → red, dimmed, broadcast icon (stream paused)
      * - Archive         → dimmed, broadcast icon (watching past content)
@@ -131,6 +133,10 @@ class ControlOverlayManager(
         }
     }
 
+    /**
+     * Updates the favorite button icon based on favorite state.
+     * IMPORTANT: This directly reflects the channel's isFavorite state.
+     */
     fun updateFavoriteButton(isFavorite: Boolean) {
         binding.root.findViewById<ImageButton>(R.id.btnFavorite)?.setImageResource(
             if (isFavorite) R.drawable.ic_star else R.drawable.ic_star_outline
