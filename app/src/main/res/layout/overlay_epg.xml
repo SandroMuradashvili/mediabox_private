@@ -1,190 +1,272 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#E6000000">
+    android:background="@drawable/epg_scrim_background">
 
-    <!-- Category Bar at Top -->
-    <LinearLayout
-        android:id="@+id/categoryBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#DD1E293B"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Categories:"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            android:paddingStart="20dp"
-            android:paddingBottom="8dp"/>
-
-        <HorizontalScrollView
-            android:id="@+id/categoryScrollView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:scrollbars="none"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp">
-
-            <LinearLayout
-                android:id="@+id/categoryButtons"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <!-- Category buttons added programmatically -->
-            </LinearLayout>
-
-        </HorizontalScrollView>
-
-    </LinearLayout>
-
-    <!-- Main Content: Channels + Programs/Placeholder -->
-    <LinearLayout
-        android:layout_width="match_parent"
+    <!-- ================================================================
+         GLASS CARD - full EPG container, floats over the video
+         ================================================================ -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/epgGlassCard"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:orientation="horizontal"
-        android:background="@color/transparent"
-        app:layout_constraintTop_toBottomOf="@id/categoryBar"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:layout_margin="28dp"
+        app:cardBackgroundColor="#00000000"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Left: Channel List -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="0dp"
-            android:layout_weight="0.28"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_margin="16dp"
-            app:cardBackgroundColor="#CC1E293B"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp">
+            android:orientation="vertical"
+            android:background="@drawable/epg_glass_panel">
 
+            <!-- ============================================================
+                 HEADER ROW  –  title  +  category chips
+                 ============================================================ -->
             <LinearLayout
+                android:id="@+id/epgHeader"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical">
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/epg_header_bar"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="18dp"
+                android:paddingBottom="0dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Channels"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:padding="16dp"/>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#33FFFFFF"/>
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/channelList"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:clipToPadding="false"
-                    android:padding="8dp"
-                    android:scrollbars="vertical"/>
-
-            </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
-
-        <!-- Right: Programs Panel OR Placeholder -->
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_weight="0.72"
-            android:layout_height="match_parent"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="16dp">
-
-            <!-- Placeholder: "Press → to load TV programs" -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/programPlaceholder"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                app:cardBackgroundColor="#AA1E293B"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                android:visibility="visible">
-
+                <!-- Title row -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="32dp">
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="14dp">
 
-                    <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
-                        android:src="@drawable/ic_fast_forward"
-                        android:alpha="0.4"
-                        android:layout_marginBottom="16dp"/>
+                    <!-- TV Guide icon dot -->
+                    <View
+                        android:layout_width="6dp"
+                        android:layout_height="6dp"
+                        android:background="@drawable/epg_accent_dot"
+                        android:layout_marginEnd="10dp"/>
 
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="TV Guide"
+                        android:textColor="#F1F5F9"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.08"/>
+
+                    <!-- Subtle hint text -->
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Press → to view TV programs"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="20sp"
-                        android:alpha="0.6"
-                        android:gravity="center"/>
-
+                        android:text="← Back    →  Programs    OK  Watch"
+                        android:textColor="#4D94A3B8"
+                        android:textSize="11sp"/>
                 </LinearLayout>
 
-            </androidx.cardview.widget.CardView>
-
-            <!-- Actual Program Panel (hidden by default) -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/programPanel"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                app:cardBackgroundColor="#CC1E293B"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                android:visibility="gone">
-
-                <LinearLayout
+                <!-- Category chips strip -->
+                <HorizontalScrollView
+                    android:id="@+id/categoryScrollView"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical">
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none"
+                    android:fadingEdgeLength="32dp"
+                    android:requiresFadingEdge="horizontal">
 
-                    <TextView
-                        android:id="@+id/tvSelectedChannelName"
+                    <LinearLayout
+                        android:id="@+id/categoryButtons"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="TV Programs"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:padding="16dp"/>
+                        android:orientation="horizontal"
+                        android:paddingBottom="16dp"/>
 
-                    <View
+                </HorizontalScrollView>
+
+            </LinearLayout>
+
+            <!-- Thin glass divider line -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@drawable/epg_divider_line"/>
+
+            <!-- ============================================================
+                 CONTENT ROW  –  channel list  +  programs
+                 ============================================================ -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <!-- - - - - - - - - - - - - - - -
+                     LEFT: Channel list
+                     - - - - - - - - - - - - - - - -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="0.27"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:background="@drawable/epg_left_panel">
+
+                    <!-- Panel label -->
+                    <TextView
                         android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#33FFFFFF"/>
+                        android:layout_height="wrap_content"
+                        android:text="CHANNELS"
+                        android:textColor="#3D94A3B8"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.18"
+                        android:paddingStart="16dp"
+                        android:paddingTop="14dp"
+                        android:paddingBottom="10dp"/>
 
                     <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/programList"
+                        android:id="@+id/channelList"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:clipToPadding="false"
-                        android:padding="8dp"
-                        android:scrollbars="vertical"/>
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="12dp"
+                        android:scrollbars="none"/>
 
                 </LinearLayout>
 
-            </androidx.cardview.widget.CardView>
+                <!-- Glass vertical divider -->
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/epg_divider_line"/>
 
-        </FrameLayout>
+                <!-- - - - - - - - - - - - - - - -
+                     RIGHT: Programs panel / placeholder
+                     - - - - - - - - - - - - - - - -->
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="0.73"
+                    android:layout_height="match_parent">
 
-    </LinearLayout>
+                    <!-- Placeholder state -->
+                    <LinearLayout
+                        android:id="@+id/programPlaceholder"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="48dp"
+                        android:visibility="visible">
+
+                        <!-- Arrow icon made of views -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="›"
+                            android:textColor="#1A6366F1"
+                            android:textSize="96sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="16dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Select a channel"
+                            android:textColor="#60F1F5F9"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:gravity="center"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Press → to browse programs"
+                            android:textColor="#2894A3B8"
+                            android:textSize="14sp"
+                            android:gravity="center"
+                            android:layout_marginTop="8dp"/>
+
+                    </LinearLayout>
+
+                    <!-- Programs panel -->
+                    <LinearLayout
+                        android:id="@+id/programPanel"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <!-- Programs header -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingStart="20dp"
+                            android:paddingEnd="20dp"
+                            android:paddingTop="14dp"
+                            android:paddingBottom="10dp">
+
+                            <TextView
+                                android:id="@+id/tvSelectedChannelName"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="TV Programs"
+                                android:textColor="#F1F5F9"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:maxLines="1"
+                                android:ellipsize="end"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="PROGRAMS"
+                                android:textColor="#3D94A3B8"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:letterSpacing="0.18"/>
+
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@drawable/epg_divider_line"
+                            android:layout_marginStart="20dp"
+                            android:layout_marginEnd="20dp"/>
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/programList"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToPadding="false"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingTop="8dp"
+                            android:paddingBottom="16dp"
+                            android:scrollbars="none"/>
+
+                    </LinearLayout>
+
+                </FrameLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

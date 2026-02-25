@@ -25,18 +25,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * REWRITTEN EPG OVERLAY MANAGER - CLEAN & MODERN
- *
- * FEATURES:
- * - Clean category selection (purple only when focused)
- * - Clear channel selection with outline border
- * - Smooth scrolling without animation glitches
- * - Programs panel shows/hides with "Press → to load" message
- * - LEFT button jumps from channels to categories (no need to scroll up)
- * - Favorites category support
- * - On-demand program loading
- */
 class EpgOverlayManager(
     private val activity: Activity,
     private val binding: ActivityPlayerBinding,
@@ -57,14 +45,12 @@ class EpgOverlayManager(
 
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    // Focus: CATEGORIES or CHANNELS or PROGRAMS
     private enum class FocusSection { CATEGORIES, CHANNELS, PROGRAMS }
     private var currentFocusSection = FocusSection.CATEGORIES
 
     private var selectedCategoryIndex = 0
     private var selectedProgramIndex = 0
 
-    // Program panel visibility
     private val programPanel: View? by lazy { binding.root.findViewById(R.id.programPanel) }
     private val programPlaceholder: View? by lazy { binding.root.findViewById(R.id.programPlaceholder) }
 
@@ -75,7 +61,6 @@ class EpgOverlayManager(
     // =========================================================================
 
     private fun setupEpg() {
-        // Setup channel list
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList)
         channelAdapter = ChannelAdapter(filteredChannels) { position ->
             selectedChannelIndex = position
@@ -86,34 +71,25 @@ class EpgOverlayManager(
             adapter = channelAdapter
             isFocusable = false
             isFocusableInTouchMode = false
-
-            // Optimized smooth scroll animator
             itemAnimator = object : androidx.recyclerview.widget.DefaultItemAnimator() {
                 override fun animateChange(
                     oldHolder: RecyclerView.ViewHolder?,
                     newHolder: RecyclerView.ViewHolder?,
                     fromLeft: Int, fromTop: Int, toLeft: Int, toTop: Int
                 ): Boolean {
-                    // Very fast animation for buttery smooth feel
                     changeDuration = 80
                     return super.animateChange(oldHolder, newHolder, fromLeft, fromTop, toLeft, toTop)
                 }
             }.apply {
-                // Faster overall animations
                 addDuration = 80
                 moveDuration = 80
                 removeDuration = 80
             }
-
-            // Smooth scroll configuration
             setHasFixedSize(true)
-            setItemViewCacheSize(20) // Cache more items for smooth scrolling
-
-            // Enable hardware acceleration for smoother animations
+            setItemViewCacheSize(20)
             setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
         }
 
-        // Setup program list
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
         programAdapter = ProgramAdapter(emptyList()) { program ->
             handleProgramClick(program)
@@ -128,7 +104,7 @@ class EpgOverlayManager(
         }
 
         setupCategories()
-        hideProgramPanel() // Start with placeholder visible
+        hideProgramPanel()
     }
 
     private fun setupCategories() {
@@ -145,8 +121,8 @@ class EpgOverlayManager(
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(8, 8, 8, 8) }
-                setPadding(40, 20, 40, 20)
+                ).apply { setMargins(6, 0, 6, 0) }
+                setPadding(32, 14, 32, 14)
                 setBackgroundResource(R.drawable.category_button_background)
                 isFocusable = false
                 isFocusableInTouchMode = false
@@ -175,18 +151,15 @@ class EpgOverlayManager(
 
     private fun highlightCategory() {
         categoryButtons.forEachIndexed { index, btn ->
-            // Only highlight when categories have focus AND this is selected
             if (currentFocusSection == FocusSection.CATEGORIES && index == selectedCategoryIndex) {
                 btn.isSelected = true
                 btn.alpha = 1.0f
             } else if (index == selectedCategoryIndex) {
-                // Selected but not focused - show it's selected but dimmed
                 btn.isSelected = false
                 btn.alpha = 0.8f
             } else {
-                // Not selected
                 btn.isSelected = false
-                btn.alpha = 0.6f
+                btn.alpha = 0.5f
             }
         }
     }
@@ -211,7 +184,7 @@ class EpgOverlayManager(
 
         showProgramPanel()
         binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text =
-            "${channel.name} – Loading programs..."
+            "${channel.name} – Loading…"
 
         scope.launch {
             val allPrograms = withContext(Dispatchers.IO) {
@@ -222,13 +195,10 @@ class EpgOverlayManager(
                 }
             }
 
-            binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text =
-                "${channel.name} – TV Programs"
+            binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
 
             val itemsWithDividers = createProgramListWithDividers(allPrograms)
             programAdapter.updatePrograms(itemsWithDividers)
-
-            // Auto-scroll to current program
             scrollToCurrentProgram(allPrograms, itemsWithDividers)
         }
     }
@@ -236,7 +206,6 @@ class EpgOverlayManager(
     private fun createProgramListWithDividers(programs: List<Program>): List<ProgramItem> {
         val items = mutableListOf<ProgramItem>()
         var lastDate: String? = null
-
         programs.forEach { program ->
             val date = dateFormat.format(Date(program.startTime))
             if (date != lastDate) {
@@ -245,7 +214,6 @@ class EpgOverlayManager(
             }
             items.add(ProgramItem.ProgramData(program))
         }
-
         return items
     }
 
@@ -320,8 +288,8 @@ class EpgOverlayManager(
     fun handleKeyEvent(keyCode: Int): Boolean {
         return when (currentFocusSection) {
             FocusSection.CATEGORIES -> handleCategoryKeys(keyCode)
-            FocusSection.CHANNELS -> handleChannelKeys(keyCode)
-            FocusSection.PROGRAMS -> handleProgramKeys(keyCode)
+            FocusSection.CHANNELS   -> handleChannelKeys(keyCode)
+            FocusSection.PROGRAMS   -> handleProgramKeys(keyCode)
         }
     }
 
@@ -335,7 +303,6 @@ class EpgOverlayManager(
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (selectedCategoryIndex < categoryButtons.size - 1) {
                     selectedCategoryIndex++
@@ -344,29 +311,22 @@ class EpgOverlayManager(
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (filteredChannels.isNotEmpty()) {
                     currentFocusSection = FocusSection.CHANNELS
                     selectedChannelIndex = 0
                     channelAdapter.setHighlight(selectedChannelIndex)
-                    highlightCategory() // Update category visual
+                    highlightCategory()
                 }
                 true
             }
-
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                // Already selected
-                true
-            }
-
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> true
             else -> false
         }
     }
 
-    // Scroll throttling to prevent too-fast updates
     private var lastScrollTime = 0L
-    private val scrollThrottleMs = 80L // Milliseconds between scroll actions
+    private val scrollThrottleMs = 80L
 
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
@@ -374,82 +334,52 @@ class EpgOverlayManager(
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastScrollTime < scrollThrottleMs) {
-                    // Too fast - ignore this input but mark as handled
-                    return true
-                }
-                lastScrollTime = currentTime
-
+                val now = System.currentTimeMillis()
+                if (now - lastScrollTime < scrollThrottleMs) return true
+                lastScrollTime = now
                 if (selectedChannelIndex > 0 && filteredChannels.isNotEmpty()) {
-                    selectedChannelIndex--
-                    // Bounds check
-                    selectedChannelIndex = selectedChannelIndex.coerceIn(0, filteredChannels.size - 1)
-
+                    selectedChannelIndex = (selectedChannelIndex - 1).coerceIn(0, filteredChannels.size - 1)
                     channelAdapter.setHighlight(selectedChannelIndex)
-
-                    // Smoother scroll with animation
                     channelList.smoothScrollToPosition(selectedChannelIndex)
-
                     hideProgramPanel()
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastScrollTime < scrollThrottleMs) {
-                    // Too fast - ignore this input but mark as handled
-                    return true
-                }
-                lastScrollTime = currentTime
-
+                val now = System.currentTimeMillis()
+                if (now - lastScrollTime < scrollThrottleMs) return true
+                lastScrollTime = now
                 if (selectedChannelIndex < filteredChannels.size - 1 && filteredChannels.isNotEmpty()) {
-                    selectedChannelIndex++
-                    // Bounds check
-                    selectedChannelIndex = selectedChannelIndex.coerceIn(0, filteredChannels.size - 1)
-
+                    selectedChannelIndex = (selectedChannelIndex + 1).coerceIn(0, filteredChannels.size - 1)
                     channelAdapter.setHighlight(selectedChannelIndex)
-
-                    // Smoother scroll with animation
                     channelList.smoothScrollToPosition(selectedChannelIndex)
-
                     hideProgramPanel()
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                // Jump directly to categories
                 currentFocusSection = FocusSection.CATEGORIES
                 channelAdapter.setHighlight(-1)
                 highlightCategory()
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                // Bounds check before loading
                 if (selectedChannelIndex >= 0 && selectedChannelIndex < filteredChannels.size) {
                     loadProgramsForChannel(selectedChannelIndex)
                     currentFocusSection = FocusSection.PROGRAMS
                     programAdapter.setHighlight(selectedProgramIndex)
-
                     val programList = binding.root.findViewById<RecyclerView>(R.id.programList)
                     val programLm = programList?.layoutManager as? LinearLayoutManager
-                    programList?.post {
-                        programLm?.scrollToPositionWithOffset(selectedProgramIndex, 0)
-                    }
+                    programList?.post { programLm?.scrollToPositionWithOffset(selectedProgramIndex, 0) }
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 val channel = filteredChannels.getOrNull(selectedChannelIndex) ?: return false
                 val globalIndex = channels.indexOfFirst { it.id == channel.id }
                 if (globalIndex >= 0) onChannelSelected(globalIndex)
                 true
             }
-
             else -> false
         }
     }
@@ -468,7 +398,6 @@ class EpgOverlayManager(
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (selectedProgramIndex < itemCount - 1) {
                     selectedProgramIndex++
@@ -477,22 +406,17 @@ class EpgOverlayManager(
                 }
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 currentFocusSection = FocusSection.CHANNELS
                 programAdapter.setHighlight(-1)
                 channelAdapter.setHighlight(selectedChannelIndex)
                 true
             }
-
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 val item = programAdapter.getItem(selectedProgramIndex)
-                if (item is ProgramItem.ProgramData) {
-                    handleProgramClick(item.program)
-                }
+                if (item is ProgramItem.ProgramData) handleProgramClick(item.program)
                 true
             }
-
             else -> false
         }
     }
@@ -507,7 +431,7 @@ class EpgOverlayManager(
     }
 
     // =========================================================================
-    // Channel Adapter - CLEAN SELECTION WITH OUTLINE
+    // Channel Adapter
     // =========================================================================
 
     inner class ChannelAdapter(
@@ -518,11 +442,11 @@ class EpgOverlayManager(
         private var highlightedPos = -1
 
         inner class VH(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val logo: ImageView = itemView.findViewById(R.id.channelLogo)
-            val number: TextView = itemView.findViewById(R.id.tvChannelNumber)
-            val name: TextView = itemView.findViewById(R.id.tvChannelName)
-            val favoriteIcon: ImageView = itemView.findViewById(R.id.ivFavorite)
-            val selectionOutline: View = itemView.findViewById(R.id.selectionOutline)
+            val logo: ImageView            = itemView.findViewById(R.id.channelLogo)
+            val number: TextView           = itemView.findViewById(R.id.tvChannelNumber)
+            val name: TextView             = itemView.findViewById(R.id.tvChannelName)
+            val favoriteIcon: ImageView    = itemView.findViewById(R.id.ivFavorite)
+            val selectionOutline: View     = itemView.findViewById(R.id.selectionOutline)
 
             init {
                 itemView.setOnClickListener {
@@ -537,7 +461,7 @@ class EpgOverlayManager(
 
             fun bind(channel: Channel, isHighlighted: Boolean) {
                 number.text = channel.number.toString()
-                name.text = channel.name
+                name.text   = channel.name
 
                 if (!channel.logoUrl.isNullOrEmpty()) {
                     Glide.with(activity).load(channel.logoUrl)
@@ -546,42 +470,23 @@ class EpgOverlayManager(
                         .into(logo)
                 }
 
-                // Show favorite star
                 favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
+                selectionOutline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
 
-                // Very smooth, fast transition for selection
-                if (isHighlighted) {
-                    selectionOutline.visibility = View.VISIBLE
-                    itemView.animate()
-                        .alpha(1.0f)
-                        .setDuration(80)  // Even faster for smoother feel
-                        .setInterpolator(android.view.animation.DecelerateInterpolator())
-                        .start()
-                } else {
-                    selectionOutline.visibility = View.GONE
-                    itemView.animate()
-                        .alpha(0.7f)
-                        .setDuration(80)
-                        .setInterpolator(android.view.animation.DecelerateInterpolator())
-                        .start()
-                }
+                itemView.animate()
+                    .alpha(if (isHighlighted) 1.0f else 0.65f)
+                    .setDuration(80)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
             }
         }
 
         fun setHighlight(pos: Int) {
-            // Bounds check to prevent crashes
             if (pos < -1 || pos >= channels.size) return
-
             val old = highlightedPos
             highlightedPos = pos
-
-            // Only notify if positions are valid and within bounds
-            if (old >= 0 && old < channels.size && old < itemCount) {
-                notifyItemChanged(old)
-            }
-            if (pos >= 0 && pos < channels.size && pos < itemCount) {
-                notifyItemChanged(pos)
-            }
+            if (old >= 0 && old < itemCount) notifyItemChanged(old)
+            if (pos >= 0 && pos < itemCount) notifyItemChanged(pos)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
@@ -589,27 +494,15 @@ class EpgOverlayManager(
         )
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            // Bounds check for safety
             if (position < 0 || position >= channels.size) return
-
             holder.bind(channels[position], position == highlightedPos)
         }
 
         override fun getItemCount() = channels.size
 
         fun updateChannels(newChannels: List<Channel>) {
-            // Safety check
-            if (newChannels.isEmpty()) {
-                channels = emptyList()
-                highlightedPos = -1
-                notifyDataSetChanged()
-                return
-            }
-
             channels = newChannels
             highlightedPos = -1
-
-            // Use notifyDataSetChanged for safety during fast operations
             notifyDataSetChanged()
         }
     }
@@ -631,10 +524,11 @@ class EpgOverlayManager(
         private var highlightedPos = -1
 
         inner class ProgramVH(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val time: TextView = itemView.findViewById(R.id.tvProgramTime)
-            val title: TextView = itemView.findViewById(R.id.tvProgramTitle)
+            val time: TextView        = itemView.findViewById(R.id.tvProgramTime)
+            val title: TextView       = itemView.findViewById(R.id.tvProgramTitle)
             val description: TextView = itemView.findViewById(R.id.tvProgramDescription)
-            val container: View = itemView.findViewById(R.id.programContainer)
+            val accentBar: View?      = itemView.findViewById(R.id.programAccentBar)
+            val nowBadge: TextView?   = itemView.findViewById(R.id.tvNowBadge)
 
             init {
                 itemView.setOnClickListener {
@@ -649,14 +543,34 @@ class EpgOverlayManager(
 
             fun bind(program: Program, isHighlighted: Boolean) {
                 val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-                time.text = "${fmt.format(Date(program.startTime))} – ${fmt.format(Date(program.endTime))}"
-                title.text = program.title
+                time.text        = "${fmt.format(Date(program.startTime))} – ${fmt.format(Date(program.endTime))}"
+                title.text       = program.title
                 description.text = program.description
 
                 val isPlaying = program.isCurrentlyPlaying()
+                val isPast    = program.endTime < System.currentTimeMillis()
 
-                container.isSelected = isPlaying
-                itemView.alpha = if (isHighlighted) 1.0f else if (isPlaying) 0.9f else 0.7f
+                // Drawable states
+                itemView.isActivated = isHighlighted
+                itemView.isSelected  = isPlaying && !isHighlighted
+
+                // Accent bar & NOW badge — only for currently playing
+                accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
+                nowBadge?.visibility  = if (isPlaying) View.VISIBLE else View.GONE
+
+                // Time label colour
+                time.setTextColor(when {
+                    isPlaying -> 0xFFB0B3F5.toInt()
+                    isPast    -> 0x3394A3B8.toInt()
+                    else      -> 0x806366F1.toInt()
+                })
+
+                // Fade past programs out, highlight selected
+                itemView.alpha = when {
+                    isHighlighted -> 1.0f
+                    isPast        -> 0.45f
+                    else          -> 0.85f
+                }
             }
         }
 
@@ -689,12 +603,10 @@ class EpgOverlayManager(
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             val item = items[position]
             when {
-                holder is ProgramVH && item is ProgramItem.ProgramData -> {
+                holder is ProgramVH && item is ProgramItem.ProgramData ->
                     holder.bind(item.program, position == highlightedPos)
-                }
-                holder is DividerVH && item is ProgramItem.DateDivider -> {
+                holder is DividerVH && item is ProgramItem.DateDivider ->
                     holder.dateLabel.text = item.date
-                }
             }
         }
 

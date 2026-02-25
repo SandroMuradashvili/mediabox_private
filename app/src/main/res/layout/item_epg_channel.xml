@@ -2,9 +2,12 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="4dp">
+    android:layout_marginStart="2dp"
+    android:layout_marginEnd="2dp"
+    android:layout_marginTop="2dp"
+    android:layout_marginBottom="2dp">
 
-    <!-- Selection Outline (visible when selected) -->
+    <!-- Selection outline (shown when highlighted) -->
     <View
         android:id="@+id/selectionOutline"
         android:layout_width="match_parent"
@@ -12,60 +15,70 @@
         android:background="@drawable/epg_channel_selection_outline"
         android:visibility="gone"/>
 
-    <!-- Content -->
+    <!-- Content row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="12dp"
-        android:background="@drawable/epg_channel_item_background">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:background="@drawable/epg_channel_item_glass">
 
-        <!-- Channel Logo -->
-        <ImageView
-            android:id="@+id/channelLogo"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:scaleType="fitCenter"
-            android:layout_marginEnd="12dp"
-            android:contentDescription="Channel Logo"/>
+        <!-- Logo container with subtle glass bg -->
+        <FrameLayout
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/epg_logo_bg">
 
-        <!-- Channel Info -->
+            <ImageView
+                android:id="@+id/channelLogo"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:contentDescription="Channel Logo"/>
+        </FrameLayout>
+
+        <!-- Channel info -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tvChannelNumber"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="1"
-                android:textSize="12sp"
-                android:textColor="@color/text_tertiary"/>
+            android:orientation="vertical"
+            android:layout_marginStart="10dp">
 
             <TextView
                 android:id="@+id/tvChannelName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Channel Name"
-                android:textSize="15sp"
+                android:textColor="#E2E8F0"
+                android:textSize="13sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary"
                 android:maxLines="1"
                 android:ellipsize="end"/>
 
+            <TextView
+                android:id="@+id/tvChannelNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#3D94A3B8"
+                android:textSize="11sp"
+                android:layout_marginTop="1dp"/>
+
         </LinearLayout>
 
-        <!-- Favorite Star Icon -->
+        <!-- Favorite star -->
         <ImageView
             android:id="@+id/ivFavorite"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
             android:src="@drawable/ic_star"
             android:visibility="gone"
-            android:layout_marginStart="8dp"
+            android:alpha="0.7"
             android:contentDescription="Favorite"/>
 
     </LinearLayout>
