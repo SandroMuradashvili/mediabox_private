@@ -87,22 +87,30 @@ class EpgOverlayManager(
             isFocusable = false
             isFocusableInTouchMode = false
 
-            // Add smooth scroll animator
+            // Optimized smooth scroll animator
             itemAnimator = object : androidx.recyclerview.widget.DefaultItemAnimator() {
                 override fun animateChange(
                     oldHolder: RecyclerView.ViewHolder?,
                     newHolder: RecyclerView.ViewHolder?,
                     fromLeft: Int, fromTop: Int, toLeft: Int, toTop: Int
                 ): Boolean {
-                    // Shorter animation duration for smoother feel
-                    changeDuration = 100
+                    // Very fast animation for buttery smooth feel
+                    changeDuration = 80
                     return super.animateChange(oldHolder, newHolder, fromLeft, fromTop, toLeft, toTop)
                 }
+            }.apply {
+                // Faster overall animations
+                addDuration = 80
+                moveDuration = 80
+                removeDuration = 80
             }
 
             // Smooth scroll configuration
             setHasFixedSize(true)
             setItemViewCacheSize(20) // Cache more items for smooth scrolling
+
+            // Enable hardware acceleration for smoother animations
+            setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
         }
 
         // Setup program list
@@ -356,12 +364,23 @@ class EpgOverlayManager(
         }
     }
 
+    // Scroll throttling to prevent too-fast updates
+    private var lastScrollTime = 0L
+    private val scrollThrottleMs = 80L // Milliseconds between scroll actions
+
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
         val lm = channelList.layoutManager as? LinearLayoutManager ?: return false
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastScrollTime < scrollThrottleMs) {
+                    // Too fast - ignore this input but mark as handled
+                    return true
+                }
+                lastScrollTime = currentTime
+
                 if (selectedChannelIndex > 0 && filteredChannels.isNotEmpty()) {
                     selectedChannelIndex--
                     // Bounds check
@@ -369,10 +388,8 @@ class EpgOverlayManager(
 
                     channelAdapter.setHighlight(selectedChannelIndex)
 
-                    // Smooth scroll instead of instant snap
-                    channelList.post {
-                        lm.scrollToPositionWithOffset(selectedChannelIndex, channelList.height / 3)
-                    }
+                    // Smoother scroll with animation
+                    channelList.smoothScrollToPosition(selectedChannelIndex)
 
                     hideProgramPanel()
                 }
@@ -380,6 +397,13 @@ class EpgOverlayManager(
             }
 
             KeyEvent.KEYCODE_DPAD_DOWN -> {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastScrollTime < scrollThrottleMs) {
+                    // Too fast - ignore this input but mark as handled
+                    return true
+                }
+                lastScrollTime = currentTime
+
                 if (selectedChannelIndex < filteredChannels.size - 1 && filteredChannels.isNotEmpty()) {
                     selectedChannelIndex++
                     // Bounds check
@@ -387,10 +411,8 @@ class EpgOverlayManager(
 
                     channelAdapter.setHighlight(selectedChannelIndex)
 
-                    // Smooth scroll instead of instant snap
-                    channelList.post {
-                        lm.scrollToPositionWithOffset(selectedChannelIndex, channelList.height / 3)
-                    }
+                    // Smoother scroll with animation
+                    channelList.smoothScrollToPosition(selectedChannelIndex)
 
                     hideProgramPanel()
                 }
@@ -527,18 +549,20 @@ class EpgOverlayManager(
                 // Show favorite star
                 favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
 
-                // Smooth transition for selection
+                // Very smooth, fast transition for selection
                 if (isHighlighted) {
                     selectionOutline.visibility = View.VISIBLE
                     itemView.animate()
                         .alpha(1.0f)
-                        .setDuration(100)
+                        .setDuration(80)  // Even faster for smoother feel
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
                         .start()
                 } else {
                     selectionOutline.visibility = View.GONE
                     itemView.animate()
                         .alpha(0.7f)
-                        .setDuration(100)
+                        .setDuration(80)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
                         .start()
                 }
             }
