@@ -6,16 +6,13 @@
     android:layout_height="match_parent"
     android:background="@drawable/epg_scrim_background">
 
-    <!-- ================================================================
-         GLASS CARD - full EPG container, floats over the video
-         ================================================================ -->
     <androidx.cardview.widget.CardView
         android:id="@+id/epgGlassCard"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="28dp"
+        android:layout_margin="8dp"
         app:cardBackgroundColor="#00000000"
-        app:cardCornerRadius="20dp"
+        app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -29,7 +26,7 @@
             android:background="@drawable/epg_glass_panel">
 
             <!-- ============================================================
-                 HEADER ROW  –  title  +  category chips
+                 HEADER — title + category chips
                  ============================================================ -->
             <LinearLayout
                 android:id="@+id/epgHeader"
@@ -37,9 +34,9 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/epg_header_bar"
-                android:paddingStart="24dp"
-                android:paddingEnd="24dp"
-                android:paddingTop="18dp"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="12dp"
                 android:paddingBottom="0dp">
 
                 <!-- Title row -->
@@ -48,14 +45,13 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="14dp">
+                    android:layout_marginBottom="10dp">
 
-                    <!-- TV Guide icon dot -->
                     <View
                         android:layout_width="6dp"
                         android:layout_height="6dp"
                         android:background="@drawable/epg_accent_dot"
-                        android:layout_marginEnd="10dp"/>
+                        android:layout_marginEnd="8dp"/>
 
                     <TextView
                         android:layout_width="0dp"
@@ -63,26 +59,25 @@
                         android:layout_weight="1"
                         android:text="TV Guide"
                         android:textColor="#F1F5F9"
-                        android:textSize="15sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
-                        android:letterSpacing="0.08"/>
+                        android:letterSpacing="0.06"/>
 
-                    <!-- Subtle hint text -->
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="← Back    →  Programs    OK  Watch"
-                        android:textColor="#4D94A3B8"
-                        android:textSize="11sp"/>
+                        android:textColor="#3394A3B8"
+                        android:textSize="10sp"/>
                 </LinearLayout>
 
-                <!-- Category chips strip -->
+                <!-- Category chips -->
                 <HorizontalScrollView
                     android:id="@+id/categoryScrollView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
-                    android:fadingEdgeLength="32dp"
+                    android:fadingEdgeLength="24dp"
                     android:requiresFadingEdge="horizontal">
 
                     <LinearLayout
@@ -90,20 +85,20 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:paddingBottom="16dp"/>
+                        android:paddingBottom="12dp"/>
 
                 </HorizontalScrollView>
 
             </LinearLayout>
 
-            <!-- Thin glass divider line -->
+            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="@drawable/epg_divider_line"/>
 
             <!-- ============================================================
-                 CONTENT ROW  –  channel list  +  programs
+                 CONTENT — channel list + programs
                  ============================================================ -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -111,56 +106,51 @@
                 android:layout_weight="1"
                 android:orientation="horizontal">
 
-                <!-- - - - - - - - - - - - - - - -
-                     LEFT: Channel list
-                     - - - - - - - - - - - - - - - -->
+                <!-- LEFT: Channel list -->
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_weight="0.27"
+                    android:layout_weight="0.25"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:background="@drawable/epg_left_panel">
 
-                    <!-- Panel label -->
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="CHANNELS"
                         android:textColor="#3D94A3B8"
-                        android:textSize="10sp"
+                        android:textSize="9sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.18"
-                        android:paddingStart="16dp"
-                        android:paddingTop="14dp"
-                        android:paddingBottom="10dp"/>
+                        android:paddingStart="14dp"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="6dp"/>
 
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/channelList"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:clipToPadding="false"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="12dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingBottom="8dp"
                         android:scrollbars="none"/>
 
                 </LinearLayout>
 
-                <!-- Glass vertical divider -->
+                <!-- Divider -->
                 <View
                     android:layout_width="1dp"
                     android:layout_height="match_parent"
                     android:background="@drawable/epg_divider_line"/>
 
-                <!-- - - - - - - - - - - - - - - -
-                     RIGHT: Programs panel / placeholder
-                     - - - - - - - - - - - - - - - -->
+                <!-- RIGHT: Programs panel / placeholder -->
                 <FrameLayout
                     android:layout_width="0dp"
-                    android:layout_weight="0.73"
+                    android:layout_weight="0.75"
                     android:layout_height="match_parent">
 
-                    <!-- Placeholder state -->
+                    <!-- Placeholder -->
                     <LinearLayout
                         android:id="@+id/programPlaceholder"
                         android:layout_width="match_parent"
@@ -170,22 +160,21 @@
                         android:padding="48dp"
                         android:visibility="visible">
 
-                        <!-- Arrow icon made of views -->
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="›"
                             android:textColor="#1A6366F1"
-                            android:textSize="96sp"
+                            android:textSize="80sp"
                             android:textStyle="bold"
-                            android:layout_marginBottom="16dp"/>
+                            android:layout_marginBottom="12dp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Select a channel"
                             android:textColor="#60F1F5F9"
-                            android:textSize="20sp"
+                            android:textSize="18sp"
                             android:textStyle="bold"
                             android:gravity="center"/>
 
@@ -194,9 +183,9 @@
                             android:layout_height="wrap_content"
                             android:text="Press → to browse programs"
                             android:textColor="#2894A3B8"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:gravity="center"
-                            android:layout_marginTop="8dp"/>
+                            android:layout_marginTop="6dp"/>
 
                     </LinearLayout>
 
@@ -208,16 +197,16 @@
                         android:orientation="vertical"
                         android:visibility="gone">
 
-                        <!-- Programs header -->
+                        <!-- Programs header with channel name + hovered date -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:gravity="center_vertical"
-                            android:paddingStart="20dp"
-                            android:paddingEnd="20dp"
-                            android:paddingTop="14dp"
-                            android:paddingBottom="10dp">
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="8dp">
 
                             <TextView
                                 android:id="@+id/tvSelectedChannelName"
@@ -226,19 +215,26 @@
                                 android:layout_weight="1"
                                 android:text="TV Programs"
                                 android:textColor="#F1F5F9"
-                                android:textSize="15sp"
+                                android:textSize="14sp"
                                 android:textStyle="bold"
                                 android:maxLines="1"
                                 android:ellipsize="end"/>
 
+                            <!-- Hovered program date display -->
                             <TextView
+                                android:id="@+id/tvHoveredDate"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="PROGRAMS"
-                                android:textColor="#3D94A3B8"
-                                android:textSize="10sp"
+                                android:text=""
+                                android:textColor="#F1F5F9"
+                                android:textSize="13sp"
                                 android:textStyle="bold"
-                                android:letterSpacing="0.18"/>
+                                android:background="@drawable/epg_date_chip"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:paddingTop="4dp"
+                                android:paddingBottom="4dp"
+                                android:visibility="gone"/>
 
                         </LinearLayout>
 
@@ -246,18 +242,18 @@
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
                             android:background="@drawable/epg_divider_line"
-                            android:layout_marginStart="20dp"
-                            android:layout_marginEnd="20dp"/>
+                            android:layout_marginStart="16dp"
+                            android:layout_marginEnd="16dp"/>
 
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/programList"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:clipToPadding="false"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            android:paddingTop="8dp"
-                            android:paddingBottom="16dp"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="8dp"
                             android:scrollbars="none"/>
 
                     </LinearLayout>
