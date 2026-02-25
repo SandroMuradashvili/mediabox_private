@@ -52,7 +52,7 @@ class ControlOverlayManager(
         }
 
         binding.root.findViewById<TextView>(R.id.tvChannelName)?.text = channel.name
-        binding.root.findViewById<TextView>(R.id.tvChannelNumber)?.text = "#${channel.number}"
+        binding.root.findViewById<TextView>(R.id.tvChannelNumber)?.text = "${channel.number}"
 
         // Timestamp display
         val displayTime = if (streamTimestamp != null) {
