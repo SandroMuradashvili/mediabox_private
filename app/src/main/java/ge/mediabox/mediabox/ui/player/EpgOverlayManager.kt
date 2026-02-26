@@ -221,9 +221,10 @@ class EpgOverlayManager(
         if (channelIndex < 0 || channelIndex >= filteredChannels.size) return
         val channel = filteredChannels[channelIndex]
 
-        showProgramPanel()
-        binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text =
-            "${channel.name} – Loading…"
+        // Keep panel hidden until data is ready and scroll is committed —
+        // showing it early causes the flash-to-position-0 bug
+        programPlaceholder?.visibility = View.VISIBLE
+        programPanel?.visibility = View.GONE
         tvHoveredDate?.visibility = View.GONE
 
         scope.launch {
@@ -232,33 +233,32 @@ class EpgOverlayManager(
                 catch (e: Exception) { emptyList() }
             }
 
-            binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
-
             val itemsWithDividers = createProgramListWithDividers(allPrograms)
             currentProgramItems = itemsWithDividers
 
             var targetPos = findCurrentProgramPosition(allPrograms, itemsWithDividers)
-            // Ensure we never land on a divider row on initial load
             while (targetPos < itemsWithDividers.size &&
                 itemsWithDividers.getOrNull(targetPos) is ProgramItem.DateDivider) {
                 targetPos++
             }
             selectedProgramIndex = targetPos
 
-            // Hide list while we update + scroll so there's no flash to position 0
+            // Load data into adapter while panel is still hidden
             val rv = binding.root.findViewById<RecyclerView>(R.id.programList)
             rv?.visibility = View.INVISIBLE
-
             programAdapter.updatePrograms(itemsWithDividers)
 
-            // post twice: first post lets RecyclerView lay out the new items,
-            // second post fires after that layout pass so scroll is pixel-accurate
+            // First post: RecyclerView lays out new items
             rv?.post {
                 val lm = rv.layoutManager as? LinearLayoutManager
                 lm?.scrollToPositionWithOffset(targetPos, 0)
+
+                // Second post: scroll is committed, now safe to reveal everything at once
                 rv.post {
-                    // Now it's safe to show — scroll is committed, no flash
+                    binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
                     rv.visibility = View.VISIBLE
+                    programPanel?.visibility = View.VISIBLE
+                    programPlaceholder?.visibility = View.GONE
                     programAdapter.setHighlight(targetPos)
                     updateHoveredDate(targetPos)
                 }
@@ -571,12 +571,12 @@ class EpgOverlayManager(
                 favoriteIcon.visibility     = if (channel.isFavorite) View.VISIBLE else View.GONE
                 selectionOutline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
 
-                // Names always fully white — no grey dimming
-                name.setTextColor(0xFFF1F5F9.toInt())
-                // Numbers: visible but softer — was very dim, now clearly readable
+                // Name: bright white when selected, slightly dimmer when not
+                name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xAAD1D9E6.toInt())
+                // Number: lavender tint when selected, dim otherwise
                 number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0x99B0B3F5.toInt())
 
-                // Only fade the whole row slightly when not selected (not the text)
+                // Row alpha
                 itemView.alpha = if (isHighlighted) 1.0f else 0.85f
             }
         }

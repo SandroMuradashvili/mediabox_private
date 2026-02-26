@@ -2,14 +2,15 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/epg_scrim_background">
 
     <androidx.cardview.widget.CardView
         android:id="@+id/epgGlassCard"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:layout_margin="8dp"
         app:cardBackgroundColor="#00000000"
         app:cardCornerRadius="16dp"
@@ -74,6 +75,7 @@
                 <!-- Category chips -->
                 <HorizontalScrollView
                     android:id="@+id/categoryScrollView"
+                    tools:ignore="SpeakableTextPresentCheck"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:scrollbars="none"
@@ -157,35 +159,42 @@
                         android:layout_height="match_parent"
                         android:orientation="vertical"
                         android:gravity="center"
-                        android:padding="48dp"
+                        android:paddingStart="48dp"
+                        android:paddingEnd="48dp"
+                        android:paddingTop="0dp"
+                        android:paddingBottom="80dp"
                         android:visibility="visible">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="›"
-                            android:textColor="#1A6366F1"
-                            android:textSize="80sp"
+                            android:textColor="#556366F1"
+                            android:textSize="120sp"
                             android:textStyle="bold"
-                            android:layout_marginBottom="12dp"/>
+                            android:gravity="center"
+                            android:layout_gravity="center"
+                            android:layout_marginBottom="8dp"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Select a channel"
-                            android:textColor="#60F1F5F9"
-                            android:textSize="18sp"
+                            android:textColor="#CCF1F5F9"
+                            android:textSize="22sp"
                             android:textStyle="bold"
-                            android:gravity="center"/>
+                            android:gravity="center"
+                            android:layout_gravity="center"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Press → to browse programs"
-                            android:textColor="#2894A3B8"
-                            android:textSize="13sp"
+                            android:textColor="#60B0B3F5"
+                            android:textSize="14sp"
                             android:gravity="center"
-                            android:layout_marginTop="6dp"/>
+                            android:layout_gravity="center"
+                            android:layout_marginTop="8dp"/>
 
                     </LinearLayout>
 
