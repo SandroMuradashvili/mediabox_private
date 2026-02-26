@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="28dp"
+    android:layout_height="36dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="14dp"
-    android:paddingEnd="14dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp">
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp">
 
     <View
         android:layout_width="0dp"
@@ -20,15 +18,15 @@
         android:id="@+id/tvDateDivider"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="10sp"
+        android:textSize="12sp"
         android:textStyle="bold"
-        android:textColor="#506366F1"
-        android:letterSpacing="0.10"
+        android:textColor="#CCB0B3F5"
+        android:letterSpacing="0.06"
         android:background="@drawable/epg_date_chip"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"/>
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"/>
 
     <View
         android:layout_width="0dp"

@@ -41,9 +41,10 @@ class EpgOverlayManager(
     private lateinit var programAdapter: ProgramAdapter
 
     private val categoryButtons = mutableListOf<TextView>()
-    private val dateFormat     = SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault())
-    // Day-of-month format for the header chip e.g. "Mon 12"
-    private val dayFormat      = SimpleDateFormat("EEE d MMM", Locale.getDefault())
+    private val dateFormat    = SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault())
+    private val dayFormat     = SimpleDateFormat("EEE d MMM", Locale.getDefault())
+    // Format for the per-row date column: "23 Feb"
+    private val rowDateFormat = SimpleDateFormat("d MMM", Locale.getDefault())
 
     private val scope = CoroutineScope(Dispatchers.Main)
 
@@ -53,7 +54,6 @@ class EpgOverlayManager(
     private var selectedCategoryIndex = 0
     private var selectedProgramIndex  = 0
 
-    // Cached program list so we can look up date when navigating
     private var currentProgramItems: List<ProgramItem> = emptyList()
 
     private val programPanel: View?       by lazy { binding.root.findViewById(R.id.programPanel) }
@@ -144,7 +144,6 @@ class EpgOverlayManager(
         currentCategory = category
         filteredChannels = repository.getChannelsByCategory(category)
         channelAdapter.updateChannels(filteredChannels)
-        // FIX: always reset to top when category changes
         selectedChannelIndex = 0
         scrollChannelListTo(0)
         hideProgramPanel()
@@ -157,10 +156,10 @@ class EpgOverlayManager(
                     btn.isSelected = true; btn.alpha = 1.0f
                 }
                 index == selectedCategoryIndex -> {
-                    btn.isSelected = false; btn.alpha = 0.8f
+                    btn.isSelected = false; btn.alpha = 0.85f
                 }
                 else -> {
-                    btn.isSelected = false; btn.alpha = 0.5f
+                    btn.isSelected = false; btn.alpha = 0.55f
                 }
             }
         }
@@ -171,16 +170,36 @@ class EpgOverlayManager(
     // =========================================================================
 
     private fun scrollChannelListTo(position: Int) {
-        val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return
-        val lm = channelList.layoutManager as? LinearLayoutManager ?: return
-        // Instant scroll so it's in sync with the cursor
+        val rv = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return
+        val lm = rv.layoutManager as? LinearLayoutManager ?: return
         lm.scrollToPositionWithOffset(position, 0)
     }
 
-    private fun scrollProgramListTo(position: Int) {
-        val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
-        val lm = programList.layoutManager as? LinearLayoutManager ?: return
-        lm.scrollToPositionWithOffset(position, 0)
+    /**
+     * Smart scroll: only moves the list when the cursor is near the edges.
+     * If the target position is already fully visible, do nothing.
+     * This prevents the annoying "always jumps to top" behaviour.
+     */
+    private fun smartScrollProgramList(position: Int) {
+        val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
+        val lm = rv.layoutManager as? LinearLayoutManager ?: return
+
+        val first = lm.findFirstCompletelyVisibleItemPosition()
+        val last  = lm.findLastCompletelyVisibleItemPosition()
+
+        when {
+            // Cursor moved above the visible window → scroll up just enough
+            position < first -> lm.scrollToPositionWithOffset(position, 0)
+            // Cursor moved below the visible window → scroll down just enough
+            position > last  -> {
+                // Align so the target is at the bottom of the list
+                val itemHeight = rv.getChildAt(0)?.height ?: 42
+                val rvHeight   = rv.height
+                val offset     = rvHeight - itemHeight - 4
+                lm.scrollToPositionWithOffset(position, offset.coerceAtLeast(0))
+            }
+            // Already visible — don't touch scroll at all
+        }
     }
 
     // =========================================================================
@@ -219,9 +238,19 @@ class EpgOverlayManager(
             currentProgramItems = itemsWithDividers
             programAdapter.updatePrograms(itemsWithDividers)
 
-            val targetPos = findCurrentProgramPosition(allPrograms, itemsWithDividers)
+            var targetPos = findCurrentProgramPosition(allPrograms, itemsWithDividers)
+            // Ensure we never land on a divider row on initial load
+            while (targetPos < itemsWithDividers.size &&
+                itemsWithDividers.getOrNull(targetPos) is ProgramItem.DateDivider) {
+                targetPos++
+            }
             selectedProgramIndex = targetPos
-            scrollProgramListTo(targetPos)
+
+            // On first load always scroll to current program
+            val rv = binding.root.findViewById<RecyclerView>(R.id.programList)
+            val lm = rv?.layoutManager as? LinearLayoutManager
+            rv?.post { lm?.scrollToPositionWithOffset(targetPos, 0) }
+
             programAdapter.setHighlight(targetPos)
             updateHoveredDate(targetPos)
         }
@@ -259,29 +288,20 @@ class EpgOverlayManager(
         return currentProgramIndex + dividers
     }
 
-    // Update the date chip in the header to show which day the hovered program is on
     private fun updateHoveredDate(position: Int) {
-        val item = currentProgramItems.getOrNull(position) ?: return
         val tv = tvHoveredDate ?: return
+        val item = currentProgramItems.getOrNull(position)
 
-        // Walk backwards to find the most recent DateDivider for this position
-        var dateStr: String? = null
-        for (i in position downTo 0) {
-            val candidate = currentProgramItems.getOrNull(i)
-            if (candidate is ProgramItem.DateDivider) {
-                dateStr = candidate.date
-                break
+        val dateStr = when (item) {
+            is ProgramItem.ProgramData -> dayFormat.format(Date(item.program.startTime))
+            is ProgramItem.DateDivider -> {
+                // Show the date of the first program in this day block
+                val nextProgram = currentProgramItems.getOrNull(position + 1)
+                if (nextProgram is ProgramItem.ProgramData)
+                    dayFormat.format(Date(nextProgram.program.startTime))
+                else item.date
             }
-            if (candidate is ProgramItem.ProgramData) {
-                // Use the program's own date
-                dateStr = dayFormat.format(Date(candidate.program.startTime))
-                break
-            }
-        }
-
-        // If the item itself is a program use its date directly
-        if (item is ProgramItem.ProgramData) {
-            dateStr = dayFormat.format(Date(item.program.startTime))
+            null -> null
         }
 
         if (dateStr != null) {
@@ -360,7 +380,6 @@ class EpgOverlayManager(
         KeyEvent.KEYCODE_DPAD_DOWN -> {
             if (filteredChannels.isNotEmpty()) {
                 currentFocusSection = FocusSection.CHANNELS
-                // FIX: always highlight and scroll to selectedChannelIndex (memory)
                 channelAdapter.setHighlight(selectedChannelIndex)
                 scrollChannelListTo(selectedChannelIndex)
                 highlightCategory()
@@ -373,6 +392,7 @@ class EpgOverlayManager(
 
     private var lastScrollTime = 0L
     private val scrollThrottleMs = 80L
+    private var lastProgramScrollTime = 0L  // separate throttle for program list
 
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
@@ -403,9 +423,9 @@ class EpgOverlayManager(
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                // FIX: go back to categories but remember channel position
                 currentFocusSection = FocusSection.CATEGORIES
-                channelAdapter.setHighlight(selectedChannelIndex) // keep visual highlight
+                // Keep highlight visible so user sees where they were
+                channelAdapter.setHighlight(selectedChannelIndex)
                 highlightCategory()
                 true
             }
@@ -414,7 +434,6 @@ class EpgOverlayManager(
                     loadProgramsForChannel(selectedChannelIndex)
                     currentFocusSection = FocusSection.PROGRAMS
                     programAdapter.setHighlight(selectedProgramIndex)
-                    scrollProgramListTo(selectedProgramIndex)
                 }
                 true
             }
@@ -428,24 +447,48 @@ class EpgOverlayManager(
         }
     }
 
+    /**
+     * Move to the next/prev PROGRAM item, skipping DateDivider rows entirely.
+     * Uses the same throttle + smoothScrollToPosition approach as the channel list
+     * so fast scrolling feels identical — smooth, with a small natural delay.
+     */
     private fun handleProgramKeys(keyCode: Int): Boolean {
-        val itemCount = programAdapter.itemCount
+        val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return false
+        val itemCount   = programAdapter.itemCount
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                if (selectedProgramIndex > 0) {
-                    selectedProgramIndex--
+                val now = System.currentTimeMillis()
+                if (now - lastProgramScrollTime < scrollThrottleMs) return true
+                lastProgramScrollTime = now
+
+                // Find next selectable (non-divider) index above current
+                var target = selectedProgramIndex - 1
+                while (target >= 0 && currentProgramItems.getOrNull(target) is ProgramItem.DateDivider) {
+                    target--
+                }
+                if (target >= 0) {
+                    selectedProgramIndex = target
                     programAdapter.setHighlight(selectedProgramIndex)
-                    scrollProgramListTo(selectedProgramIndex)
+                    programList.smoothScrollToPosition(selectedProgramIndex)
                     updateHoveredDate(selectedProgramIndex)
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (selectedProgramIndex < itemCount - 1) {
-                    selectedProgramIndex++
+                val now = System.currentTimeMillis()
+                if (now - lastProgramScrollTime < scrollThrottleMs) return true
+                lastProgramScrollTime = now
+
+                // Find next selectable (non-divider) index below current
+                var target = selectedProgramIndex + 1
+                while (target < itemCount && currentProgramItems.getOrNull(target) is ProgramItem.DateDivider) {
+                    target++
+                }
+                if (target < itemCount) {
+                    selectedProgramIndex = target
                     programAdapter.setHighlight(selectedProgramIndex)
-                    scrollProgramListTo(selectedProgramIndex)
+                    programList.smoothScrollToPosition(selectedProgramIndex)
                     updateHoveredDate(selectedProgramIndex)
                 }
                 true
@@ -453,7 +496,6 @@ class EpgOverlayManager(
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 currentFocusSection = FocusSection.CHANNELS
                 programAdapter.setHighlight(-1)
-                // FIX: restore channel highlight and scroll position
                 channelAdapter.setHighlight(selectedChannelIndex)
                 scrollChannelListTo(selectedChannelIndex)
                 true
@@ -508,19 +550,24 @@ class EpgOverlayManager(
             fun bind(channel: Channel, isHighlighted: Boolean) {
                 number.text = channel.number.toString()
                 name.text   = channel.name
+
                 if (!channel.logoUrl.isNullOrEmpty()) {
                     Glide.with(activity).load(channel.logoUrl)
                         .placeholder(R.color.surface_light)
                         .error(R.color.surface_light)
                         .into(logo)
                 }
-                favoriteIcon.visibility    = if (channel.isFavorite) View.VISIBLE else View.GONE
+
+                favoriteIcon.visibility     = if (channel.isFavorite) View.VISIBLE else View.GONE
                 selectionOutline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
-                itemView.animate()
-                    .alpha(if (isHighlighted) 1.0f else 0.65f)
-                    .setDuration(80)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator())
-                    .start()
+
+                // Names always fully white — no grey dimming
+                name.setTextColor(0xFFF1F5F9.toInt())
+                // Numbers: visible but softer — was very dim, now clearly readable
+                number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0x99B0B3F5.toInt())
+
+                // Only fade the whole row slightly when not selected (not the text)
+                itemView.alpha = if (isHighlighted) 1.0f else 0.85f
             }
         }
 
@@ -565,12 +612,14 @@ class EpgOverlayManager(
         }
 
         private var highlightedPos = -1
+        private val rowDateFmt = SimpleDateFormat("d MMM", Locale.getDefault())
 
         inner class ProgramVH(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val time: TextView        = itemView.findViewById(R.id.tvProgramTime)
-            val title: TextView       = itemView.findViewById(R.id.tvProgramTitle)
-            val accentBar: View?      = itemView.findViewById(R.id.programAccentBar)
-            val nowBadge: TextView?   = itemView.findViewById(R.id.tvNowBadge)
+            val time: TextView      = itemView.findViewById(R.id.tvProgramTime)
+            val title: TextView     = itemView.findViewById(R.id.tvProgramTitle)
+            val accentBar: View?    = itemView.findViewById(R.id.programAccentBar)
+            val nowBadge: TextView? = itemView.findViewById(R.id.tvNowBadge)
+            val dateCol: TextView?  = itemView.findViewById(R.id.tvProgramDate)
 
             init {
                 itemView.setOnClickListener {
@@ -586,6 +635,9 @@ class EpgOverlayManager(
                 time.text  = "${fmt.format(Date(program.startTime))}–${fmt.format(Date(program.endTime))}"
                 title.text = program.title
 
+                // Date column: "23 Feb"
+                dateCol?.text = rowDateFmt.format(Date(program.startTime))
+
                 val isPlaying = program.isCurrentlyPlaying()
                 val isPast    = program.endTime < System.currentTimeMillis()
 
@@ -595,23 +647,28 @@ class EpgOverlayManager(
                 accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
                 nowBadge?.visibility  = if (isPlaying) View.VISIBLE else View.GONE
 
+                // Time colour
                 time.setTextColor(when {
-                    isPlaying -> 0xFFB0B3F5.toInt()
-                    isPast    -> 0x2694A3B8.toInt()
-                    else      -> 0x806366F1.toInt()
+                    isPlaying     -> 0xFFB0B3F5.toInt()
+                    isPast        -> 0x3394A3B8.toInt()
+                    else          -> 0x906366F1.toInt()
                 })
 
+                // Title always white-ish; past slightly dimmed
                 title.setTextColor(when {
                     isHighlighted -> 0xFFF1F5F9.toInt()
-                    isPast        -> 0x4DF1F5F9.toInt()
-                    else          -> 0xBFF1F5F9.toInt()
+                    isPast        -> 0x55F1F5F9.toInt()
+                    else          -> 0xCCF1F5F9.toInt()
                 })
 
-                itemView.alpha = when {
-                    isHighlighted -> 1.0f
-                    isPast        -> 0.5f
-                    else          -> 1.0f
-                }
+                // Date column colour — dim when past, normal otherwise
+                dateCol?.setTextColor(when {
+                    isHighlighted -> 0x99B0B3F5.toInt()
+                    isPast        -> 0x2294A3B8.toInt()
+                    else          -> 0x5094A3B8.toInt()
+                })
+
+                itemView.alpha = if (isPast && !isHighlighted) 0.55f else 1.0f
             }
         }
 

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Lighter scrim so video bleeds through more — was #99 (60%), now #66 (40%) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#99000000"/>
+    <solid android:color="#66000000"/>
 </shape>
