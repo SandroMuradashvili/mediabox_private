@@ -572,9 +572,9 @@ class EpgOverlayManager(
                 selectionOutline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
 
                 // Name: bright white when selected, slightly dimmer when not
-                name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xAAD1D9E6.toInt())
+                name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
                 // Number: lavender tint when selected, dim otherwise
-                number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0x99B0B3F5.toInt())
+                number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0xBBB0B3F5.toInt())
 
                 // Row alpha
                 itemView.alpha = if (isHighlighted) 1.0f else 0.85f
@@ -662,14 +662,14 @@ class EpgOverlayManager(
                     isHighlighted -> 0xFFB0B3F5.toInt()   // bright lavender when cursor on it
                     isPlaying     -> 0xFFB0B3F5.toInt()   // bright lavender for NOW
                     isPast        -> 0xC46366F1.toInt()   // bright indigo — already aired
-                    else          -> 0x556366F1.toInt()   // dim indigo — hasn't aired yet
+                    else          -> 0x886366F1.toInt()   // future time — brighter
                 })
 
                 // Title — bright for past, dim for future
                 title.setTextColor(when {
                     isHighlighted -> 0xFFF1F5F9.toInt()   // pure white when selected
                     isPast        -> 0xEEF1F5F9.toInt()   // near-full white — already aired
-                    else          -> 0x55F1F5F9.toInt()   // dim — hasn't aired yet
+                    else          -> 0x88F1F5F9.toInt()   // future title — brighter
                 })
 
                 // Date column — bright for past, dim for future
@@ -684,7 +684,7 @@ class EpgOverlayManager(
                     isHighlighted -> 1.0f
                     isPast        -> 1.0f    // aired: full brightness
                     isPlaying     -> 1.0f    // now: full brightness
-                    else          -> 0.6f    // future: subtly faded
+                    else          -> 0.8f    // future: subtly faded
                 }
             }
         }
