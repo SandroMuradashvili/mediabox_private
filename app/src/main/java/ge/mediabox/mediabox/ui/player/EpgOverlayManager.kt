@@ -43,7 +43,6 @@ class EpgOverlayManager(
     private val categoryButtons = mutableListOf<TextView>()
     private val dateFormat    = SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault())
     private val dayFormat     = SimpleDateFormat("EEE d MMM", Locale.getDefault())
-    // Format for the per-row date column: "23 Feb"
     private val rowDateFormat = SimpleDateFormat("d MMM", Locale.getDefault())
 
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -75,18 +74,16 @@ class EpgOverlayManager(
         channelList?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = channelAdapter
+
+            // FIX: Removed custom DefaultItemAnimator — it caused "tmpDetached view"
+            // and "child which is not detached" crashes when notifyDataSetChanged()
+            // was called while animations were still running.
+            // Setting itemAnimator = null disables animations entirely, which is
+            // the safest option for a list that updates frequently.
+            itemAnimator = null
+
             isFocusable = false
             isFocusableInTouchMode = false
-            itemAnimator = object : androidx.recyclerview.widget.DefaultItemAnimator() {
-                override fun animateChange(
-                    oldHolder: RecyclerView.ViewHolder?,
-                    newHolder: RecyclerView.ViewHolder?,
-                    fromLeft: Int, fromTop: Int, toLeft: Int, toTop: Int
-                ): Boolean {
-                    changeDuration = 80
-                    return super.animateChange(oldHolder, newHolder, fromLeft, fromTop, toLeft, toTop)
-                }
-            }.apply { addDuration = 80; moveDuration = 80; removeDuration = 80 }
             setHasFixedSize(true)
             setItemViewCacheSize(20)
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -175,11 +172,6 @@ class EpgOverlayManager(
         lm.scrollToPositionWithOffset(position, 0)
     }
 
-    /**
-     * Smart scroll: only moves the list when the cursor is near the edges.
-     * If the target position is already fully visible, do nothing.
-     * This prevents the annoying "always jumps to top" behaviour.
-     */
     private fun smartScrollProgramList(position: Int) {
         val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
         val lm = rv.layoutManager as? LinearLayoutManager ?: return
@@ -188,17 +180,13 @@ class EpgOverlayManager(
         val last  = lm.findLastCompletelyVisibleItemPosition()
 
         when {
-            // Cursor moved above the visible window → scroll up just enough
             position < first -> lm.scrollToPositionWithOffset(position, 0)
-            // Cursor moved below the visible window → scroll down just enough
             position > last  -> {
-                // Align so the target is at the bottom of the list
                 val itemHeight = rv.getChildAt(0)?.height ?: 42
                 val rvHeight   = rv.height
                 val offset     = rvHeight - itemHeight - 4
                 lm.scrollToPositionWithOffset(position, offset.coerceAtLeast(0))
             }
-            // Already visible — don't touch scroll at all
         }
     }
 
@@ -221,8 +209,6 @@ class EpgOverlayManager(
         if (channelIndex < 0 || channelIndex >= filteredChannels.size) return
         val channel = filteredChannels[channelIndex]
 
-        // Keep panel hidden until data is ready and scroll is committed —
-        // showing it early causes the flash-to-position-0 bug
         programPlaceholder?.visibility = View.VISIBLE
         programPanel?.visibility = View.GONE
         tvHoveredDate?.visibility = View.GONE
@@ -243,17 +229,14 @@ class EpgOverlayManager(
             }
             selectedProgramIndex = targetPos
 
-            // Load data into adapter while panel is still hidden
             val rv = binding.root.findViewById<RecyclerView>(R.id.programList)
             rv?.visibility = View.INVISIBLE
             programAdapter.updatePrograms(itemsWithDividers)
 
-            // First post: RecyclerView lays out new items
             rv?.post {
                 val lm = rv.layoutManager as? LinearLayoutManager
                 lm?.scrollToPositionWithOffset(targetPos, 0)
 
-                // Second post: scroll is committed, now safe to reveal everything at once
                 rv.post {
                     binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
                     rv.visibility = View.VISIBLE
@@ -305,7 +288,6 @@ class EpgOverlayManager(
         val dateStr = when (item) {
             is ProgramItem.ProgramData -> dayFormat.format(Date(item.program.startTime))
             is ProgramItem.DateDivider -> {
-                // Show the date of the first program in this day block
                 val nextProgram = currentProgramItems.getOrNull(position + 1)
                 if (nextProgram is ProgramItem.ProgramData)
                     dayFormat.format(Date(nextProgram.program.startTime))
@@ -402,7 +384,7 @@ class EpgOverlayManager(
 
     private var lastScrollTime = 0L
     private val scrollThrottleMs = 80L
-    private var lastProgramScrollTime = 0L  // separate throttle for program list
+    private var lastProgramScrollTime = 0L
 
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
@@ -434,7 +416,6 @@ class EpgOverlayManager(
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 currentFocusSection = FocusSection.CATEGORIES
-                // Keep highlight visible so user sees where they were
                 channelAdapter.setHighlight(selectedChannelIndex)
                 highlightCategory()
                 true
@@ -457,11 +438,6 @@ class EpgOverlayManager(
         }
     }
 
-    /**
-     * Move to the next/prev PROGRAM item, skipping DateDivider rows entirely.
-     * Uses the same throttle + smoothScrollToPosition approach as the channel list
-     * so fast scrolling feels identical — smooth, with a small natural delay.
-     */
     private fun handleProgramKeys(keyCode: Int): Boolean {
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return false
         val itemCount   = programAdapter.itemCount
@@ -472,7 +448,6 @@ class EpgOverlayManager(
                 if (now - lastProgramScrollTime < scrollThrottleMs) return true
                 lastProgramScrollTime = now
 
-                // Find next selectable (non-divider) index above current
                 var target = selectedProgramIndex - 1
                 while (target >= 0 && currentProgramItems.getOrNull(target) is ProgramItem.DateDivider) {
                     target--
@@ -490,7 +465,6 @@ class EpgOverlayManager(
                 if (now - lastProgramScrollTime < scrollThrottleMs) return true
                 lastProgramScrollTime = now
 
-                // Find next selectable (non-divider) index below current
                 var target = selectedProgramIndex + 1
                 while (target < itemCount && currentProgramItems.getOrNull(target) is ProgramItem.DateDivider) {
                     target++
@@ -571,12 +545,8 @@ class EpgOverlayManager(
                 favoriteIcon.visibility     = if (channel.isFavorite) View.VISIBLE else View.GONE
                 selectionOutline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
 
-                // Name: bright white when selected, slightly dimmer when not
                 name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
-                // Number: lavender tint when selected, dim otherwise
                 number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0xBBB0B3F5.toInt())
-
-                // Row alpha
                 itemView.alpha = if (isHighlighted) 1.0f else 0.85f
             }
         }
@@ -645,7 +615,6 @@ class EpgOverlayManager(
                 time.text  = "${fmt.format(Date(program.startTime))}–${fmt.format(Date(program.endTime))}"
                 title.text = program.title
 
-                // Date column: "23 Feb"
                 dateCol?.text = rowDateFmt.format(Date(program.startTime))
 
                 val isPlaying = program.isCurrentlyPlaying()
@@ -657,34 +626,30 @@ class EpgOverlayManager(
                 accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
                 nowBadge?.visibility  = if (isPlaying) View.VISIBLE else View.GONE
 
-                // Time — bright for PAST (aired), dim for FUTURE (not yet aired)
                 time.setTextColor(when {
-                    isHighlighted -> 0xFFB0B3F5.toInt()   // bright lavender when cursor on it
-                    isPlaying     -> 0xFFB0B3F5.toInt()   // bright lavender for NOW
-                    isPast        -> 0xC46366F1.toInt()   // bright indigo — already aired
-                    else          -> 0x886366F1.toInt()   // future time — brighter
+                    isHighlighted -> 0xFFB0B3F5.toInt()
+                    isPlaying     -> 0xFFB0B3F5.toInt()
+                    isPast        -> 0xC46366F1.toInt()
+                    else          -> 0x886366F1.toInt()
                 })
 
-                // Title — bright for past, dim for future
                 title.setTextColor(when {
-                    isHighlighted -> 0xFFF1F5F9.toInt()   // pure white when selected
-                    isPast        -> 0xEEF1F5F9.toInt()   // near-full white — already aired
-                    else          -> 0x88F1F5F9.toInt()   // future title — brighter
+                    isHighlighted -> 0xFFF1F5F9.toInt()
+                    isPast        -> 0xEEF1F5F9.toInt()
+                    else          -> 0x88F1F5F9.toInt()
                 })
 
-                // Date column — bright for past, dim for future
                 dateCol?.setTextColor(when {
-                    isHighlighted -> 0xAAB0B3F5.toInt()   // brighter when selected
-                    isPast        -> 0x8094A3B8.toInt()   // normal for aired
-                    else          -> 0x3594A3B8.toInt()   // dim for future
+                    isHighlighted -> 0xAAB0B3F5.toInt()
+                    isPast        -> 0x8094A3B8.toInt()
+                    else          -> 0x3594A3B8.toInt()
                 })
 
-                // Alpha — future rows slightly faded, past rows full
                 itemView.alpha = when {
                     isHighlighted -> 1.0f
-                    isPast        -> 1.0f    // aired: full brightness
-                    isPlaying     -> 1.0f    // now: full brightness
-                    else          -> 0.8f    // future: subtly faded
+                    isPast        -> 1.0f
+                    isPlaying     -> 1.0f
+                    else          -> 0.8f
                 }
             }
         }
