@@ -25,11 +25,11 @@
     <!-- Time — fixed width -->
     <TextView
         android:id="@+id/tvProgramTime"
-        android:layout_width="86dp"
+        android:layout_width="94dp"
         android:layout_height="wrap_content"
-        android:textSize="11sp"
+        android:textSize="14sp"
         android:textStyle="bold"
-        android:textColor="#906366F1"
+        android:textColor="#C46366F1"
         android:singleLine="true"/>
 
     <!-- Title — takes remaining space -->
@@ -38,7 +38,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:textSize="16sp"
         android:textColor="#F1F5F9"
         android:singleLine="true"
         android:ellipsize="end"/>
@@ -73,8 +73,8 @@
         android:id="@+id/tvProgramDate"
         android:layout_width="52dp"
         android:layout_height="wrap_content"
-        android:textSize="10sp"
-        android:textColor="#5094A3B8"
+        android:textSize="12sp"
+        android:textColor="#8094A3B8"
         android:gravity="end"
         android:singleLine="true"
         android:layout_marginStart="8dp"/>

@@ -236,7 +236,6 @@ class EpgOverlayManager(
 
             val itemsWithDividers = createProgramListWithDividers(allPrograms)
             currentProgramItems = itemsWithDividers
-            programAdapter.updatePrograms(itemsWithDividers)
 
             var targetPos = findCurrentProgramPosition(allPrograms, itemsWithDividers)
             // Ensure we never land on a divider row on initial load
@@ -246,13 +245,24 @@ class EpgOverlayManager(
             }
             selectedProgramIndex = targetPos
 
-            // On first load always scroll to current program
+            // Hide list while we update + scroll so there's no flash to position 0
             val rv = binding.root.findViewById<RecyclerView>(R.id.programList)
-            val lm = rv?.layoutManager as? LinearLayoutManager
-            rv?.post { lm?.scrollToPositionWithOffset(targetPos, 0) }
+            rv?.visibility = View.INVISIBLE
 
-            programAdapter.setHighlight(targetPos)
-            updateHoveredDate(targetPos)
+            programAdapter.updatePrograms(itemsWithDividers)
+
+            // post twice: first post lets RecyclerView lay out the new items,
+            // second post fires after that layout pass so scroll is pixel-accurate
+            rv?.post {
+                val lm = rv.layoutManager as? LinearLayoutManager
+                lm?.scrollToPositionWithOffset(targetPos, 0)
+                rv.post {
+                    // Now it's safe to show — scroll is committed, no flash
+                    rv.visibility = View.VISIBLE
+                    programAdapter.setHighlight(targetPos)
+                    updateHoveredDate(targetPos)
+                }
+            }
         }
     }
 
@@ -647,28 +657,35 @@ class EpgOverlayManager(
                 accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
                 nowBadge?.visibility  = if (isPlaying) View.VISIBLE else View.GONE
 
-                // Time colour
+                // Time — bright for PAST (aired), dim for FUTURE (not yet aired)
                 time.setTextColor(when {
-                    isPlaying     -> 0xFFB0B3F5.toInt()
-                    isPast        -> 0x3394A3B8.toInt()
-                    else          -> 0x906366F1.toInt()
+                    isHighlighted -> 0xFFB0B3F5.toInt()   // bright lavender when cursor on it
+                    isPlaying     -> 0xFFB0B3F5.toInt()   // bright lavender for NOW
+                    isPast        -> 0xC46366F1.toInt()   // bright indigo — already aired
+                    else          -> 0x556366F1.toInt()   // dim indigo — hasn't aired yet
                 })
 
-                // Title always white-ish; past slightly dimmed
+                // Title — bright for past, dim for future
                 title.setTextColor(when {
-                    isHighlighted -> 0xFFF1F5F9.toInt()
-                    isPast        -> 0x55F1F5F9.toInt()
-                    else          -> 0xCCF1F5F9.toInt()
+                    isHighlighted -> 0xFFF1F5F9.toInt()   // pure white when selected
+                    isPast        -> 0xEEF1F5F9.toInt()   // near-full white — already aired
+                    else          -> 0x55F1F5F9.toInt()   // dim — hasn't aired yet
                 })
 
-                // Date column colour — dim when past, normal otherwise
+                // Date column — bright for past, dim for future
                 dateCol?.setTextColor(when {
-                    isHighlighted -> 0x99B0B3F5.toInt()
-                    isPast        -> 0x2294A3B8.toInt()
-                    else          -> 0x5094A3B8.toInt()
+                    isHighlighted -> 0xAAB0B3F5.toInt()   // brighter when selected
+                    isPast        -> 0x8094A3B8.toInt()   // normal for aired
+                    else          -> 0x3594A3B8.toInt()   // dim for future
                 })
 
-                itemView.alpha = if (isPast && !isHighlighted) 0.55f else 1.0f
+                // Alpha — future rows slightly faded, past rows full
+                itemView.alpha = when {
+                    isHighlighted -> 1.0f
+                    isPast        -> 1.0f    // aired: full brightness
+                    isPlaying     -> 1.0f    // now: full brightness
+                    else          -> 0.6f    // future: subtly faded
+                }
             }
         }
 
