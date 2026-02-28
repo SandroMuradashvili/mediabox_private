@@ -1,5 +1,6 @@
 package ge.mediabox.mediabox.data.remote
 
+import ge.mediabox.mediabox.BuildConfig
 import android.content.Context
 import com.google.gson.annotations.SerializedName
 import okhttp3.Interceptor

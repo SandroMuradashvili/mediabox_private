@@ -6,7 +6,6 @@ plugins {
 android {
     namespace = "ge.mediabox.mediabox"
     compileSdk = 34
-
     defaultConfig {
         applicationId = "ge.mediabox.mediabox"
         minSdk = 23
@@ -14,7 +13,10 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
-
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+    }
     buildTypes {
         debug {
             buildConfigField(
@@ -57,9 +59,7 @@ android {
         jvmTarget = "1.8"
     }
 
-    buildFeatures {
-        viewBinding = true
-    }
+
 }
 
 dependencies {

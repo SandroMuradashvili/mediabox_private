@@ -1,5 +1,6 @@
 package ge.mediabox.mediabox.data.repository
 
+import ge.mediabox.mediabox.BuildConfig
 import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
