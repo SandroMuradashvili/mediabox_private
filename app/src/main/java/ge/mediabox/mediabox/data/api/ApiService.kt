@@ -8,8 +8,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ApiService {
-    private const val BASE_URL = "http://159.89.20.100/api"
-
+    private val BASE_URL = BuildConfig.BASE_API_URL
     data class ApiChannel(
         val id: String,
         val uuid: String,

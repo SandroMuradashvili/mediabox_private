@@ -87,8 +87,7 @@ interface AuthApiService {
     suspend fun getMyPlans(): List<MyPlan>
 
     companion object {
-        private const val BASE_URL = "http://159.89.20.100/"
-
+        private val BASE_URL = BuildConfig.BASE_URL
         fun create(context: Context): AuthApiService {
             val logging = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY

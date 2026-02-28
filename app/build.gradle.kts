@@ -16,8 +16,31 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "BASE_URL",
+                "\"https://tv-api.telecomm1.com/\""
+            )
+            buildConfigField(
+                "String",
+                "BASE_API_URL",
+                "\"https://tv-api.telecomm1.com/api\""
+            )
+        }
         release {
             isMinifyEnabled = false
+
+            buildConfigField(
+                "String",
+                "BASE_URL",
+                "\"https://tv-api.telecomm1.com/\""
+            )
+            buildConfigField(
+                "String",
+                "BASE_API_URL",
+                "\"https://tv-api.telecomm1.com/api\""
+            )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
