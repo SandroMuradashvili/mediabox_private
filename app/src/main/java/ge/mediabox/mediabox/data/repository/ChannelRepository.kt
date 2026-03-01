@@ -1,6 +1,5 @@
 package ge.mediabox.mediabox.data.repository
 
-import ge.mediabox.mediabox.BuildConfig
 import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
@@ -19,35 +18,40 @@ object ChannelRepository {
     private val channels = mutableListOf<Channel>()
     private var isInitialized = false
     private val deviceId: String by lazy { UUID.randomUUID().toString() }
-
-    // Recently watched apiIds in order (most recent last, we reverse for display)
-    private val recentlyWatchedApiIds = mutableListOf<String>()
+    private var authToken: String? = null
 
     // -----------------------------------------------------------------------
     // Init
     // -----------------------------------------------------------------------
 
-    suspend fun initialize() {
+    suspend fun initialize(token: String? = null) {
         if (isInitialized) return
+        authToken = token
         withContext(Dispatchers.IO) {
             try {
-                val apiChannels = ApiService.fetchChannels()
+                val response = ApiService.fetchChannels(token)
+                val apiChannels = response.channels
+                val accessibleIds = response.accessibleIds
+
                 if (apiChannels.isNotEmpty()) {
                     channels.clear()
                     apiChannels.forEachIndexed { index, apiChannel ->
                         channels.add(Channel(
-                            id       = index + 1,
-                            apiId    = apiChannel.id,
-                            uuid     = apiChannel.uuid,
-                            name     = apiChannel.name,
+                            id        = index + 1,
+                            apiId     = apiChannel.id,
+                            name      = apiChannel.name,
                             streamUrl = "",
-                            logoUrl  = apiChannel.logo,
-                            category = apiChannel.category,
-                            number   = apiChannel.number
+                            logoUrl   = apiChannel.logo,
+                            category  = apiChannel.category,
+                            number    = apiChannel.number,
+                            // Locked if not in accessible list (and list is non-empty)
+                            isLocked  = accessibleIds.isNotEmpty() && !accessibleIds.contains(apiChannel.id)
                         ))
                     }
+
+                    // Only fetch EPG for accessible channels to avoid unnecessary requests
                     val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                    val epgJobs = channels.map { channel ->
+                    val epgJobs = channels.filter { !it.isLocked }.map { channel ->
                         async {
                             try { Pair(channel.id, ApiService.fetchPrograms(channel.apiId, today)) }
                             catch (e: Exception) { Pair(channel.id, emptyList<Program>()) }
@@ -70,13 +74,14 @@ object ChannelRepository {
     }
 
     // -----------------------------------------------------------------------
-    // Stream URLs
+    // Stream URLs — all pass token now
     // -----------------------------------------------------------------------
 
     suspend fun getStreamUrl(channelId: Int): String? = withContext(Dispatchers.IO) {
         try {
             val channel = channels.find { it.id == channelId } ?: return@withContext null
-            val resp = ApiService.fetchStreamUrl(channel.apiId, deviceId) ?: return@withContext null
+            if (channel.isLocked) return@withContext null
+            val resp = ApiService.fetchStreamUrl(channel.apiId, deviceId, authToken) ?: return@withContext null
             channel.streamUrl = resp.url
             channel.lastServerTime = resp.serverTime
             resp.url
@@ -86,17 +91,8 @@ object ChannelRepository {
     suspend fun getArchiveUrl(channelId: Int, timestampMs: Long): String? = withContext(Dispatchers.IO) {
         try {
             val channel = channels.find { it.id == channelId } ?: return@withContext null
-            val resp = ApiService.fetchArchiveUrl(channel.apiId, timestampMs / 1000, deviceId) ?: return@withContext null
-            if (resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
-            resp.url
-        } catch (e: Exception) { e.printStackTrace(); null }
-    }
-
-    suspend fun getArchiveUrlByOffsetSeconds(channelId: Int, offsetSeconds: Int): String? = withContext(Dispatchers.IO) {
-        try {
-            val channel = channels.find { it.id == channelId } ?: return@withContext null
-            val baseTime = if (channel.lastServerTime > 0) channel.lastServerTime else System.currentTimeMillis() / 1000
-            val resp = ApiService.fetchArchiveUrl(channel.apiId, baseTime - offsetSeconds, deviceId) ?: return@withContext null
+            if (channel.isLocked) return@withContext null
+            val resp = ApiService.fetchArchiveUrl(channel.apiId, timestampMs / 1000, deviceId, authToken) ?: return@withContext null
             if (resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
             resp.url
         } catch (e: Exception) { e.printStackTrace(); null }
@@ -119,19 +115,22 @@ object ChannelRepository {
     // -----------------------------------------------------------------------
 
     fun getAllChannels(): List<Channel> = channels
+
     fun getChannelById(id: Int): Channel? = channels.find { it.id == id }
 
-    fun getChannelsByCategory(category: String): List<Channel> = when (category.lowercase()) {
-        "all"              -> channels
-        "favorites"        -> channels.filter { it.isFavorite }
-        "recently watched" -> getRecentlyWatchedChannels()
-        else               -> channels.filter { it.category.equals(category, ignoreCase = true) }
+    /** Returns only unlocked (accessible) channels for a given category */
+    fun getChannelsByCategory(category: String): List<Channel> {
+        val all = when (category.lowercase()) {
+            "all"       -> channels
+            "favorites" -> channels.filter { it.isFavorite }
+            else        -> channels.filter { it.category.equals(category, ignoreCase = true) }
+        }
+        return all
     }
 
     fun getCategories(): List<String> {
         val cats = mutableListOf("All")
         if (channels.any { it.isFavorite }) cats.add("Favorites")
-        if (recentlyWatchedApiIds.isNotEmpty()) cats.add("Recently Watched")
         cats.addAll(channels.map { it.category }.distinct())
         return cats
     }
@@ -153,48 +152,9 @@ object ChannelRepository {
         channels.find { it.id == channelId }?.isFavorite = isFavorite
     }
 
-    /**
-     * Sync server favourites into local channel state.
-     * Call this after fetching from API.
-     */
     fun syncFavourites(favouriteApiIds: List<String>) {
-        channels.forEach { ch ->
-            ch.isFavorite = favouriteApiIds.contains(ch.apiId)
-        }
+        channels.forEach { ch -> ch.isFavorite = favouriteApiIds.contains(ch.apiId) }
     }
-
-    // -----------------------------------------------------------------------
-    // Recently Watched
-    // -----------------------------------------------------------------------
-
-    fun recordWatched(channelApiId: String) {
-        recentlyWatchedApiIds.remove(channelApiId)
-        recentlyWatchedApiIds.add(channelApiId) // most recent at end
-    }
-
-    fun syncRecentlyWatched(apiIds: List<String>) {
-        recentlyWatchedApiIds.clear()
-        recentlyWatchedApiIds.addAll(apiIds) // server returns most recent first; we store reversed
-    }
-
-    fun getRecentlyWatchedApiIds(): List<String> = recentlyWatchedApiIds.reversed()
-
-    private fun getRecentlyWatchedChannels(): List<Channel> {
-        val ordered = recentlyWatchedApiIds.reversed() // most recent first
-        return ordered.mapNotNull { apiId -> channels.find { it.apiId == apiId } }
-    }
-
-    // -----------------------------------------------------------------------
-    // Heartbeat
-    // -----------------------------------------------------------------------
-
-    suspend fun sendHeartbeat(token: String) = withContext(Dispatchers.IO) {
-        ApiService.sendHeartbeat(token)
-    }
-
-    // -----------------------------------------------------------------------
-    // Server favourites / watch history (network wrappers)
-    // -----------------------------------------------------------------------
 
     suspend fun fetchAndSyncFavourites(token: String) = withContext(Dispatchers.IO) {
         val ids = ApiService.fetchFavourites(token)
@@ -207,16 +167,6 @@ object ChannelRepository {
 
     suspend fun removeFavouriteRemote(token: String, channelApiId: String): Boolean = withContext(Dispatchers.IO) {
         ApiService.removeFavourite(token, channelApiId)
-    }
-
-    suspend fun postWatchHistory(token: String, channelApiId: String) = withContext(Dispatchers.IO) {
-        ApiService.postWatchHistory(token, channelApiId)
-        recordWatched(channelApiId)
-    }
-
-    suspend fun fetchAndSyncRecentlyWatched(token: String) = withContext(Dispatchers.IO) {
-        val ids = ApiService.fetchRecentlyWatched(token)
-        syncRecentlyWatched(ids)
     }
 
     // -----------------------------------------------------------------------

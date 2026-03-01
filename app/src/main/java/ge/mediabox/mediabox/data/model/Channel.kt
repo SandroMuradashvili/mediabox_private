@@ -11,6 +11,7 @@ data class Channel(
     val number: Int = id,
     var programs: List<Program> = emptyList(),
     var isFavorite: Boolean = false,
+    var isLocked: Boolean = false,
     var lastServerTime: Long = 0L,
     var hoursBack: Int = 0
 )
