@@ -34,6 +34,65 @@ object ApiService {
     )
 
     // -----------------------------------------------------------------------
+    // Authentication
+    // -----------------------------------------------------------------------
+
+    fun login(username: String, password: String): String? {
+        val fullUrl = "$BASE_URL/auth/login"
+        Log.d(TAG, "=== LOGIN: POST $fullUrl ===")
+
+        return try {
+            val url = URL(fullUrl)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.doOutput = true
+
+            val requestBody = JSONObject().apply {
+                put("username", username)
+                put("password", password)
+            }.toString()
+
+            OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
+
+            val responseCode = conn.responseCode
+            Log.d(TAG, "  Response code: $responseCode")
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val responseText = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                Log.d(TAG, "  Response body: ${responseText.take(200)}")
+
+                val json = JSONObject(responseText)
+                val token = json.optString("token")
+                    ?: json.optString("access_token")
+                    ?: json.optString("accessToken")
+
+                if (token.isNotEmpty()) {
+                    Log.d(TAG, "=== LOGIN SUCCESS ===")
+                    token
+                } else {
+                    Log.e(TAG, "  No token found in response")
+                    null
+                }
+            } else {
+                val errorBody = try {
+                    conn.errorStream?.bufferedReader()?.readText()
+                } catch (e: Exception) { "n/a" }
+                Log.e(TAG, "  ERROR $responseCode: $errorBody")
+                conn.disconnect()
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "  EXCEPTION in login", e)
+            null
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Channels
     // -----------------------------------------------------------------------
 
