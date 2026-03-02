@@ -55,9 +55,11 @@ class EpgOverlayManager(
 
     private var currentProgramItems: List<ProgramItem> = emptyList()
 
-    private val programPanel: View?       by lazy { binding.root.findViewById(R.id.programPanel) }
-    private val programPlaceholder: View? by lazy { binding.root.findViewById(R.id.programPlaceholder) }
-    private val tvHoveredDate: TextView?  by lazy { binding.root.findViewById(R.id.tvHoveredDate) }
+    private val programPanel: View?          by lazy { binding.root.findViewById(R.id.programPanel) }
+    private val programPlaceholder: View?    by lazy { binding.root.findViewById(R.id.programPlaceholder) }
+    private val tvHoveredDate: TextView?     by lazy { binding.root.findViewById(R.id.tvHoveredDate) }
+    private val tvPlaceholderTitle: TextView?    by lazy { binding.root.findViewById(R.id.tvPlaceholderTitle) }
+    private val tvPlaceholderSubtitle: TextView? by lazy { binding.root.findViewById(R.id.tvPlaceholderSubtitle) }
 
     init { setupEpg() }
 
@@ -74,14 +76,7 @@ class EpgOverlayManager(
         channelList?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = channelAdapter
-
-            // FIX: Removed custom DefaultItemAnimator — it caused "tmpDetached view"
-            // and "child which is not detached" crashes when notifyDataSetChanged()
-            // was called while animations were still running.
-            // Setting itemAnimator = null disables animations entirely, which is
-            // the safest option for a list that updates frequently.
             itemAnimator = null
-
             isFocusable = false
             isFocusableInTouchMode = false
             setHasFixedSize(true)
@@ -191,23 +186,44 @@ class EpgOverlayManager(
     }
 
     // =========================================================================
-    // Program Panel
+    // Program Panel / Placeholder
     // =========================================================================
 
     private fun hideProgramPanel() {
         programPanel?.visibility = View.GONE
         programPlaceholder?.visibility = View.VISIBLE
         tvHoveredDate?.visibility = View.GONE
+        // Reset to default placeholder text
+        tvPlaceholderTitle?.text = "Select a channel"
+        tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
+        tvPlaceholderSubtitle?.text = "Press → to browse programs"
+        tvPlaceholderSubtitle?.setTextColor(0x60B0B3F5.toInt())
     }
 
-    private fun showProgramPanel() {
-        programPlaceholder?.visibility = View.GONE
-        programPanel?.visibility = View.VISIBLE
+    /**
+     * Shows "Not included in your subscription" on the right panel when
+     * a locked channel is hovered. Does NOT move focus to programs section.
+     */
+    private fun showLockedChannelInfo(channel: Channel) {
+        programPanel?.visibility = View.GONE
+        tvHoveredDate?.visibility = View.GONE
+        programPlaceholder?.visibility = View.VISIBLE
+
+        tvPlaceholderTitle?.text = channel.name
+        tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
+        tvPlaceholderSubtitle?.text = "Not included in your subscription"
+        tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt()) // reddish tint
     }
 
     private fun loadProgramsForChannel(channelIndex: Int) {
         if (channelIndex < 0 || channelIndex >= filteredChannels.size) return
         val channel = filteredChannels[channelIndex]
+
+        // Safety: never load programs for locked channels
+        if (channel.isLocked) {
+            showLockedChannelInfo(channel)
+            return
+        }
 
         programPlaceholder?.visibility = View.VISIBLE
         programPanel?.visibility = View.GONE
@@ -375,6 +391,9 @@ class EpgOverlayManager(
                 channelAdapter.setHighlight(selectedChannelIndex)
                 scrollChannelListTo(selectedChannelIndex)
                 highlightCategory()
+                // Immediately show locked message if first channel is locked
+                val ch = filteredChannels.getOrNull(selectedChannelIndex)
+                if (ch?.isLocked == true) showLockedChannelInfo(ch)
             }
             true
         }
@@ -398,7 +417,10 @@ class EpgOverlayManager(
                     selectedChannelIndex = (selectedChannelIndex - 1).coerceIn(0, filteredChannels.size - 1)
                     channelAdapter.setHighlight(selectedChannelIndex)
                     channelList.smoothScrollToPosition(selectedChannelIndex)
-                    hideProgramPanel()
+
+                    // On hover: show locked message or reset placeholder
+                    val ch = filteredChannels.getOrNull(selectedChannelIndex)
+                    if (ch?.isLocked == true) showLockedChannelInfo(ch) else hideProgramPanel()
                 }
                 true
             }
@@ -410,7 +432,10 @@ class EpgOverlayManager(
                     selectedChannelIndex = (selectedChannelIndex + 1).coerceIn(0, filteredChannels.size - 1)
                     channelAdapter.setHighlight(selectedChannelIndex)
                     channelList.smoothScrollToPosition(selectedChannelIndex)
-                    hideProgramPanel()
+
+                    // On hover: show locked message or reset placeholder
+                    val ch = filteredChannels.getOrNull(selectedChannelIndex)
+                    if (ch?.isLocked == true) showLockedChannelInfo(ch) else hideProgramPanel()
                 }
                 true
             }
@@ -418,10 +443,15 @@ class EpgOverlayManager(
                 currentFocusSection = FocusSection.CATEGORIES
                 channelAdapter.setHighlight(selectedChannelIndex)
                 highlightCategory()
+                hideProgramPanel()
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (selectedChannelIndex >= 0 && selectedChannelIndex < filteredChannels.size) {
+                val channel = filteredChannels.getOrNull(selectedChannelIndex)
+                if (channel?.isLocked == true) {
+                    // Locked channel: show message, stay in CHANNELS — do NOT move to PROGRAMS
+                    showLockedChannelInfo(channel)
+                } else if (selectedChannelIndex >= 0 && selectedChannelIndex < filteredChannels.size) {
                     loadProgramsForChannel(selectedChannelIndex)
                     currentFocusSection = FocusSection.PROGRAMS
                     programAdapter.setHighlight(selectedProgramIndex)
@@ -430,6 +460,11 @@ class EpgOverlayManager(
             }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 val channel = filteredChannels.getOrNull(selectedChannelIndex) ?: return false
+                // Locked channel: blocked — just show the message again
+                if (channel.isLocked) {
+                    showLockedChannelInfo(channel)
+                    return true
+                }
                 val globalIndex = channels.indexOfFirst { it.id == channel.id }
                 if (globalIndex >= 0) onChannelSelected(globalIndex)
                 true
@@ -542,12 +577,21 @@ class EpgOverlayManager(
                         .into(logo)
                 }
 
-                favoriteIcon.visibility     = if (channel.isFavorite) View.VISIBLE else View.GONE
                 selectionOutline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
 
-                name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
-                number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0xBBB0B3F5.toInt())
-                itemView.alpha = if (isHighlighted) 1.0f else 0.85f
+                if (channel.isLocked) {
+                    // Locked: dimmed appearance, no favorite icon
+                    favoriteIcon.visibility = View.GONE
+                    name.setTextColor(0x55F1F5F9.toInt())
+                    number.setTextColor(0x3394A3B8.toInt())
+                    itemView.alpha = 0.35f
+                } else {
+                    // Unlocked: normal appearance
+                    favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
+                    name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
+                    number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0xBBB0B3F5.toInt())
+                    itemView.alpha = if (isHighlighted) 1.0f else 0.85f
+                }
             }
         }
 

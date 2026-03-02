@@ -18,6 +18,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class PlayerActivity : AppCompatActivity() {
@@ -59,6 +60,9 @@ class PlayerActivity : AppCompatActivity() {
 
     private var isSyncingFavorites = false
 
+    // Tracks the latest pending stream-fetch job so rapid switches cancel the previous one
+    private var pendingStreamJob: Job? = null
+
     private val authToken: String?
         get() = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
             .getString("auth_token", null)
@@ -75,10 +79,8 @@ class PlayerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
 
-            // Pass token so repository can fetch accessible channels
             repository.initialize(authToken)
 
-            // Sync favorites
             authToken?.let { token ->
                 launch {
                     try { repository.fetchAndSyncFavourites(token) }
@@ -91,7 +93,6 @@ class PlayerActivity : AppCompatActivity() {
             setupOverlays()
             setupControlButtons()
 
-            // Start on first unlocked channel
             val firstUnlocked = channels.indexOfFirst { !it.isLocked }
             if (firstUnlocked >= 0) {
                 playChannel(firstUnlocked)
@@ -118,6 +119,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        pendingStreamJob?.cancel()
         pauseTickHandler.removeCallbacksAndMessages(null)
         player?.release()
         player = null
@@ -285,7 +287,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun playChannel(index: Int) {
         if (index < 0 || index >= channels.size) return
         val channel = channels[index]
-        if (channel.isLocked) return  // safety guard
+        if (channel.isLocked) return
 
         currentChannelIndex     = index
         isLiveMode              = true
@@ -297,7 +299,8 @@ class PlayerActivity : AppCompatActivity() {
         showTopBarTemporarily()
         binding.loadingIndicator.visibility = View.VISIBLE
 
-        lifecycleScope.launch {
+        pendingStreamJob?.cancel()
+        pendingStreamJob = lifecycleScope.launch {
             try {
                 val streamUrl = repository.getStreamUrl(channel.id)
                 if (streamUrl != null) {
@@ -310,6 +313,7 @@ class PlayerActivity : AppCompatActivity() {
                 updateLiveIndicatorState()
                 updateRewindButtonAvailability()
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
                 e.printStackTrace()
                 binding.loadingIndicator.visibility = View.GONE
                 Toast.makeText(this@PlayerActivity, "Error loading channel", Toast.LENGTH_SHORT).show()
@@ -317,16 +321,44 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Loads a new URL into ExoPlayer without touching the surface.
+     *
+     * Previous approach (stop → clearVideoSurface → detach playerView.player → reattach via post{})
+     * caused two intermittent bugs on Android TV / emulator:
+     *
+     *  1. CROPPED VIDEO — The SurfaceView reports its size to ExoPlayer via a Surface callback.
+     *     When we null playerView.player and then reattach one frame later, the surface size
+     *     callback fires again mid-prepare, confusing the video scaler into thinking it has a
+     *     smaller surface than it actually does.  Result: video renders into only part of the
+     *     surface (top-left quadrant).  Fix: never detach the surface — just replace the media
+     *     item while the player keeps its surface reference intact.
+     *
+     *  2. AUDIO LOSS — exo.stop() asynchronously tears down the audio renderer pipeline.
+     *     When stop() is followed rapidly by setMediaItem()/prepare()/play() (e.g. on fast
+     *     channel surfing or rapid rewinds), the audio renderer is still draining/releasing
+     *     buffers while the new stream is already being decoded. ExoPlayer ends up opening
+     *     the new audio stream without a working AudioTrack.  Fix: use pause() instead of
+     *     stop() — pause() suspends playback without destroying the audio renderer, so the
+     *     renderer is immediately reusable for the new media item.
+     *
+     * The trade-off: we skip the aggressive flush, so theoretically a stuck decoder frame
+     * could linger for one render cycle.  In practice this is invisible because ExoPlayer
+     * clears the video buffer on seekToDefaultPosition() before the first frame of the new
+     * stream arrives.
+     */
     private fun playUrl(url: String) {
-        player?.apply {
-            // Reattach surface before each new stream to prevent cropped/frozen frame artifact
-            clearVideoSurface()
-            binding.playerView.player = null
-            binding.playerView.player = this
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
-            play()
-        }
+        val exo = player ?: return
+
+        // Pause (not stop) — keeps audio renderer alive so the next stream has audio from frame 1
+        exo.pause()
+
+        // Replace media item and start decoding the new stream.
+        // seekToDefaultPosition() is called internally by setMediaItem(resetPosition=true)
+        // which is the default — it flushes the decoder queue without destroying the renderer.
+        exo.setMediaItem(MediaItem.fromUri(url))
+        exo.prepare()
+        exo.play()
     }
 
     private fun rewindSeconds(seconds: Int) {
@@ -344,7 +376,9 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
         binding.loadingIndicator.visibility = View.VISIBLE
-        lifecycleScope.launch {
+
+        pendingStreamJob?.cancel()
+        pendingStreamJob = lifecycleScope.launch {
             try {
                 val streamUrl = repository.getArchiveUrl(channel.id, targetTimestamp)
                 if (streamUrl != null) {
@@ -358,6 +392,7 @@ class PlayerActivity : AppCompatActivity() {
                     binding.loadingIndicator.visibility = View.GONE
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
                 e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE
             }
         }
@@ -370,7 +405,9 @@ class PlayerActivity : AppCompatActivity() {
         val targetTimestamp = baseMs + (seconds * 1000L)
         if (targetTimestamp >= System.currentTimeMillis()) { returnToLive(); return }
         binding.loadingIndicator.visibility = View.VISIBLE
-        lifecycleScope.launch {
+
+        pendingStreamJob?.cancel()
+        pendingStreamJob = lifecycleScope.launch {
             try {
                 val streamUrl = repository.getArchiveUrl(channel.id, targetTimestamp)
                 if (streamUrl != null) {
@@ -383,7 +420,10 @@ class PlayerActivity : AppCompatActivity() {
                     Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
                     binding.loadingIndicator.visibility = View.GONE
                 }
-            } catch (e: Exception) { e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE
+            }
         }
     }
 
@@ -394,7 +434,9 @@ class PlayerActivity : AppCompatActivity() {
         binding.loadingIndicator.visibility = View.VISIBLE
         val index = channels.indexOfFirst { it.id == channelId }
         if (index != -1) currentChannelIndex = index
-        lifecycleScope.launch {
+
+        pendingStreamJob?.cancel()
+        pendingStreamJob = lifecycleScope.launch {
             try {
                 val streamUrl = repository.getArchiveUrl(channelId, timestampMs)
                 if (streamUrl != null) {
@@ -404,7 +446,10 @@ class PlayerActivity : AppCompatActivity() {
                     Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
                     binding.loadingIndicator.visibility = View.GONE
                 }
-            } catch (e: Exception) { e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE
+            }
         }
     }
 
@@ -521,7 +566,7 @@ class PlayerActivity : AppCompatActivity() {
         isControlsVisible = false
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.GONE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.GONE
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
+        hideControlsHandler.removeCallbacksAndMessages(null)
     }
 
     private fun showEpg() {

@@ -152,7 +152,7 @@
                     android:layout_weight="0.75"
                     android:layout_height="match_parent">
 
-                    <!-- Placeholder -->
+                    <!-- Placeholder — shown when no channel is selected OR a locked channel is hovered -->
                     <LinearLayout
                         android:id="@+id/programPlaceholder"
                         android:layout_width="match_parent"
@@ -176,7 +176,9 @@
                             android:layout_gravity="center"
                             android:layout_marginBottom="8dp"/>
 
+                        <!-- ID added so EpgOverlayManager can update text for locked channels -->
                         <TextView
+                            android:id="@+id/tvPlaceholderTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Select a channel"
@@ -186,7 +188,9 @@
                             android:gravity="center"
                             android:layout_gravity="center"/>
 
+                        <!-- ID added so EpgOverlayManager can update text for locked channels -->
                         <TextView
+                            android:id="@+id/tvPlaceholderSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Press → to browse programs"

@@ -44,12 +44,10 @@ object ChannelRepository {
                             logoUrl   = apiChannel.logo,
                             category  = apiChannel.category,
                             number    = apiChannel.number,
-                            // Locked if not in accessible list (and list is non-empty)
                             isLocked  = accessibleIds.isNotEmpty() && !accessibleIds.contains(apiChannel.id)
                         ))
                     }
 
-                    // Only fetch EPG for accessible channels to avoid unnecessary requests
                     val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     val epgJobs = channels.filter { !it.isLocked }.map { channel ->
                         async {
@@ -74,7 +72,7 @@ object ChannelRepository {
     }
 
     // -----------------------------------------------------------------------
-    // Stream URLs — all pass token now
+    // Stream URLs
     // -----------------------------------------------------------------------
 
     suspend fun getStreamUrl(channelId: Int): String? = withContext(Dispatchers.IO) {
@@ -118,20 +116,21 @@ object ChannelRepository {
 
     fun getChannelById(id: Int): Channel? = channels.find { it.id == id }
 
-    /** Returns only unlocked (accessible) channels for a given category */
     fun getChannelsByCategory(category: String): List<Channel> {
-        val all = when (category.lowercase()) {
-            "all"       -> channels
-            "favorites" -> channels.filter { it.isFavorite }
-            else        -> channels.filter { it.category.equals(category, ignoreCase = true) }
+        return when (category.lowercase()) {
+            "all"         -> channels
+            "favorites"   -> channels.filter { it.isFavorite }
+            "unavailable" -> channels.filter { it.isLocked }
+            else          -> channels.filter { it.category.equals(category, ignoreCase = true) }
         }
-        return all
     }
 
     fun getCategories(): List<String> {
         val cats = mutableListOf("All")
         if (channels.any { it.isFavorite }) cats.add("Favorites")
-        cats.addAll(channels.map { it.category }.distinct())
+        // Only show distinct categories from unlocked channels (no point showing locked channels' categories twice)
+        cats.addAll(channels.filter { !it.isLocked }.map { it.category }.distinct())
+        if (channels.any { it.isLocked }) cats.add("Unavailable")
         return cats
     }
 
