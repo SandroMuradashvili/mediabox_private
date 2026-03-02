@@ -37,11 +37,18 @@ object ApiService {
     // Authentication
     // -----------------------------------------------------------------------
 
+    /**
+     * Updated login to match the actual backend flow:
+     * The backend expects { "login": "username", "password": "password" }
+     * and returns { "access_token": "..." } directly (not a two-step flow for regular login)
+     */
     fun login(username: String, password: String): String? {
         val fullUrl = "$BASE_URL/auth/login"
-        Log.d(TAG, "=== LOGIN: POST $fullUrl ===")
+        Log.d(TAG, "=== LOGIN STEP 1: POST $fullUrl ===")
+        Log.d(TAG, "  Username: $username")
 
         return try {
+            // STEP 1: Initial login
             val url = URL(fullUrl)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -52,42 +59,140 @@ object ApiService {
             conn.doOutput = true
 
             val requestBody = JSONObject().apply {
-                put("username", username)
+                put("login", username)
                 put("password", password)
             }.toString()
+
+            Log.d(TAG, "  Request body: $requestBody")
 
             OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
 
             val responseCode = conn.responseCode
             Log.d(TAG, "  Response code: $responseCode")
 
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val responseText = conn.inputStream.bufferedReader().readText()
-                conn.disconnect()
-                Log.d(TAG, "  Response body: ${responseText.take(200)}")
-
-                val json = JSONObject(responseText)
-                val token = json.optString("token")
-                    ?: json.optString("access_token")
-                    ?: json.optString("accessToken")
-
-                if (token.isNotEmpty()) {
-                    Log.d(TAG, "=== LOGIN SUCCESS ===")
-                    token
+            val responseText = try {
+                if (responseCode in 200..299) {
+                    conn.inputStream.bufferedReader().readText()
                 } else {
-                    Log.e(TAG, "  No token found in response")
+                    conn.errorStream?.bufferedReader()?.readText() ?: ""
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "  Error reading response", e)
+                ""
+            }
+
+            conn.disconnect()
+            Log.d(TAG, "  Full response body: $responseText")
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try {
+                    val json = JSONObject(responseText)
+                    Log.d(TAG, "  JSON keys available: ${json.keys().asSequence().toList()}")
+
+                    // Check if this requires OTP verification
+                    val userId = json.optString("user_id")
+                    val code = json.optString("code")
+
+                    if (userId.isNotEmpty() && code.isNotEmpty()) {
+                        Log.d(TAG, "  OTP verification required. user_id: $userId, code: $code")
+
+                        // STEP 2: Verify with OTP
+                        return verifyOTP(userId, code.toString())
+                    } else {
+                        // Direct token response (fallback)
+                        val token = json.optString("access_token").takeIf { it.isNotEmpty() }
+                            ?: json.optString("token").takeIf { it.isNotEmpty() }
+
+                        if (!token.isNullOrEmpty()) {
+                            Log.d(TAG, "=== LOGIN SUCCESS (direct token) ===")
+                            token
+                        } else {
+                            Log.e(TAG, "  ERROR: No token or OTP info found")
+                            null
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "  ERROR: Failed to parse JSON response", e)
                     null
                 }
             } else {
-                val errorBody = try {
-                    conn.errorStream?.bufferedReader()?.readText()
-                } catch (e: Exception) { "n/a" }
-                Log.e(TAG, "  ERROR $responseCode: $errorBody")
-                conn.disconnect()
+                Log.e(TAG, "  LOGIN FAILED with code $responseCode: $responseText")
                 null
             }
         } catch (e: Exception) {
             Log.e(TAG, "  EXCEPTION in login", e)
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun verifyOTP(userId: String, code: String): String? {
+        val verifyUrl = "$BASE_URL/auth/login/verify"
+        Log.d(TAG, "=== LOGIN STEP 2: VERIFY OTP: POST $verifyUrl ===")
+
+        return try {
+            val url = URL(verifyUrl)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.doOutput = true
+
+            val requestBody = JSONObject().apply {
+                put("user_id", userId)
+                put("code", code)
+            }.toString()
+
+            Log.d(TAG, "  Verify request body: $requestBody")
+
+            OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
+
+            val responseCode = conn.responseCode
+            Log.d(TAG, "  Verify response code: $responseCode")
+
+            val responseText = try {
+                if (responseCode in 200..299) {
+                    conn.inputStream.bufferedReader().readText()
+                } else {
+                    conn.errorStream?.bufferedReader()?.readText() ?: ""
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "  Error reading verify response", e)
+                ""
+            }
+
+            conn.disconnect()
+            Log.d(TAG, "  Verify response body: $responseText")
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try {
+                    val json = JSONObject(responseText)
+
+                    // Try different token field names
+                    val token = json.optString("access_token").takeIf { it.isNotEmpty() }
+                        ?: json.optString("token").takeIf { it.isNotEmpty() }
+                        ?: json.optString("accessToken").takeIf { it.isNotEmpty() }
+
+                    if (!token.isNullOrEmpty()) {
+                        Log.d(TAG, "=== VERIFY SUCCESS, token: ${token.take(20)}... ===")
+                        token
+                    } else {
+                        Log.e(TAG, "  ERROR: No token in verify response")
+                        null
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "  ERROR: Failed to parse verify response", e)
+                    null
+                }
+            } else {
+                Log.e(TAG, "  VERIFY FAILED with code $responseCode: $responseText")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "  EXCEPTION in verifyOTP", e)
+            e.printStackTrace()
             null
         }
     }

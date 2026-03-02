@@ -18,7 +18,8 @@ import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.databinding.ActivityLoginBinding
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -132,21 +133,28 @@ class LoginActivity : AppCompatActivity() {
 
         setLoading(true)
 
-        lifecycleScope.launch {
+        // ADD THIS: Use Dispatchers.IO for network calls
+        lifecycleScope.launch(Dispatchers.IO) {  // <-- ADD Dispatchers.IO HERE
             try {
                 val token = ApiService.login(username, password)
-                if (token != null) {
-                    getPrefs().edit().putString("auth_token", token).apply()
-                    binding.btnLogin.text = "✓  Welcome"
-                    Handler(Looper.getMainLooper()).postDelayed({ goToMain() }, 600)
-                } else {
-                    setLoading(false)
-                    showError("Incorrect username or password")
-                    shakeField(binding.loginCard)
+
+                // Switch back to Main thread for UI updates
+                withContext(Dispatchers.Main) {
+                    if (token != null) {
+                        getPrefs().edit().putString("auth_token", token).apply()
+                        binding.btnLogin.text = "✓  Welcome"
+                        Handler(Looper.getMainLooper()).postDelayed({ goToMain() }, 600)
+                    } else {
+                        setLoading(false)
+                        showError("Incorrect username or password")
+                        shakeField(binding.loginCard)
+                    }
                 }
             } catch (e: Exception) {
-                setLoading(false)
-                showError("Connection error — check your network")
+                withContext(Dispatchers.Main) {
+                    setLoading(false)
+                    showError("Connection error — check your network")
+                }
             }
         }
     }
