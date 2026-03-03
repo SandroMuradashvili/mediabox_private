@@ -12,6 +12,8 @@ import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
 import ge.mediabox.mediabox.ui.adapter.PlanAdapter
 import kotlinx.coroutines.launch
+import com.google.zxing.BarcodeFormat
+import com.journeyapps.barcodescanner.BarcodeEncoder
 
 class UserActivity : AppCompatActivity() {
 
@@ -34,6 +36,12 @@ class UserActivity : AppCompatActivity() {
         }
 
         setupRecyclerView()
+        val qrBitmap = BarcodeEncoder().encodeBitmap(
+            "https://tv-api.telecomm1.com/authentication/register",
+            BarcodeFormat.QR_CODE,
+            400, 400
+        )
+        binding.ivQrCode.setImageBitmap(qrBitmap)
         loadUserData()
 
         binding.btnLogout.setOnClickListener {

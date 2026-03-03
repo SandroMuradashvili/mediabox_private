@@ -66,7 +66,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.leanback:leanback:1.0.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     // ExoPlayer for video streaming
     implementation("androidx.media3:media3-exoplayer:1.2.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.2.0")
