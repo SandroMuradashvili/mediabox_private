@@ -5,205 +5,212 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.KeyEvent
 import android.view.View
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
-import android.widget.EditText
+import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.google.zxing.BarcodeFormat
+import com.journeyapps.barcodescanner.BarcodeEncoder
 import ge.mediabox.mediabox.R
-import ge.mediabox.mediabox.data.api.ApiService
-import ge.mediabox.mediabox.databinding.ActivityLoginBinding
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.UUID
+
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityLoginBinding
-    private var isLoading = false
+    private lateinit var ivQrCode: ImageView
+    private lateinit var tvPairingCode: TextView
+    private lateinit var tvStatus: TextView
+    private lateinit var btnRefresh: Button
+
+    private var deviceId: String = ""
+    private var pairingCode: String = ""
+    private var pollingJob: Job? = null
+
+    private val BASE_URL = "https://tv-api.telecomm1.com/api"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // If already logged in, go straight to main menu — don't show login
+        // If already logged in, skip login
         val existingToken = getPrefs().getString("auth_token", null)
         if (!existingToken.isNullOrBlank()) {
             goToMain()
             return
         }
 
-        binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_login_qr)
 
-        setupAnimations()
-        setupFocus()
-        setupLoginButton()
+        ivQrCode = findViewById(R.id.ivQrCode)
+        tvPairingCode = findViewById(R.id.tvPairingCode)
+        tvStatus = findViewById(R.id.tvStatus)
+        btnRefresh = findViewById(R.id.btnRefresh)
+
+        // Use persistent device ID stored in prefs, or generate once
+        deviceId = getPrefs().getString("device_id", null) ?: run {
+            val newId = UUID.randomUUID().toString()
+            getPrefs().edit().putString("device_id", newId).apply()
+            newId
+        }
+
+        btnRefresh.setOnClickListener { startPairing() }
+
+        startPairing()
     }
 
-    private fun setupAnimations() {
-        // Background panel slides up
-        binding.loginCard.apply {
-            translationY = 120f
-            alpha = 0f
-            animate().translationY(0f).alpha(1f)
-                .setDuration(650)
-                .setInterpolator(DecelerateInterpolator(2.2f))
-                .start()
-        }
+    private fun startPairing() {
+        pollingJob?.cancel()
+        btnRefresh.visibility = View.GONE
+        tvStatus.text = "Initializing..."
+        ivQrCode.setImageBitmap(null)
+        tvPairingCode.text = ""
 
-        // Logo drops in from above
-        binding.logoContainer.apply {
-            translationY = -80f
-            alpha = 0f
-            animate().translationY(0f).alpha(1f)
-                .setDuration(550).setStartDelay(100)
-                .setInterpolator(OvershootInterpolator(1.3f))
-                .start()
-        }
-
-        // Fields stagger in
-        listOf(binding.containerUsername, binding.containerPassword, binding.btnLogin).forEachIndexed { i, v ->
-            v.apply {
-                translationX = 60f
-                alpha = 0f
-                animate().translationX(0f).alpha(1f)
-                    .setDuration(450)
-                    .setStartDelay((300 + i * 80).toLong())
-                    .setInterpolator(DecelerateInterpolator(1.8f))
-                    .start()
-            }
-        }
-    }
-
-    private fun setupFocus() {
-        binding.etUsername.setOnFocusChangeListener { _, hasFocus ->
-            animateFieldFocus(binding.containerUsername, binding.labelUsername, hasFocus)
-        }
-        binding.etPassword.setOnFocusChangeListener { _, hasFocus ->
-            animateFieldFocus(binding.containerPassword, binding.labelPassword, hasFocus)
-        }
-        binding.btnLogin.setOnFocusChangeListener { _, hasFocus ->
-            binding.btnLogin.animate()
-                .scaleX(if (hasFocus) 1.04f else 1f)
-                .scaleY(if (hasFocus) 1.04f else 1f)
-                .alpha(if (hasFocus) 1f else 0.85f)
-                .setDuration(180).start()
-        }
-
-        // Auto-focus username
-        Handler(Looper.getMainLooper()).postDelayed({
-            binding.etUsername.requestFocus()
-        }, 700)
-    }
-
-    private fun animateFieldFocus(container: View, label: TextView, focused: Boolean) {
-        container.animate()
-            .scaleX(if (focused) 1.015f else 1f)
-            .scaleY(if (focused) 1.015f else 1f)
-            .setDuration(200).start()
-        label.animate()
-            .alpha(if (focused) 1f else 0.5f)
-            .setDuration(200).start()
-        container.setBackgroundResource(
-            if (focused) R.drawable.login_field_focused else R.drawable.login_field_normal
-        )
-    }
-
-    private fun setupLoginButton() {
-        binding.btnLogin.setOnClickListener { attemptLogin() }
-
-        binding.etPassword.setOnEditorActionListener { _, _, _ ->
-            attemptLogin()
-            true
-        }
-    }
-
-    private fun attemptLogin() {
-        if (isLoading) return
-        val username = binding.etUsername.text.toString().trim()
-        val password = binding.etPassword.text.toString().trim()
-
-        if (username.isEmpty() || password.isEmpty()) {
-            shakeField(if (username.isEmpty()) binding.containerUsername else binding.containerPassword)
-            return
-        }
-
-        setLoading(true)
-
-        // ADD THIS: Use Dispatchers.IO for network calls
-        lifecycleScope.launch(Dispatchers.IO) {  // <-- ADD Dispatchers.IO HERE
+        lifecycleScope.launch {
             try {
-                val token = ApiService.login(username, password)
+                val result = withContext(Dispatchers.IO) { initPairing() }
+                if (result != null) {
+                    pairingCode = result.first
+                    val qrUrl = result.second
 
-                // Switch back to Main thread for UI updates
-                withContext(Dispatchers.Main) {
-                    if (token != null) {
-                        getPrefs().edit().putString("auth_token", token).apply()
-                        binding.btnLogin.text = "✓  Welcome"
-                        Handler(Looper.getMainLooper()).postDelayed({ goToMain() }, 600)
-                    } else {
-                        setLoading(false)
-                        showError("Incorrect username or password")
-                        shakeField(binding.loginCard)
-                    }
+                    // Generate QR bitmap
+                    val bitmap = BarcodeEncoder().encodeBitmap(qrUrl, BarcodeFormat.QR_CODE, 400, 400)
+                    ivQrCode.setImageBitmap(bitmap)
+                    tvPairingCode.text = pairingCode
+                    tvStatus.text = "Scan QR code with your phone to log in"
+
+                    startPolling()
+                } else {
+                    tvStatus.text = "Failed to connect. Tap Refresh."
+                    btnRefresh.visibility = View.VISIBLE
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    setLoading(false)
-                    showError("Connection error — check your network")
+                tvStatus.text = "Network error. Tap Refresh."
+                btnRefresh.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun startPolling() {
+        pollingJob?.cancel()
+        pollingJob = lifecycleScope.launch {
+            while (isActive) {
+                delay(3000)
+                try {
+                    val result = withContext(Dispatchers.IO) { checkPairing() }
+                    when (result) {
+                        "expired" -> {
+                            tvStatus.text = "Code expired. Tap Refresh."
+                            btnRefresh.visibility = View.VISIBLE
+                            break
+                        }
+                        null -> {
+                            // network error, just retry
+                        }
+                        else -> {
+                            // result is the access_token
+                            getPrefs().edit().putString("auth_token", result).apply()
+                            goToMain()
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    // keep polling on error
                 }
             }
         }
     }
 
+    // Returns Pair(pairing_code, qr_url) or null on failure
+    private fun initPairing(): Pair<String, String>? {
+        return try {
+            val url = URL("$BASE_URL/tv/init")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.doOutput = true
 
+            val body = JSONObject().put("device_id", deviceId).toString()
+            OutputStreamWriter(conn.outputStream).use { it.write(body) }
 
-    private fun setLoading(loading: Boolean) {
-        isLoading = loading
-        binding.progressBar.visibility = if (loading) View.VISIBLE else View.GONE
-        binding.btnLogin.isEnabled = !loading
-        binding.btnLogin.alpha = if (loading) 0.6f else 1f
-        binding.btnLogin.text = if (loading) "Signing in…" else "Sign In"
-        binding.etUsername.isEnabled = !loading
-        binding.etPassword.isEnabled = !loading
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                conn.disconnect()
+                Pair(json.getString("pairing_code"), json.getString("qr_url"))
+            } else {
+                conn.disconnect()
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
-    private fun showError(message: String) {
-        binding.tvError.text = message
-        binding.tvError.visibility = View.VISIBLE
-        binding.tvError.animate().alpha(1f).setDuration(250).start()
-        Handler(Looper.getMainLooper()).postDelayed({
-            binding.tvError.animate().alpha(0f).setDuration(400)
-                .withEndAction { binding.tvError.visibility = View.GONE }.start()
-        }, 3500)
-    }
+    // Returns: access_token string if paired, "expired" if expired, null if still pending/error
+    private fun checkPairing(): String? {
+        return try {
+            val url = URL("$BASE_URL/tv/check")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.doOutput = true
 
-    private fun shakeField(view: View) {
-        val shake = android.animation.ObjectAnimator.ofFloat(view, "translationX",
-            0f, -12f, 12f, -8f, 8f, -4f, 4f, 0f)
-        shake.duration = 380
-        shake.start()
+            val body = JSONObject()
+                .put("device_id", deviceId)
+                .put("pairing_code", pairingCode)
+                .toString()
+            OutputStreamWriter(conn.outputStream).use { it.write(body) }
+
+            val responseCode = conn.responseCode
+
+            if (responseCode == 410) {
+                conn.disconnect()
+                return "expired"
+            }
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                conn.disconnect()
+                return when (json.optString("status")) {
+                    "paired" -> json.getString("access_token")
+                    "expired" -> "expired"
+                    else -> null // pending
+                }
+            }
+            conn.disconnect()
+            null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun goToMain() {
         startActivity(Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         })
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
     }
 
     private fun getPrefs() = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // Can't go back from login — app exit
-            finishAffinity()
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
+    override fun onDestroy() {
+        super.onDestroy()
+        pollingJob?.cancel()
     }
 }
