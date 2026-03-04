@@ -10,6 +10,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ApiService {
+
     private val BASE_URL = BuildConfig.BASE_API_URL
     private const val TAG = "ApiService"
 
@@ -33,142 +34,121 @@ object ApiService {
         val hoursBack: Int = 0
     )
 
-    // -----------------------------------------------------------------------
-    // Channels
-    // -----------------------------------------------------------------------
+    // ── Shared helpers ────────────────────────────────────────────────────────
+
+    private fun openGet(path: String, token: String? = null): HttpURLConnection {
+        val conn = URL(path).openConnection() as HttpURLConnection
+        conn.requestMethod = "GET"
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 10_000
+        conn.setRequestProperty("Accept", "application/json")
+        if (!token.isNullOrBlank()) conn.setRequestProperty("Authorization", "Bearer $token")
+        return conn
+    }
+
+    private fun openPost(path: String, token: String? = null): HttpURLConnection {
+        val conn = URL(path).openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.connectTimeout = 8_000
+        conn.readTimeout = 8_000
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Accept", "application/json")
+        if (!token.isNullOrBlank()) conn.setRequestProperty("Authorization", "Bearer $token")
+        return conn
+    }
+
+    private fun HttpURLConnection.readBody(): String =
+        inputStream.bufferedReader().use { it.readText() }
+
+    private fun HttpURLConnection.readError(): String =
+        try { errorStream?.bufferedReader()?.use { it.readText() } ?: "n/a" } catch (_: Exception) { "n/a" }
+
+    // ── Channels ──────────────────────────────────────────────────────────────
 
     fun fetchChannels(token: String? = null): ChannelsResponse {
-        val fullUrl = "$BASE_URL/channels"
-        Log.d(TAG, "=== FETCH CHANNELS: GET $fullUrl, token=${token != null} ===")
-
         val channels = mutableListOf<ApiChannel>()
         val accessibleIds = mutableListOf<String>()
 
         try {
-            val url = URL(fullUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            if (!token.isNullOrBlank()) {
-                conn.setRequestProperty("Authorization", "Bearer $token")
-            }
-            conn.setRequestProperty("Accept", "application/json")
-
-            val responseCode = conn.responseCode
-            Log.d(TAG, "  Response code: $responseCode")
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val text = conn.inputStream.bufferedReader().readText()
+            val conn = openGet("$BASE_URL/channels", token)
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val text = conn.readBody()
                 conn.disconnect()
-                Log.d(TAG, "  Response (first 500): ${text.take(500)}")
-
-                try {
-                    val obj = JSONObject(text)
-                    val channelsArr = obj.optJSONArray("channels")
-                    val accessibleArr = obj.optJSONArray("accessible_external_ids")
-
-                    if (channelsArr != null) {
-                        for (i in 0 until channelsArr.length()) {
-                            val ch = channelsArr.getJSONObject(i)
-                            channels.add(ApiChannel(
-                                id       = ch.getString("id"),
-                                name     = ch.getString("name"),
-                                logo     = ch.optString("logo", ""),
-                                number   = ch.optInt("number", i + 1),
-                                category = ch.optString("category", "General")
-                            ))
-                        }
-                        Log.d(TAG, "  Parsed ${channels.size} channels")
-                    }
-
-                    if (accessibleArr != null) {
-                        for (i in 0 until accessibleArr.length()) {
-                            val id = accessibleArr.optString(i, "")
-                            if (id.isNotEmpty()) accessibleIds.add(id)
-                        }
-                        Log.d(TAG, "  Accessible IDs: ${accessibleIds.size}")
-                    }
-
-                } catch (e: Exception) {
-                    // Fallback: plain array format
-                    try {
-                        val arr = JSONArray(text)
-                        for (i in 0 until arr.length()) {
-                            val ch = arr.getJSONObject(i)
-                            channels.add(ApiChannel(
-                                id       = ch.getString("id"),
-                                name     = ch.getString("name"),
-                                logo     = ch.optString("logo", ""),
-                                number   = ch.optInt("number", i + 1),
-                                category = ch.optString("category", "General")
-                            ))
-                        }
-                        channels.forEach { accessibleIds.add(it.id) }
-                        Log.d(TAG, "  Parsed ${channels.size} channels (array fallback)")
-                    } catch (e2: Exception) {
-                        Log.e(TAG, "  Failed to parse channels response", e2)
-                    }
-                }
+                parseChannelsResponse(text, channels, accessibleIds)
             } else {
-                val errorBody = try { conn.errorStream?.bufferedReader()?.readText() } catch (ex: Exception) { "n/a" }
-                Log.e(TAG, "  ERROR $responseCode: $errorBody")
+                Log.e(TAG, "fetchChannels ${conn.responseCode}: ${conn.readError()}")
                 conn.disconnect()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "  EXCEPTION in fetchChannels", e)
+            Log.e(TAG, "fetchChannels exception", e)
         }
 
-        Log.d(TAG, "=== FETCH CHANNELS DONE: ${channels.size} total, ${accessibleIds.size} accessible ===")
         return ChannelsResponse(channels, accessibleIds)
     }
 
-    fun fetchStreamUrl(channelId: String, deviceId: String, token: String? = null): StreamResponse? {
-        return try {
-            val url = URL("$BASE_URL/channels/$channelId/stream?device_id=$deviceId")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            if (!token.isNullOrBlank()) {
-                conn.setRequestProperty("Authorization", "Bearer $token")
+    private fun parseChannelsResponse(
+        text: String,
+        channels: MutableList<ApiChannel>,
+        accessibleIds: MutableList<String>
+    ) {
+        // Try object format first: { channels: [...], accessible_external_ids: [...] }
+        try {
+            val obj = JSONObject(text)
+            obj.optJSONArray("channels")?.forEachObject { ch, i ->
+                channels.add(ch.toApiChannel(i))
             }
+            obj.optJSONArray("accessible_external_ids")?.forEachString { accessibleIds.add(it) }
+            return
+        } catch (_: Exception) { /* fall through to array format */ }
+
+        // Fallback: plain array
+        try {
+            JSONArray(text).forEachObject { ch, i ->
+                channels.add(ch.toApiChannel(i))
+            }
+            channels.forEach { accessibleIds.add(it.id) }
+        } catch (e: Exception) {
+            Log.e(TAG, "parseChannelsResponse failed", e)
+        }
+    }
+
+    private fun JSONObject.toApiChannel(index: Int) = ApiChannel(
+        id       = getString("id"),
+        name     = getString("name"),
+        logo     = optString("logo", ""),
+        number   = optInt("number", index + 1),
+        category = optString("category", "General")
+    )
+
+    fun fetchStreamUrl(channelId: String, deviceId: String, token: String? = null): StreamResponse? =
+        try {
+            val conn = openGet("$BASE_URL/channels/$channelId/stream?device_id=$deviceId", token)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                val json = JSONObject(conn.readBody())
                 conn.disconnect()
                 StreamResponse(
                     url        = json.getString("url"),
                     expiresAt  = json.optLong("expires_at", 0),
-                    serverTime = json.optLong("server_time", System.currentTimeMillis() / 1000),
-                    hoursBack  = 0
+                    serverTime = json.optLong("server_time", System.currentTimeMillis() / 1000)
                 )
             } else {
-                val errorBody = try { conn.errorStream?.bufferedReader()?.readText() } catch (e: Exception) { "n/a" }
-                Log.e(TAG, "fetchStreamUrl error ${conn.responseCode}: $errorBody")
-                conn.disconnect()
-                null
+                Log.e(TAG, "fetchStreamUrl ${conn.responseCode}: ${conn.readError()}")
+                conn.disconnect(); null
             }
-        } catch (e: Exception) { e.printStackTrace(); null }
-    }
+        } catch (e: Exception) { Log.e(TAG, "fetchStreamUrl exception", e); null }
 
-    fun fetchArchiveUrl(channelId: String, timestamp: Long, deviceId: String, token: String? = null): StreamResponse? {
-        return try {
-            val url = URL("$BASE_URL/channels/$channelId/archive?timestamp=$timestamp&device_id=$deviceId")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            if (!token.isNullOrBlank()) {
-                conn.setRequestProperty("Authorization", "Bearer $token")
-            }
+    fun fetchArchiveUrl(channelId: String, timestamp: Long, deviceId: String, token: String? = null): StreamResponse? =
+        try {
+            val conn = openGet("$BASE_URL/channels/$channelId/archive?timestamp=$timestamp&device_id=$deviceId", token)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                val json = JSONObject(conn.readBody())
                 conn.disconnect()
-                val hoursBack = try {
-                    when (val raw = json.opt("hoursBack")) {
-                        is Int -> raw; is String -> raw.toIntOrNull() ?: 0; else -> 0
-                    }
-                } catch (e: Exception) { 0 }
+                val hoursBack = when (val raw = json.opt("hoursBack")) {
+                    is Int    -> raw
+                    is String -> raw.toIntOrNull() ?: 0
+                    else      -> 0
+                }
                 StreamResponse(
                     url        = json.getString("url"),
                     expiresAt  = json.optLong("expires_at", 0),
@@ -176,154 +156,102 @@ object ApiService {
                     hoursBack  = hoursBack
                 )
             } else { conn.disconnect(); null }
-        } catch (e: Exception) { e.printStackTrace(); null }
-    }
+        } catch (e: Exception) { Log.e(TAG, "fetchArchiveUrl exception", e); null }
 
-    fun fetchAllPrograms(channelId: String): List<Program> {
+    // ── Programs ──────────────────────────────────────────────────────────────
+
+    fun fetchAllPrograms(channelId: String): List<Program> =
+        fetchProgramsFromUrl("$BASE_URL/channels/$channelId/programs/all", legacyKeys = true)
+
+    fun fetchPrograms(channelId: String, date: String): List<Program> =
+        fetchProgramsFromUrl("$BASE_URL/channels/$channelId/programs?date=$date", legacyKeys = false)
+
+    private fun fetchProgramsFromUrl(url: String, legacyKeys: Boolean): List<Program> {
         val programs = mutableListOf<Program>()
         try {
-            val url = URL("$BASE_URL/channels/$channelId/programs/all")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"; conn.connectTimeout = 10000; conn.readTimeout = 10000
+            val conn = openGet(url)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONArray(conn.inputStream.bufferedReader().readText())
+                val json = JSONArray(conn.readBody())
                 conn.disconnect()
                 for (i in 0 until json.length()) {
-                    val obj          = json.getJSONObject(i)
-                    val uid          = obj.optInt("UID", 0)
-                    val startSeconds = obj.optLong("START_TIME", 0)
-                    val endSeconds   = obj.optLong("END_TIME", 0)
-                    val title        = obj.optString("TITLE", "No Title")
-                    val description  = obj.optString("DESCRIPTION", "")
-                    val chId         = obj.optInt("CHANNEL_ID", 0)
-                    if (uid != 0 && startSeconds != 0L) {
-                        programs.add(Program(uid, title, description, startSeconds * 1000L, endSeconds * 1000L, chId))
+                    val obj = json.getJSONObject(i)
+                    val uid   = obj.optInt("id",         obj.optInt("UID", 0))
+                    val start = obj.optLong("start",     obj.optLong("START_TIME", 0))
+                    val end   = obj.optLong("end",       obj.optLong("END_TIME", 0))
+                    val title = obj.optString("title",   obj.optString("TITLE", "No Title"))
+                    val desc  = obj.optString("description", obj.optString("DESCRIPTION", ""))
+                    val chId  = obj.optInt("channel_id", obj.optInt("CHANNEL_ID", 0))
+                    if (uid != 0 && start != 0L) {
+                        programs.add(Program(uid, title, desc, start * 1000L, end * 1000L, chId))
                     }
                 }
             } else { conn.disconnect() }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { Log.e(TAG, "fetchPrograms exception ($url)", e) }
         return programs
     }
 
-    fun fetchPrograms(channelId: String, date: String): List<Program> {
-        val programs = mutableListOf<Program>()
-        try {
-            val url = URL("$BASE_URL/channels/$channelId/programs?date=$date")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"; conn.connectTimeout = 10000; conn.readTimeout = 10000
-            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONArray(conn.inputStream.bufferedReader().readText())
-                conn.disconnect()
-                for (i in 0 until json.length()) {
-                    val obj          = json.getJSONObject(i)
-                    val uid          = obj.optInt("id", obj.optInt("UID", 0))
-                    val startSeconds = obj.optLong("start", obj.optLong("START_TIME", 0))
-                    val endSeconds   = obj.optLong("end", obj.optLong("END_TIME", 0))
-                    val title        = obj.optString("title", obj.optString("TITLE", "No Title"))
-                    val description  = obj.optString("description", obj.optString("DESCRIPTION", ""))
-                    val chId         = obj.optInt("channel_id", obj.optInt("CHANNEL_ID", 0))
-                    if (uid != 0 && startSeconds != 0L) {
-                        programs.add(Program(uid, title, description, startSeconds * 1000L, endSeconds * 1000L, chId))
-                    }
-                }
-            } else { conn.disconnect() }
-        } catch (e: Exception) { e.printStackTrace() }
-        return programs
-    }
-
-    // -----------------------------------------------------------------------
-    // Favorites
-    // -----------------------------------------------------------------------
+    // ── Favourites ────────────────────────────────────────────────────────────
 
     fun fetchFavourites(token: String): List<String> {
         val ids = mutableListOf<String>()
-        val fullUrl = "$BASE_URL/user/preferences/favourite-channels"
-        Log.d(TAG, "=== FETCH FAVOURITES: GET $fullUrl ===")
-
         try {
-            val url = URL(fullUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 8000; conn.readTimeout = 8000
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("Accept", "application/json")
-
-            val responseCode = conn.responseCode
-            Log.d(TAG, "  Response code: $responseCode")
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val text = conn.inputStream.bufferedReader().readText()
+            val conn = openGet("$BASE_URL/user/preferences/favourite-channels", token)
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val text = conn.readBody()
                 conn.disconnect()
+                // Try known array keys in the response object
                 try {
                     val obj = JSONObject(text)
                     val arr = obj.optJSONArray("favouriteChannelIds")
                         ?: obj.optJSONArray("favourite_channel_ids")
                         ?: obj.optJSONArray("data")
                         ?: obj.optJSONArray("channels")
-                    if (arr != null) {
-                        for (i in 0 until arr.length()) {
-                            val item = arr.optString(i, "")
-                            if (item.isNotEmpty()) ids.add(item)
-                        }
-                    } else {
-                        Log.e(TAG, "  No known array key in favourites response")
-                    }
-                } catch (e: Exception) {
-                    try {
-                        val arr = JSONArray(text)
-                        for (i in 0 until arr.length()) {
-                            val item = arr.optString(i, "")
-                            if (item.isNotEmpty()) ids.add(item)
-                        }
-                    } catch (e2: Exception) {
-                        Log.e(TAG, "  Failed to parse favourites response", e2)
-                    }
+                    arr?.forEachString { ids.add(it) }
+                        ?: Log.e(TAG, "fetchFavourites: no known array key in response")
+                } catch (_: Exception) {
+                    // Fallback: bare array
+                    JSONArray(text).forEachString { ids.add(it) }
                 }
             } else {
-                val err = try { conn.errorStream?.bufferedReader()?.readText() } catch (e: Exception) { "n/a" }
-                Log.e(TAG, "  ERROR $responseCode: $err")
+                Log.e(TAG, "fetchFavourites ${conn.responseCode}: ${conn.readError()}")
                 conn.disconnect()
             }
-        } catch (e: Exception) { Log.e(TAG, "  EXCEPTION in fetchFavourites", e) }
-
+        } catch (e: Exception) { Log.e(TAG, "fetchFavourites exception", e) }
         return ids
     }
 
-    fun addFavourite(token: String, channelApiId: String): Boolean {
-        val fullUrl = "$BASE_URL/user/preferences/favourite-channels"
-        val body = JSONObject().put("channelId", channelApiId).toString()
+    fun addFavourite(token: String, channelApiId: String): Boolean = try {
+        val conn = openPost("$BASE_URL/user/preferences/favourite-channels", token)
+        OutputStreamWriter(conn.outputStream).use {
+            it.write(JSONObject().put("channelId", channelApiId).toString())
+        }
+        val ok = conn.responseCode in 200..299
+        conn.disconnect()
+        ok
+    } catch (e: Exception) { Log.e(TAG, "addFavourite exception", e); false }
 
-        return try {
-            val url = URL(fullUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 8000; conn.readTimeout = 8000
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.doOutput = true
-            OutputStreamWriter(conn.outputStream).use { it.write(body) }
+    fun removeFavourite(token: String, channelApiId: String): Boolean = try {
+        val conn = URL("$BASE_URL/user/preferences/favourites/$channelApiId").openConnection() as HttpURLConnection
+        conn.requestMethod = "DELETE"
+        conn.connectTimeout = 8_000
+        conn.readTimeout = 8_000
+        conn.setRequestProperty("Authorization", "Bearer $token")
+        conn.setRequestProperty("Accept", "application/json")
+        val ok = conn.responseCode in 200..299
+        conn.disconnect()
+        ok
+    } catch (e: Exception) { Log.e(TAG, "removeFavourite exception", e); false }
 
-            val responseCode = conn.responseCode
-            conn.disconnect()
-            responseCode in 200..299
-        } catch (e: Exception) { Log.e(TAG, "  EXCEPTION in addFavourite", e); false }
+    // ── JSONArray extension helpers ───────────────────────────────────────────
+
+    private inline fun JSONArray.forEachObject(block: (JSONObject, Int) -> Unit) {
+        for (i in 0 until length()) block(getJSONObject(i), i)
     }
 
-    fun removeFavourite(token: String, channelApiId: String): Boolean {
-        val fullUrl = "$BASE_URL/user/preferences/favourites/$channelApiId"
-
-        return try {
-            val url = URL(fullUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "DELETE"
-            conn.connectTimeout = 8000; conn.readTimeout = 8000
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("Accept", "application/json")
-
-            val responseCode = conn.responseCode
-            conn.disconnect()
-            responseCode in 200..299
-        } catch (e: Exception) { Log.e(TAG, "  EXCEPTION in removeFavourite", e); false }
+    private inline fun JSONArray.forEachString(block: (String) -> Unit) {
+        for (i in 0 until length()) {
+            val s = optString(i, "")
+            if (s.isNotEmpty()) block(s)
+        }
     }
 }

@@ -15,9 +15,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-/**
- * FIX 11: Removed cancel button - only confirm button remains
- */
 class TimeRewindOverlayManager(
     private val activity: Activity,
     val overlayView: View,
@@ -25,13 +22,13 @@ class TimeRewindOverlayManager(
     private val onTimeSelected: (timestampMs: Long) -> Unit,
     private val onDismiss: () -> Unit
 ) {
-    private val tvSelectedTime: TextView = overlayView.findViewById(R.id.tvSelectedTime)
-    private val tvArchiveRange: TextView = overlayView.findViewById(R.id.tvArchiveRange)
-    private val tvOutOfRange:   TextView = overlayView.findViewById(R.id.tvOutOfRange)
+    private val tvSelectedTime: TextView  = overlayView.findViewById(R.id.tvSelectedTime)
+    private val tvArchiveRange: TextView  = overlayView.findViewById(R.id.tvArchiveRange)
+    private val tvOutOfRange:   TextView  = overlayView.findViewById(R.id.tvOutOfRange)
     private val rvDays:         RecyclerView = overlayView.findViewById(R.id.rvDays)
     private val rvHours:        RecyclerView = overlayView.findViewById(R.id.rvHours)
     private val rvMinutes:      RecyclerView = overlayView.findViewById(R.id.rvMinutes)
-    private val btnConfirm:     Button = overlayView.findViewById(R.id.btnRewindConfirm)
+    private val btnConfirm:     Button    = overlayView.findViewById(R.id.btnRewindConfirm)
 
     private data class DayEntry(val label: String, val dayStart: Calendar)
 
@@ -40,22 +37,24 @@ class TimeRewindOverlayManager(
     private var selHour   = 0
     private var selMinute = 0
 
-    // FIX 11: Focus columns: 0=days, 1=hours, 2=minutes, 3=confirm (no cancel)
+    // focusCol: 0=days 1=hours 2=minutes 3=confirm
     private var focusCol = 0
 
     private lateinit var dayAdapter:    PickerAdapter
     private lateinit var hourAdapter:   PickerAdapter
     private lateinit var minuteAdapter: PickerAdapter
 
-    private val timeFmt = SimpleDateFormat("EEE, d MMM  HH:mm", Locale.getDefault())
-    private val dayFmt  = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+    private val displayFmt = SimpleDateFormat("EEE, d MMM  HH:mm", Locale.getDefault())
+    private val dayFmt     = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+
+    val isVisible: Boolean get() = overlayView.visibility == View.VISIBLE
 
     init {
         setupColumns()
         setupButtons()
     }
 
-    val isVisible get() = overlayView.visibility == View.VISIBLE
+    // ── Public API ────────────────────────────────────────────────────────────
 
     fun show() {
         buildDayList()
@@ -71,49 +70,44 @@ class TimeRewindOverlayManager(
         onDismiss()
     }
 
-    fun handleKeyEvent(keyCode: Int): Boolean {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP   -> { nudge(-1); true }
-            KeyEvent.KEYCODE_DPAD_DOWN -> { nudge(+1); true }
-            KeyEvent.KEYCODE_DPAD_LEFT -> { moveFocusLeft();  true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> { moveFocusRight(); true }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                if (focusCol == 3) btnConfirm.performClick()
-                true
-            }
-            KeyEvent.KEYCODE_BACK -> { dismiss(); true }
-            else -> false
+    fun handleKeyEvent(keyCode: Int): Boolean = when (keyCode) {
+        KeyEvent.KEYCODE_DPAD_UP    -> { nudge(-1); true }
+        KeyEvent.KEYCODE_DPAD_DOWN  -> { nudge(+1); true }
+        KeyEvent.KEYCODE_DPAD_LEFT  -> { moveFocusLeft();  true }
+        KeyEvent.KEYCODE_DPAD_RIGHT -> { moveFocusRight(); true }
+        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+            if (focusCol == 3) btnConfirm.performClick()
+            true
         }
+        KeyEvent.KEYCODE_BACK -> { dismiss(); true }
+        else -> false
     }
 
-    private fun buildDayList() {
-        val channelId  = channelIdProvider()
-        val hoursBack  = ChannelRepository.getHoursBack(channelId)
-        val effectiveH = if (hoursBack > 0) hoursBack else 7 * 24
+    // ── Day list ──────────────────────────────────────────────────────────────
 
-        if (hoursBack > 0) {
+    private fun buildDayList() {
+        val channelId   = channelIdProvider()
+        val hoursBack   = ChannelRepository.getHoursBack(channelId)
+        val effectiveH  = if (hoursBack > 0) hoursBack else 7 * 24
+
+        tvArchiveRange.visibility = if (hoursBack > 0) {
             val d = hoursBack / 24
             val h = hoursBack % 24
             tvArchiveRange.text = if (h == 0) "${d}d rewind" else "${d}d ${h}h rewind"
-            tvArchiveRange.visibility = View.VISIBLE
-        } else {
-            tvArchiveRange.visibility = View.GONE
-        }
-
-        val now = Calendar.getInstance()
-        val earliest = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -effectiveH) }
-
-        val cursor = earliest.clone() as Calendar
-        cursor.set(Calendar.HOUR_OF_DAY, 0)
-        cursor.set(Calendar.MINUTE, 0)
-        cursor.set(Calendar.SECOND, 0)
-        cursor.set(Calendar.MILLISECOND, 0)
+            View.VISIBLE
+        } else View.GONE
 
         val today = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }
         val yesterday = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
+        val earliest  = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -effectiveH) }
+
+        val cursor = (earliest.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
 
         val entries = mutableListOf<DayEntry>()
         while (!cursor.after(today)) {
@@ -121,13 +115,14 @@ class TimeRewindOverlayManager(
             val label = when {
                 sameDay(snap, today)     -> "Today"
                 sameDay(snap, yesterday) -> "Yesterday"
-                else -> dayFmt.format(snap.time)
+                else                     -> dayFmt.format(snap.time)
             }
             entries.add(DayEntry(label, snap))
             cursor.add(Calendar.DAY_OF_YEAR, 1)
         }
         dayEntries = entries
 
+        val now = Calendar.getInstance()
         selDay    = entries.size - 1
         selHour   = now.get(Calendar.HOUR_OF_DAY)
         selMinute = now.get(Calendar.MINUTE)
@@ -137,49 +132,52 @@ class TimeRewindOverlayManager(
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
                 a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
 
+    // ── Column setup ──────────────────────────────────────────────────────────
+
     private fun setupColumns() {
         dayAdapter    = PickerAdapter()
         hourAdapter   = PickerAdapter()
         minuteAdapter = PickerAdapter()
 
-        fun init(rv: RecyclerView, adapter: PickerAdapter, colIndex: Int) {
-            rv.layoutManager = LinearLayoutManager(activity)
-            rv.adapter = adapter
-            LinearSnapHelper().attachToRecyclerView(rv)
-            rv.setOnFocusChangeListener { _, hasFocus ->
-                adapter.setFocused(hasFocus)
-                if (hasFocus) focusCol = colIndex
-            }
-            rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                override fun onScrollStateChanged(recyclerView: RecyclerView, state: Int) {
-                    if (state == RecyclerView.SCROLL_STATE_IDLE) {
-                        val lm = recyclerView.layoutManager as LinearLayoutManager
-                        val snap = LinearSnapHelper()
-                        snap.findSnapView(lm)?.let { v ->
-                            val pos = lm.getPosition(v)
-                            if (pos >= 0) {
-                                when (colIndex) {
-                                    0 -> { selDay    = pos; adapter.center = pos }
-                                    1 -> { selHour   = pos; adapter.center = pos }
-                                    2 -> { selMinute = pos; adapter.center = pos }
-                                }
-                                updateDisplay()
-                            }
-                        }
-                    }
-                }
-            })
+        setupColumn(rvDays,    dayAdapter,    0)
+        setupColumn(rvHours,   hourAdapter,   1)
+        setupColumn(rvMinutes, minuteAdapter, 2)
+    }
+
+    private fun setupColumn(rv: RecyclerView, adapter: PickerAdapter, colIndex: Int) {
+        rv.layoutManager = LinearLayoutManager(activity)
+        rv.adapter = adapter
+        LinearSnapHelper().attachToRecyclerView(rv)
+
+        rv.setOnFocusChangeListener { _, hasFocus ->
+            adapter.setFocused(hasFocus)
+            if (hasFocus) focusCol = colIndex
         }
 
-        init(rvDays, dayAdapter, 0)
-        init(rvHours, hourAdapter, 1)
-        init(rvMinutes, minuteAdapter, 2)
+        rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                if (newState != RecyclerView.SCROLL_STATE_IDLE) return
+                val lm   = recyclerView.layoutManager as LinearLayoutManager
+                val snap = LinearSnapHelper()
+                snap.findSnapView(lm)?.let { v ->
+                    val pos = lm.getPosition(v)
+                    if (pos >= 0) {
+                        when (colIndex) {
+                            0 -> { selDay    = pos; adapter.center = pos }
+                            1 -> { selHour   = pos; adapter.center = pos }
+                            2 -> { selMinute = pos; adapter.center = pos }
+                        }
+                        updateDisplay()
+                    }
+                }
+            }
+        })
     }
 
     private fun refreshAdapters() {
         dayAdapter.setItems(dayEntries.map { it.label })
-        hourAdapter.setItems((0..23).map { String.format("%02d", it) })
-        minuteAdapter.setItems((0..59).map { String.format("%02d", it) })
+        hourAdapter.setItems((0..23).map { "%02d".format(it) })
+        minuteAdapter.setItems((0..59).map { "%02d".format(it) })
 
         scrollTo(rvDays,    dayAdapter,    selDay)
         scrollTo(rvHours,   hourAdapter,   selHour)
@@ -191,11 +189,13 @@ class TimeRewindOverlayManager(
         (rv.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(pos, 0)
     }
 
+    // ── Navigation ────────────────────────────────────────────────────────────
+
     private fun nudge(delta: Int) {
         when (focusCol) {
-            0 -> moveColumn(rvDays, dayAdapter, delta, dayEntries.size - 1)    { selDay    = it }
-            1 -> moveColumn(rvHours, hourAdapter, delta, 23)                   { selHour   = it }
-            2 -> moveColumn(rvMinutes, minuteAdapter, delta, 59)               { selMinute = it }
+            0 -> moveColumn(rvDays,    dayAdapter,    delta, dayEntries.size - 1) { selDay    = it }
+            1 -> moveColumn(rvHours,   hourAdapter,   delta, 23)                  { selHour   = it }
+            2 -> moveColumn(rvMinutes, minuteAdapter, delta, 59)                  { selMinute = it }
         }
     }
 
@@ -208,7 +208,6 @@ class TimeRewindOverlayManager(
         updateDisplay()
     }
 
-    // FIX 11: Simplified focus navigation without cancel button
     private fun moveFocusLeft() {
         when (focusCol) {
             1 -> { focusCol = 0; rvDays.requestFocus() }
@@ -225,27 +224,27 @@ class TimeRewindOverlayManager(
         }
     }
 
+    // ── Display update ────────────────────────────────────────────────────────
+
     private fun updateDisplay() {
         val tsMs = buildTimestamp()
-        val cal  = Calendar.getInstance().apply { timeInMillis = tsMs }
-        tvSelectedTime.text = timeFmt.format(cal.time)
+        tvSelectedTime.text = displayFmt.format(Calendar.getInstance().apply { timeInMillis = tsMs }.time)
 
-        val channelId    = channelIdProvider()
-        val archiveStart = ChannelRepository.getArchiveStartMs(channelId)
+        val archiveStart = ChannelRepository.getArchiveStartMs(channelIdProvider())
         val outOfRange   = archiveStart != null && tsMs < archiveStart
 
         tvOutOfRange.visibility = if (outOfRange) View.VISIBLE else View.GONE
         tvSelectedTime.setTextColor(if (outOfRange) 0xFFF87171.toInt() else 0xFF818CF8.toInt())
         btnConfirm.isEnabled = !outOfRange
-        btnConfirm.alpha     = if (outOfRange) 0.4f else 1.0f
+        btnConfirm.alpha     = if (outOfRange) 0.4f else 1f
     }
 
     private fun buildTimestamp(): Long {
         val entry = dayEntries.getOrNull(selDay) ?: return System.currentTimeMillis()
         return (entry.dayStart.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, selHour)
-            set(Calendar.MINUTE, selMinute)
-            set(Calendar.SECOND, 0)
+            set(Calendar.MINUTE,      selMinute)
+            set(Calendar.SECOND,      0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
     }
@@ -256,7 +255,6 @@ class TimeRewindOverlayManager(
             dismiss()
             onTimeSelected(ts)
         }
-
         btnConfirm.setOnFocusChangeListener { v, hasFocus ->
             v.scaleX = if (hasFocus) 1.06f else 1f
             v.scaleY = if (hasFocus) 1.06f else 1f
@@ -264,11 +262,17 @@ class TimeRewindOverlayManager(
         }
     }
 
+    // ── Picker Adapter ────────────────────────────────────────────────────────
+
     inner class PickerAdapter : RecyclerView.Adapter<PickerAdapter.VH>() {
         private var items = listOf<String>()
-        var center = 0
-            set(value) { val old = field; field = value; notifyItemChanged(old); notifyItemChanged(value) }
         private var focused = false
+
+        var center = 0
+            set(value) {
+                val old = field; field = value
+                notifyItemChanged(old); notifyItemChanged(value)
+            }
 
         fun setItems(newItems: List<String>) { items = newItems; notifyDataSetChanged() }
         fun setFocused(f: Boolean)           { focused = f; notifyDataSetChanged() }
@@ -285,10 +289,10 @@ class TimeRewindOverlayManager(
         override fun getItemCount() = items.size
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.tv.text = items.getOrElse(position) { "" }
-            val dist = Math.abs(position - center)
+            val dist     = kotlin.math.abs(position - center)
             val isCenter = dist == 0
             holder.tv.apply {
+                text     = items.getOrElse(position) { "" }
                 textSize = when (dist) { 0 -> if (focused) 26f else 24f; 1 -> 19f; else -> 15f }
                 alpha    = when (dist) { 0 -> 1f; 1 -> 0.55f; 2 -> 0.28f; else -> 0.12f }
                 setTextColor(when {

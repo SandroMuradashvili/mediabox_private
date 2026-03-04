@@ -1,6 +1,5 @@
 package ge.mediabox.mediabox.ui.player
 
-import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,26 +30,26 @@ class PlayerActivity : AppCompatActivity() {
     private var channels = repository.getAllChannels()
 
     private var isInitialized = false
-
-    private var isControlsVisible   = false
-    private var isEpgVisible        = false
+    private var isControlsVisible = false
+    private var isEpgVisible = false
     private var isTimeRewindVisible = false
 
+    // Playback state
     private var isLiveMode = true
     private var livePausedAt: Long? = null
-    private var currentPlayingTimestamp: Long = 0L
+    private var currentPlayingTimestamp = 0L
     private var isPlayerPlaying = true
-
     private var userIntentionallyPaused = false
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
 
+    // Ticks every second while paused in live mode to keep rewind availability current
     private val pauseTickHandler = Handler(Looper.getMainLooper())
     private val pauseTickRunnable = object : Runnable {
         override fun run() {
             if (isControlsVisible) updateRewindButtonAvailability()
-            pauseTickHandler.postDelayed(this, 1000)
+            pauseTickHandler.postDelayed(this, 1_000)
         }
     }
 
@@ -59,17 +58,13 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var timeRewindManager: TimeRewindOverlayManager
 
     private var isSyncingFavorites = false
-
-    // Tracks the latest pending stream-fetch job so rapid switches cancel the previous one
     private var pendingStreamJob: Job? = null
 
     private val authToken: String?
-        get() = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
+        get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE)
             .getString("auth_token", null)
 
-    // =========================================================================
-    // Lifecycle
-    // =========================================================================
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,13 +73,10 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
-
             repository.initialize(authToken)
-
             authToken?.let { token ->
                 launch {
-                    try { repository.fetchAndSyncFavourites(token) }
-                    catch (e: Exception) { e.printStackTrace() }
+                    runCatching { repository.fetchAndSyncFavourites(token) }
                 }
             }
 
@@ -94,11 +86,8 @@ class PlayerActivity : AppCompatActivity() {
             setupControlButtons()
 
             val firstUnlocked = channels.indexOfFirst { !it.isLocked }
-            if (firstUnlocked >= 0) {
-                playChannel(firstUnlocked)
-            } else {
-                Toast.makeText(this@PlayerActivity, "No accessible channels", Toast.LENGTH_LONG).show()
-            }
+            if (firstUnlocked >= 0) playChannel(firstUnlocked)
+            else Toast.makeText(this@PlayerActivity, "No accessible channels", Toast.LENGTH_LONG).show()
 
             binding.loadingIndicator.visibility = View.GONE
             isInitialized = true
@@ -112,23 +101,19 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!userIntentionallyPaused) {
-            player?.play()
-        }
+        if (!userIntentionallyPaused) player?.play()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         pendingStreamJob?.cancel()
         pauseTickHandler.removeCallbacksAndMessages(null)
+        hideControlsHandler.removeCallbacksAndMessages(null)
         player?.release()
         player = null
-        hideControlsHandler.removeCallbacksAndMessages(null)
     }
 
-    // =========================================================================
-    // Favorites sync
-    // =========================================================================
+    // ── Favorites sync ────────────────────────────────────────────────────────
 
     private suspend fun syncFavorites(token: String) {
         if (isSyncingFavorites) return
@@ -145,78 +130,72 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // =========================================================================
-    // Player init
-    // =========================================================================
+    // ── Player init ───────────────────────────────────────────────────────────
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun initializePlayer() {
         val renderersFactory = DefaultRenderersFactory(this)
             .setEnableAudioFloatOutput(false)
             .setEnableDecoderFallback(true)
 
-        player = ExoPlayer.Builder(this, renderersFactory).build().also { exoPlayer ->
-            binding.playerView.player = exoPlayer
-
-            exoPlayer.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    when (playbackState) {
-                        Player.STATE_BUFFERING -> binding.loadingIndicator.visibility = View.VISIBLE
-                        Player.STATE_READY     -> binding.loadingIndicator.visibility = View.GONE
-                        Player.STATE_ENDED     -> binding.loadingIndicator.visibility = View.GONE
-                        else -> {}
-                    }
-                }
-
-                override fun onIsPlayingChanged(playing: Boolean) {
-                    isPlayerPlaying = playing
-                    if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
-                        livePausedAt = System.currentTimeMillis()
-                        pauseTickHandler.post(pauseTickRunnable)
-                    } else if (playing && livePausedAt != null) {
-                        livePausedAt = null
-                        pauseTickHandler.removeCallbacks(pauseTickRunnable)
-                    } else if (!isLiveMode && playing) {
-                        livePausedAt = null
-                        pauseTickHandler.removeCallbacks(pauseTickRunnable)
-                    }
-                    updateLiveIndicatorState()
-                    updateRewindButtonAvailability()
-                }
-
-                override fun onPlayerError(error: PlaybackException) {
-                    binding.loadingIndicator.visibility = View.GONE
-                    val isBehindLiveWindow = run {
-                        var e: Throwable? = error.cause
-                        var found = false
-                        while (e != null) {
-                            if (e.javaClass.simpleName == "BehindLiveWindowException") { found = true; break }
-                            e = e.cause
-                        }
-                        found
-                    }
-                    if (isBehindLiveWindow) {
-                        Toast.makeText(this@PlayerActivity, "Archive not available, returning to live", Toast.LENGTH_SHORT).show()
-                        returnToLive()
-                    } else {
-                        Toast.makeText(this@PlayerActivity, "Playback error, retrying...", Toast.LENGTH_SHORT).show()
-                        hideControlsHandler.postDelayed({
-                            if (!isLiveMode) returnToLive() else playChannel(currentChannelIndex)
-                        }, 2000)
-                    }
-                }
-            })
-
-            exoPlayer.playWhenReady = true
+        player = ExoPlayer.Builder(this, renderersFactory).build().also { exo ->
+            binding.playerView.player = exo
+            exo.addListener(playerListener)
+            exo.playWhenReady = true
         }
     }
 
-    // =========================================================================
-    // Overlay setup
-    // =========================================================================
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private val playerListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(state: Int) {
+            binding.loadingIndicator.visibility =
+                if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
+        }
+
+        override fun onIsPlayingChanged(playing: Boolean) {
+            isPlayerPlaying = playing
+            if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
+                livePausedAt = System.currentTimeMillis()
+                pauseTickHandler.post(pauseTickRunnable)
+            } else if (playing && livePausedAt != null) {
+                livePausedAt = null
+                pauseTickHandler.removeCallbacks(pauseTickRunnable)
+            } else if (!isLiveMode && playing) {
+                livePausedAt = null
+                pauseTickHandler.removeCallbacks(pauseTickRunnable)
+            }
+            updateLiveIndicatorState()
+            updateRewindButtonAvailability()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            binding.loadingIndicator.visibility = View.GONE
+            if (error.isBehindLiveWindow()) {
+                Toast.makeText(this@PlayerActivity, "Archive not available, returning to live", Toast.LENGTH_SHORT).show()
+                returnToLive()
+            } else {
+                Toast.makeText(this@PlayerActivity, "Playback error, retrying…", Toast.LENGTH_SHORT).show()
+                hideControlsHandler.postDelayed({
+                    if (!isLiveMode) returnToLive() else playChannel(currentChannelIndex)
+                }, 2_000)
+            }
+        }
+    }
+
+    private fun PlaybackException.isBehindLiveWindow(): Boolean {
+        var e: Throwable? = cause
+        while (e != null) {
+            if (e.javaClass.simpleName == "BehindLiveWindowException") return true
+            e = e.cause
+        }
+        return false
+    }
+
+    // ── Overlay setup ─────────────────────────────────────────────────────────
 
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(
-            binding = binding,
+            binding         = binding,
             onFavoriteToggle = { toggleFavorite() }
         )
 
@@ -224,21 +203,19 @@ class PlayerActivity : AppCompatActivity() {
             activity  = this,
             binding   = binding,
             channels  = channels,
-            onChannelSelected = { channelIndex ->
-                currentChannelIndex = channelIndex
-                playChannel(channelIndex)
+            onChannelSelected = { index ->
+                currentChannelIndex = index
+                playChannel(index)
                 hideEpg()
             },
             onArchiveSelected = { instruction ->
-                if (instruction.startsWith("ARCHIVE_ID")) {
-                    val parts = instruction.split(":")
-                    if (parts.size >= 4) {
-                        val channelId = parts[1].toIntOrNull()
-                        val timeMs    = parts[3].toLongOrNull()
-                        if (channelId != null && timeMs != null) {
-                            playArchiveAt(channelId, timeMs)
-                            hideEpg()
-                        }
+                val parts = instruction.split(":")
+                if (instruction.startsWith("ARCHIVE_ID") && parts.size >= 4) {
+                    val channelId = parts[1].toIntOrNull()
+                    val timeMs    = parts[3].toLongOrNull()
+                    if (channelId != null && timeMs != null) {
+                        playArchiveAt(channelId, timeMs)
+                        hideEpg()
                     }
                 }
             }
@@ -262,278 +239,180 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun setupControlButtons() {
-        binding.root.findViewById<ImageButton>(R.id.btnRewind15s)?.setOnClickListener  { rewindSeconds(15) }
-        binding.root.findViewById<ImageButton>(R.id.btnRewind1m)?.setOnClickListener   { rewindSeconds(60) }
-        binding.root.findViewById<ImageButton>(R.id.btnRewind5m)?.setOnClickListener   { rewindSeconds(300) }
-        binding.root.findViewById<ImageButton>(R.id.btnForward15s)?.setOnClickListener { forwardSeconds(15) }
-        binding.root.findViewById<ImageButton>(R.id.btnForward1m)?.setOnClickListener  { forwardSeconds(60) }
-        binding.root.findViewById<ImageButton>(R.id.btnForward5m)?.setOnClickListener  { forwardSeconds(300) }
-        binding.root.findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
-        binding.root.findViewById<View>(R.id.btnLive)?.let { liveButton ->
-            liveButton.setOnClickListener { returnToLive() }
-            liveButton.setOnFocusChangeListener { v, hasFocus ->
-                v.scaleX = if (hasFocus) 1.08f else 1.0f
-                v.scaleY = if (hasFocus) 1.08f else 1.0f
+        binding.root.apply {
+            findViewById<ImageButton>(R.id.btnRewind15s)?.setOnClickListener  { rewindSeconds(15) }
+            findViewById<ImageButton>(R.id.btnRewind1m)?.setOnClickListener   { rewindSeconds(60) }
+            findViewById<ImageButton>(R.id.btnRewind5m)?.setOnClickListener   { rewindSeconds(300) }
+            findViewById<ImageButton>(R.id.btnForward15s)?.setOnClickListener { forwardSeconds(15) }
+            findViewById<ImageButton>(R.id.btnForward1m)?.setOnClickListener  { forwardSeconds(60) }
+            findViewById<ImageButton>(R.id.btnForward5m)?.setOnClickListener  { forwardSeconds(300) }
+            findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
+            findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
+            findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { /* stub */ }
+            findViewById<View>(R.id.btnLive)?.let { btn ->
+                btn.setOnClickListener { returnToLive() }
+                btn.setOnFocusChangeListener { v, hasFocus ->
+                    v.scaleX = if (hasFocus) 1.08f else 1f
+                    v.scaleY = if (hasFocus) 1.08f else 1f
+                }
             }
         }
-        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener { togglePlayPause() }
-        binding.root.findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { /* dummy */ }
     }
 
-    // =========================================================================
-    // Playback
-    // =========================================================================
+    // ── Playback ──────────────────────────────────────────────────────────────
 
     private fun playChannel(index: Int) {
-        if (index < 0 || index >= channels.size) return
-        val channel = channels[index]
-        if (channel.isLocked) return
-
+        if (index !in channels.indices || channels[index].isLocked) return
         currentChannelIndex     = index
         isLiveMode              = true
         livePausedAt            = null
         userIntentionallyPaused = false
-        pauseTickHandler.removeCallbacks(pauseTickRunnable)
         currentPlayingTimestamp = System.currentTimeMillis()
+        pauseTickHandler.removeCallbacks(pauseTickRunnable)
 
         showTopBarTemporarily()
-        binding.loadingIndicator.visibility = View.VISIBLE
+        loadStream { repository.getStreamUrl(channels[index].id) }
+    }
 
+    private fun rewindSeconds(seconds: Int) {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        val baseMs = livePausedAt ?: if (!isLiveMode) currentPlayingTimestamp else System.currentTimeMillis()
+        val target = baseMs - seconds * 1_000L
+
+        val archiveStart = repository.getArchiveStartMs(channel.id)
+        if (archiveStart != null && target < archiveStart) {
+            Toast.makeText(this, "This channel only supports ${repository.getHoursBack(channel.id)}h rewind", Toast.LENGTH_SHORT).show()
+            return
+        }
+        loadArchive(channel.id, target)
+    }
+
+    private fun forwardSeconds(seconds: Int) {
+        if (isLiveMode && livePausedAt == null) {
+            Toast.makeText(this, "Already at live", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        val target  = (livePausedAt ?: currentPlayingTimestamp) + seconds * 1_000L
+        if (target >= System.currentTimeMillis()) { returnToLive(); return }
+        loadArchive(channel.id, target)
+    }
+
+    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
+        val index = channels.indexOfFirst { it.id == channelId }
+        if (index != -1) currentChannelIndex = index
+        loadArchive(channelId, timestampMs)
+    }
+
+    /** Shared archive loader — sets archive state then fetches the URL. */
+    private fun loadArchive(channelId: Int, timestampMs: Long) {
+        isLiveMode              = false
+        livePausedAt            = null
+        userIntentionallyPaused = false
+        currentPlayingTimestamp = timestampMs
+        pauseTickHandler.removeCallbacks(pauseTickRunnable)
+        loadStream { repository.getArchiveUrl(channelId, timestampMs) }
+    }
+
+    /** Fetches a stream URL in a coroutine, plays it, then refreshes UI. */
+    private fun loadStream(urlProvider: suspend () -> String?) {
+        binding.loadingIndicator.visibility = View.VISIBLE
         pendingStreamJob?.cancel()
         pendingStreamJob = lifecycleScope.launch {
             try {
-                val streamUrl = repository.getStreamUrl(channel.id)
-                if (streamUrl != null) {
-                    playUrl(streamUrl)
+                val url = urlProvider()
+                if (url != null) {
+                    playUrl(url)
+                    updateOverlayInfo()
+                    updateLiveIndicatorState()
+                    updateRewindButtonAvailability()
                 } else {
                     Toast.makeText(this@PlayerActivity, "Stream unavailable", Toast.LENGTH_SHORT).show()
                     binding.loadingIndicator.visibility = View.GONE
                 }
-                updateOverlayInfo()
-                updateLiveIndicatorState()
-                updateRewindButtonAvailability()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) return@launch
                 e.printStackTrace()
                 binding.loadingIndicator.visibility = View.GONE
-                Toast.makeText(this@PlayerActivity, "Error loading channel", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@PlayerActivity, "Error loading stream", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     /**
-     * Loads a new URL into ExoPlayer without touching the surface.
-     *
-     * Previous approach (stop → clearVideoSurface → detach playerView.player → reattach via post{})
-     * caused two intermittent bugs on Android TV / emulator:
-     *
-     *  1. CROPPED VIDEO — The SurfaceView reports its size to ExoPlayer via a Surface callback.
-     *     When we null playerView.player and then reattach one frame later, the surface size
-     *     callback fires again mid-prepare, confusing the video scaler into thinking it has a
-     *     smaller surface than it actually does.  Result: video renders into only part of the
-     *     surface (top-left quadrant).  Fix: never detach the surface — just replace the media
-     *     item while the player keeps its surface reference intact.
-     *
-     *  2. AUDIO LOSS — exo.stop() asynchronously tears down the audio renderer pipeline.
-     *     When stop() is followed rapidly by setMediaItem()/prepare()/play() (e.g. on fast
-     *     channel surfing or rapid rewinds), the audio renderer is still draining/releasing
-     *     buffers while the new stream is already being decoded. ExoPlayer ends up opening
-     *     the new audio stream without a working AudioTrack.  Fix: use pause() instead of
-     *     stop() — pause() suspends playback without destroying the audio renderer, so the
-     *     renderer is immediately reusable for the new media item.
-     *
-     * The trade-off: we skip the aggressive flush, so theoretically a stuck decoder frame
-     * could linger for one render cycle.  In practice this is invisible because ExoPlayer
-     * clears the video buffer on seekToDefaultPosition() before the first frame of the new
-     * stream arrives.
+     * Replaces the current media item without tearing down the audio renderer
+     * (pause not stop), which prevents audio loss and cropped-video artefacts
+     * on rapid channel switches.
      */
     private fun playUrl(url: String) {
         val exo = player ?: return
-
-        // Pause (not stop) — keeps audio renderer alive so the next stream has audio from frame 1
         exo.pause()
-
-        // Replace media item and start decoding the new stream.
-        // seekToDefaultPosition() is called internally by setMediaItem(resetPosition=true)
-        // which is the default — it flushes the decoder queue without destroying the renderer.
         exo.setMediaItem(MediaItem.fromUri(url))
         exo.prepare()
         exo.play()
     }
 
-    private fun rewindSeconds(seconds: Int) {
-        val channel = channels.getOrNull(currentChannelIndex) ?: return
-        val baseMs = when {
-            livePausedAt != null -> livePausedAt!!
-            !isLiveMode          -> currentPlayingTimestamp
-            else                 -> System.currentTimeMillis()
-        }
-        val targetTimestamp = baseMs - (seconds * 1000L)
-        val archiveStartMs = repository.getArchiveStartMs(channel.id)
-        if (archiveStartMs != null && targetTimestamp < archiveStartMs) {
-            val hoursBack = repository.getHoursBack(channel.id)
-            Toast.makeText(this, "This channel only supports ${hoursBack}h rewind", Toast.LENGTH_SHORT).show()
-            return
-        }
-        binding.loadingIndicator.visibility = View.VISIBLE
-
-        pendingStreamJob?.cancel()
-        pendingStreamJob = lifecycleScope.launch {
-            try {
-                val streamUrl = repository.getArchiveUrl(channel.id, targetTimestamp)
-                if (streamUrl != null) {
-                    isLiveMode = false; livePausedAt = null; userIntentionallyPaused = false
-                    pauseTickHandler.removeCallbacks(pauseTickRunnable)
-                    currentPlayingTimestamp = targetTimestamp
-                    playUrl(streamUrl)
-                    updateOverlayInfo(); updateLiveIndicatorState(); updateRewindButtonAvailability()
-                } else {
-                    Toast.makeText(this@PlayerActivity, "Archive unavailable for this time", Toast.LENGTH_SHORT).show()
-                    binding.loadingIndicator.visibility = View.GONE
-                }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) return@launch
-                e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE
-            }
-        }
-    }
-
-    private fun forwardSeconds(seconds: Int) {
-        if (isLiveMode && livePausedAt == null) { Toast.makeText(this, "Already at live", Toast.LENGTH_SHORT).show(); return }
-        val channel = channels.getOrNull(currentChannelIndex) ?: return
-        val baseMs  = livePausedAt ?: currentPlayingTimestamp
-        val targetTimestamp = baseMs + (seconds * 1000L)
-        if (targetTimestamp >= System.currentTimeMillis()) { returnToLive(); return }
-        binding.loadingIndicator.visibility = View.VISIBLE
-
-        pendingStreamJob?.cancel()
-        pendingStreamJob = lifecycleScope.launch {
-            try {
-                val streamUrl = repository.getArchiveUrl(channel.id, targetTimestamp)
-                if (streamUrl != null) {
-                    isLiveMode = false; livePausedAt = null; userIntentionallyPaused = false
-                    pauseTickHandler.removeCallbacks(pauseTickRunnable)
-                    currentPlayingTimestamp = targetTimestamp
-                    playUrl(streamUrl)
-                    updateOverlayInfo(); updateLiveIndicatorState(); updateRewindButtonAvailability()
-                } else {
-                    Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
-                    binding.loadingIndicator.visibility = View.GONE
-                }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) return@launch
-                e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE
-            }
-        }
-    }
-
-    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        isLiveMode = false; livePausedAt = null; userIntentionallyPaused = false
-        pauseTickHandler.removeCallbacks(pauseTickRunnable)
-        currentPlayingTimestamp = timestampMs
-        binding.loadingIndicator.visibility = View.VISIBLE
-        val index = channels.indexOfFirst { it.id == channelId }
-        if (index != -1) currentChannelIndex = index
-
-        pendingStreamJob?.cancel()
-        pendingStreamJob = lifecycleScope.launch {
-            try {
-                val streamUrl = repository.getArchiveUrl(channelId, timestampMs)
-                if (streamUrl != null) {
-                    playUrl(streamUrl)
-                    updateOverlayInfo(); updateLiveIndicatorState(); updateRewindButtonAvailability()
-                } else {
-                    Toast.makeText(this@PlayerActivity, "Archive unavailable", Toast.LENGTH_SHORT).show()
-                    binding.loadingIndicator.visibility = View.GONE
-                }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) return@launch
-                e.printStackTrace(); binding.loadingIndicator.visibility = View.GONE
-            }
-        }
-    }
-
     private fun returnToLive() {
-        livePausedAt = null; userIntentionallyPaused = false
+        livePausedAt            = null
+        userIntentionallyPaused = false
         pauseTickHandler.removeCallbacks(pauseTickRunnable)
-        if (isLiveMode) { player?.play(); updateLiveIndicatorState(); updateRewindButtonAvailability(); return }
-        playChannel(currentChannelIndex)
+        if (isLiveMode) {
+            player?.play()
+            updateLiveIndicatorState()
+            updateRewindButtonAvailability()
+        } else {
+            playChannel(currentChannelIndex)
+        }
     }
 
     private fun togglePlayPause() {
-        player?.let { exo ->
-            if (exo.isPlaying) {
-                userIntentionallyPaused = true; exo.pause()
-                binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_play)
-            } else {
-                userIntentionallyPaused = false; exo.play()
-                binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(R.drawable.ic_pause)
-            }
-        }
+        val exo = player ?: return
+        val nowPlaying = exo.isPlaying
+        userIntentionallyPaused = nowPlaying
+        if (nowPlaying) exo.pause() else exo.play()
+        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)
+            ?.setImageResource(if (nowPlaying) R.drawable.ic_play else R.drawable.ic_pause)
     }
 
-    // =========================================================================
-    // Channel switching — skip locked channels
-    // =========================================================================
+    // ── Channel switching ─────────────────────────────────────────────────────
 
     private fun changeChannel(direction: Int) {
         if (channels.isEmpty()) return
-        var newIndex = currentChannelIndex
-        var steps = 0
-        do {
-            newIndex = when {
-                newIndex + direction < 0 -> channels.size - 1
-                newIndex + direction >= channels.size -> 0
-                else -> newIndex + direction
-            }
-            steps++
-        } while (channels[newIndex].isLocked && steps < channels.size)
-
-        if (!channels[newIndex].isLocked) playChannel(newIndex)
+        var index = currentChannelIndex
+        repeat(channels.size) {
+            index = (index + direction + channels.size) % channels.size
+            if (!channels[index].isLocked) { playChannel(index); return }
+        }
     }
 
-    // =========================================================================
-    // UI state helpers
-    // =========================================================================
+    // ── UI state ──────────────────────────────────────────────────────────────
 
     private fun updateLiveIndicatorState() {
-        val trulyLiveAndPlaying = isLiveMode && isPlayerPlaying && livePausedAt == null
-        controlOverlayManager.updateLiveIndicator(isLive = trulyLiveAndPlaying, isPlaying = isPlayerPlaying)
+        val trulyLive = isLiveMode && isPlayerPlaying && livePausedAt == null
+        controlOverlayManager.updateLiveIndicator(isLive = trulyLive, isPlaying = isPlayerPlaying)
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)
             ?.setImageResource(if (isPlayerPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
 
     private fun updateRewindButtonAvailability() {
-        val btn15s = binding.root.findViewById<ImageButton>(R.id.btnRewind15s) ?: return
-        val btn1m  = binding.root.findViewById<ImageButton>(R.id.btnRewind1m)  ?: return
-        val btn5m  = binding.root.findViewById<ImageButton>(R.id.btnRewind5m)  ?: return
-        val fwd15s = binding.root.findViewById<View>(R.id.layoutForward15s)    ?: return
-        val fwd1m  = binding.root.findViewById<View>(R.id.layoutForward1m)     ?: return
-        val fwd5m  = binding.root.findViewById<View>(R.id.layoutForward5m)     ?: return
-
-        setButtonEnabled(btn15s, true); setButtonEnabled(btn1m, true); setButtonEnabled(btn5m, true)
-
-        val pausedSeconds = livePausedAt?.let { (System.currentTimeMillis() - it) / 1000L } ?: 0L
-        val can15s = !isLiveMode || pausedSeconds >= 15
-        val can1m  = !isLiveMode || pausedSeconds >= 60
-        val can5m  = !isLiveMode || pausedSeconds >= 300
-        fwd15s.alpha = if (can15s) 1f else 0.3f; fwd15s.isEnabled = can15s
-        fwd1m.alpha  = if (can1m)  1f else 0.3f; fwd1m.isEnabled  = can1m
-        fwd5m.alpha  = if (can5m)  1f else 0.3f; fwd5m.isEnabled  = can5m
-    }
-
-    private fun setButtonEnabled(btn: ImageButton, enabled: Boolean) {
-        btn.isEnabled = enabled; btn.alpha = if (enabled) 1.0f else 0.3f
+        val pausedSeconds = livePausedAt?.let { (System.currentTimeMillis() - it) / 1_000L } ?: 0L
+        listOf(
+            Triple(R.id.layoutForward15s, isLiveMode, pausedSeconds >= 15),
+            Triple(R.id.layoutForward1m,  isLiveMode, pausedSeconds >= 60),
+            Triple(R.id.layoutForward5m,  isLiveMode, pausedSeconds >= 300)
+        ).forEach { (id, live, hasEnough) ->
+            val enabled = !live || hasEnough
+            binding.root.findViewById<View>(id)?.apply {
+                alpha = if (enabled) 1f else 0.3f
+                isEnabled = enabled
+            }
+        }
     }
 
     private fun updateOverlayInfo() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
-        val playingTime = when {
-            livePausedAt != null -> livePausedAt!!
-            !isLiveMode          -> currentPlayingTimestamp
-            else                 -> System.currentTimeMillis()
-        }
-        val currentProgram = channel.programs.find { playingTime >= it.startTime && playingTime < it.endTime }
+        val playingTime = livePausedAt ?: if (!isLiveMode) currentPlayingTimestamp else System.currentTimeMillis()
+        val currentProgram = channel.programs.find { playingTime in it.startTime until it.endTime }
         controlOverlayManager.updateChannelInfo(
             channel         = channel,
             currentProgram  = currentProgram,
@@ -546,9 +425,10 @@ class PlayerActivity : AppCompatActivity() {
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.GONE
         isControlsVisible = false
-        updateOverlayInfo(); updateLiveIndicatorState(); updateRewindButtonAvailability()
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
-        hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
+        updateOverlayInfo()
+        updateLiveIndicatorState()
+        updateRewindButtonAvailability()
+        rescheduleHideControls()
     }
 
     private fun showControls() {
@@ -556,10 +436,11 @@ class PlayerActivity : AppCompatActivity() {
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.VISIBLE
-        updateOverlayInfo(); updateLiveIndicatorState(); updateRewindButtonAvailability()
+        updateOverlayInfo()
+        updateLiveIndicatorState()
+        updateRewindButtonAvailability()
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
-        hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
+        rescheduleHideControls()
     }
 
     private fun hideControls() {
@@ -569,11 +450,14 @@ class PlayerActivity : AppCompatActivity() {
         hideControlsHandler.removeCallbacksAndMessages(null)
     }
 
+    private fun rescheduleHideControls() {
+        hideControlsHandler.removeCallbacks(hideControlsRunnable)
+        hideControlsHandler.postDelayed(hideControlsRunnable, 5_000)
+    }
+
     private fun showEpg() {
         authToken?.let { token ->
-            lifecycleScope.launch {
-                try { syncFavorites(token) } catch (e: Exception) { e.printStackTrace() }
-            }
+            lifecycleScope.launch { runCatching { syncFavorites(token) } }
         }
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
@@ -587,21 +471,19 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showTimeRewind() {
-        hideControls(); isTimeRewindVisible = true; timeRewindManager.show()
+        hideControls()
+        isTimeRewindVisible = true
+        timeRewindManager.show()
     }
 
-    // =========================================================================
-    // Favorites
-    // =========================================================================
+    // ── Favorites ─────────────────────────────────────────────────────────────
 
     private fun toggleFavorite() {
         val token = authToken ?: run {
             Toast.makeText(this, "Please log in to use favorites", Toast.LENGTH_SHORT).show()
             return
         }
-        if (channels.isEmpty()) return
-        val channel = channels[currentChannelIndex]
-        if (channel.isLocked) return
+        val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return
         val willBeFavorite = !channel.isFavorite
 
         repository.setFavorite(channel.id, willBeFavorite)
@@ -609,74 +491,68 @@ class PlayerActivity : AppCompatActivity() {
         controlOverlayManager.updateFavoriteButton(willBeFavorite)
 
         lifecycleScope.launch {
-            try {
-                val success = if (willBeFavorite)
-                    repository.addFavouriteRemote(token, channel.apiId)
-                else
-                    repository.removeFavouriteRemote(token, channel.apiId)
+            val success = runCatching {
+                if (willBeFavorite) repository.addFavouriteRemote(token, channel.apiId)
+                else repository.removeFavouriteRemote(token, channel.apiId)
+            }.getOrDefault(false)
 
-                if (!success) {
-                    repository.setFavorite(channel.id, !willBeFavorite)
-                    channels = repository.getAllChannels()
-                    runOnUiThread {
-                        controlOverlayManager.updateFavoriteButton(!willBeFavorite)
-                        Toast.makeText(this@PlayerActivity, "Failed to update favorites", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            if (!success) {
                 repository.setFavorite(channel.id, !willBeFavorite)
                 channels = repository.getAllChannels()
                 runOnUiThread {
                     controlOverlayManager.updateFavoriteButton(!willBeFavorite)
-                    Toast.makeText(this@PlayerActivity, "Network error", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@PlayerActivity, "Failed to update favorites", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    // =========================================================================
-    // Key routing
-    // =========================================================================
+    // ── Key routing ───────────────────────────────────────────────────────────
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isInitialized) return true
-        return when {
+        val handled = when {
             isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
-            isEpgVisible        -> handleEpgKeyPress(keyCode)
-            isControlsVisible   -> handleControlsKeyPress(keyCode)
-            else                -> handlePlayerKeyPress(keyCode)
-        } || super.onKeyDown(keyCode, event)
+            isEpgVisible        -> handleEpgKey(keyCode)
+            isControlsVisible   -> handleControlsKey(keyCode)
+            else                -> handlePlayerKey(keyCode)
+        }
+        return handled || super.onKeyDown(keyCode, event)
     }
 
-    private fun handlePlayerKeyPress(keyCode: Int): Boolean = when (keyCode) {
+    private fun handlePlayerKey(keyCode: Int): Boolean = when (keyCode) {
         KeyEvent.KEYCODE_DPAD_UP    -> { changeChannel(1);  true }
         KeyEvent.KEYCODE_DPAD_DOWN  -> { changeChannel(-1); true }
-        KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
-        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER    -> { showControls(); true }
-        KeyEvent.KEYCODE_BACK -> {
-            val overlay = binding.root.findViewById<View>(R.id.controlOverlay)
-            if (overlay?.visibility == View.VISIBLE) { hideControls(); true }
-            else { finish(); true }
+        KeyEvent.KEYCODE_DPAD_LEFT,
+        KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
+        KeyEvent.KEYCODE_DPAD_CENTER,
+        KeyEvent.KEYCODE_ENTER      -> { showControls(); true }
+        KeyEvent.KEYCODE_BACK       -> {
+            if (binding.root.findViewById<View>(R.id.controlOverlay)?.visibility == View.VISIBLE) {
+                hideControls()
+            } else {
+                finish()
+            }
+            true
         }
         else -> false
     }
 
-    private fun handleControlsKeyPress(keyCode: Int): Boolean {
-        hideControlsHandler.removeCallbacks(hideControlsRunnable)
-        hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
+    private fun handleControlsKey(keyCode: Int): Boolean {
+        rescheduleHideControls()
         return when (keyCode) {
             KeyEvent.KEYCODE_BACK -> { hideControls(); true }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                currentFocus?.performClick()
-                    ?: binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.performClick()
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER -> {
+                (currentFocus ?: binding.root.findViewById<ImageButton>(R.id.btnPlayPause))
+                    ?.performClick()
                 true
             }
             else -> false
         }
     }
 
-    private fun handleEpgKeyPress(keyCode: Int): Boolean = when (keyCode) {
+    private fun handleEpgKey(keyCode: Int): Boolean = when (keyCode) {
         KeyEvent.KEYCODE_BACK -> { hideEpg(); true }
         else -> epgOverlayManager.handleKeyEvent(keyCode)
     }
