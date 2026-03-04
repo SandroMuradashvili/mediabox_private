@@ -29,7 +29,6 @@ class ProgramAdapter(
         val container: View = itemView.findViewById(R.id.programContainer)
 
         init {
-            // Click listener
             itemView.setOnClickListener {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
@@ -37,7 +36,6 @@ class ProgramAdapter(
                 }
             }
 
-            // Focus listener (for TV navigation)
             itemView.setOnFocusChangeListener { view, hasFocus ->
                 view.isSelected = hasFocus
                 view.animate()
@@ -62,26 +60,12 @@ class ProgramAdapter(
                 programProgress.visibility = View.VISIBLE
                 programProgress.progress = (program.getProgress() * 100).toInt()
                 itemView.alpha = 1.0f
-
-                programTime.setTextColor(
-                    ContextCompat.getColor(itemView.context, R.color.primary)
-                )
-                
-                // DEBUG: Highlight currently playing program in RED
-                container.setBackgroundColor(
-                    ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
-                )
+                programTime.setTextColor(ContextCompat.getColor(itemView.context, R.color.primary))
+                container.setBackgroundResource(R.drawable.channel_item_background)
             } else {
                 programProgress.visibility = View.GONE
-
-                itemView.alpha =
-                    if (program.endTime < System.currentTimeMillis()) 0.8f else 1.0f
-
-                programTime.setTextColor(
-                    ContextCompat.getColor(itemView.context, R.color.text_tertiary)
-                )
-                
-                // Reset background to default (transparent or original drawable)
+                itemView.alpha = if (program.endTime < System.currentTimeMillis()) 0.8f else 1.0f
+                programTime.setTextColor(ContextCompat.getColor(itemView.context, R.color.text_tertiary))
                 container.setBackgroundResource(R.drawable.channel_item_background)
             }
         }

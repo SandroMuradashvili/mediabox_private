@@ -9,6 +9,8 @@ import androidx.lifecycle.lifecycleScope
 import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class UserActivity : AppCompatActivity() {
 
@@ -47,26 +49,20 @@ class UserActivity : AppCompatActivity() {
         val name = prefs.getString("user_name", null)
         val email = prefs.getString("user_email", null)
 
-        // Display name + avatar initial
         val displayName = name ?: "User"
         binding.tvDisplayName.text = displayName
         binding.tvAvatarInitial.text = displayName.take(1).uppercase()
         binding.tvAccountSubtitle.text = email ?: ""
 
-        // Fetch plan details from API
         lifecycleScope.launch {
             try {
                 val myPlans = authApi.getMyPlans()
 
                 if (myPlans.isNotEmpty()) {
-                    val active = myPlans.firstOrNull()
-                    binding.tvPlan.text = active?.plan_id?.toString() ?: "—"
-                    binding.tvExpiry.text = active?.let {
-                        // Use expiry field if available, otherwise show plan name
-                        @Suppress("UNNECESSARY_SAFE_CALL")
-                        it.toString().takeIf { s -> s.isNotBlank() } ?: "—"
-                    } ?: "—"
-                    binding.tvStatus.text = "Active"
+                    val active = myPlans.first()
+                    binding.tvPlan.text = active.name_en.ifBlank { active.plan_id }
+                    binding.tvExpiry.text = formatExpiry(active.expires_at, active.days_left)
+                    binding.tvStatus.text = if (active.days_left > 0) "Active" else "Expired"
                     binding.tvConnectionsCount.text = myPlans.size.toString()
                 } else {
                     binding.tvPlan.text = "No plan"
@@ -81,6 +77,19 @@ class UserActivity : AppCompatActivity() {
                 binding.tvConnectionsCount.text = "—"
                 Toast.makeText(this@UserActivity, "Could not load account info", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun formatExpiry(expiresAt: String, daysLeft: Double): String {
+        return try {
+            val inputFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+            val outputFmt = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+            val date = inputFmt.parse(expiresAt)
+            val formatted = if (date != null) outputFmt.format(date) else expiresAt
+            val days = daysLeft.toInt()
+            if (days > 0) "$formatted ($days days left)" else formatted
+        } catch (e: Exception) {
+            expiresAt
         }
     }
 

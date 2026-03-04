@@ -34,170 +34,6 @@ object ApiService {
     )
 
     // -----------------------------------------------------------------------
-    // Authentication
-    // -----------------------------------------------------------------------
-
-    /**
-     * Updated login to match the actual backend flow:
-     * The backend expects { "login": "username", "password": "password" }
-     * and returns { "access_token": "..." } directly (not a two-step flow for regular login)
-     */
-    fun login(username: String, password: String): String? {
-        val fullUrl = "$BASE_URL/auth/login"
-        Log.d(TAG, "=== LOGIN STEP 1: POST $fullUrl ===")
-        Log.d(TAG, "  Username: $username")
-
-        return try {
-            // STEP 1: Initial login
-            val url = URL(fullUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.doOutput = true
-
-            val requestBody = JSONObject().apply {
-                put("login", username)
-                put("password", password)
-            }.toString()
-
-            Log.d(TAG, "  Request body: $requestBody")
-
-            OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
-
-            val responseCode = conn.responseCode
-            Log.d(TAG, "  Response code: $responseCode")
-
-            val responseText = try {
-                if (responseCode in 200..299) {
-                    conn.inputStream.bufferedReader().readText()
-                } else {
-                    conn.errorStream?.bufferedReader()?.readText() ?: ""
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "  Error reading response", e)
-                ""
-            }
-
-            conn.disconnect()
-            Log.d(TAG, "  Full response body: $responseText")
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                try {
-                    val json = JSONObject(responseText)
-                    Log.d(TAG, "  JSON keys available: ${json.keys().asSequence().toList()}")
-
-                    // Check if this requires OTP verification
-                    val userId = json.optString("user_id")
-                    val code = json.optString("code")
-
-                    if (userId.isNotEmpty() && code.isNotEmpty()) {
-                        Log.d(TAG, "  OTP verification required. user_id: $userId, code: $code")
-
-                        // STEP 2: Verify with OTP
-                        return verifyOTP(userId, code.toString())
-                    } else {
-                        // Direct token response (fallback)
-                        val token = json.optString("access_token").takeIf { it.isNotEmpty() }
-                            ?: json.optString("token").takeIf { it.isNotEmpty() }
-
-                        if (!token.isNullOrEmpty()) {
-                            Log.d(TAG, "=== LOGIN SUCCESS (direct token) ===")
-                            token
-                        } else {
-                            Log.e(TAG, "  ERROR: No token or OTP info found")
-                            null
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "  ERROR: Failed to parse JSON response", e)
-                    null
-                }
-            } else {
-                Log.e(TAG, "  LOGIN FAILED with code $responseCode: $responseText")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "  EXCEPTION in login", e)
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun verifyOTP(userId: String, code: String): String? {
-        val verifyUrl = "$BASE_URL/auth/login/verify"
-        Log.d(TAG, "=== LOGIN STEP 2: VERIFY OTP: POST $verifyUrl ===")
-
-        return try {
-            val url = URL(verifyUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.doOutput = true
-
-            val requestBody = JSONObject().apply {
-                put("user_id", userId)
-                put("code", code)
-            }.toString()
-
-            Log.d(TAG, "  Verify request body: $requestBody")
-
-            OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
-
-            val responseCode = conn.responseCode
-            Log.d(TAG, "  Verify response code: $responseCode")
-
-            val responseText = try {
-                if (responseCode in 200..299) {
-                    conn.inputStream.bufferedReader().readText()
-                } else {
-                    conn.errorStream?.bufferedReader()?.readText() ?: ""
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "  Error reading verify response", e)
-                ""
-            }
-
-            conn.disconnect()
-            Log.d(TAG, "  Verify response body: $responseText")
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                try {
-                    val json = JSONObject(responseText)
-
-                    // Try different token field names
-                    val token = json.optString("access_token").takeIf { it.isNotEmpty() }
-                        ?: json.optString("token").takeIf { it.isNotEmpty() }
-                        ?: json.optString("accessToken").takeIf { it.isNotEmpty() }
-
-                    if (!token.isNullOrEmpty()) {
-                        Log.d(TAG, "=== VERIFY SUCCESS, token: ${token.take(20)}... ===")
-                        token
-                    } else {
-                        Log.e(TAG, "  ERROR: No token in verify response")
-                        null
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "  ERROR: Failed to parse verify response", e)
-                    null
-                }
-            } else {
-                Log.e(TAG, "  VERIFY FAILED with code $responseCode: $responseText")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "  EXCEPTION in verifyOTP", e)
-            e.printStackTrace()
-            null
-        }
-    }
-
-    // -----------------------------------------------------------------------
     // Channels
     // -----------------------------------------------------------------------
 
@@ -227,7 +63,6 @@ object ApiService {
                 conn.disconnect()
                 Log.d(TAG, "  Response (first 500): ${text.take(500)}")
 
-                // Try new format: { "channels": [...], "accessible_external_ids": [...] }
                 try {
                     val obj = JSONObject(text)
                     val channelsArr = obj.optJSONArray("channels")
@@ -244,7 +79,7 @@ object ApiService {
                                 category = ch.optString("category", "General")
                             ))
                         }
-                        Log.d(TAG, "  Parsed ${channels.size} channels (new format)")
+                        Log.d(TAG, "  Parsed ${channels.size} channels")
                     }
 
                     if (accessibleArr != null) {
@@ -252,14 +87,11 @@ object ApiService {
                             val id = accessibleArr.optString(i, "")
                             if (id.isNotEmpty()) accessibleIds.add(id)
                         }
-                        Log.d(TAG, "  Accessible IDs (${accessibleIds.size}): $accessibleIds")
-                    } else {
-                        Log.d(TAG, "  No accessible_external_ids found in response")
+                        Log.d(TAG, "  Accessible IDs: ${accessibleIds.size}")
                     }
 
                 } catch (e: Exception) {
-                    // Fallback: old plain array format
-                    Log.d(TAG, "  Not object format, trying plain array fallback...")
+                    // Fallback: plain array format
                     try {
                         val arr = JSONArray(text)
                         for (i in 0 until arr.length()) {
@@ -272,9 +104,8 @@ object ApiService {
                                 category = ch.optString("category", "General")
                             ))
                         }
-                        // Old format — treat all as accessible
                         channels.forEach { accessibleIds.add(it.id) }
-                        Log.d(TAG, "  Parsed ${channels.size} channels (old array format, all accessible)")
+                        Log.d(TAG, "  Parsed ${channels.size} channels (array fallback)")
                     } catch (e2: Exception) {
                         Log.e(TAG, "  Failed to parse channels response", e2)
                     }
@@ -423,11 +254,8 @@ object ApiService {
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 val text = conn.inputStream.bufferedReader().readText()
                 conn.disconnect()
-                Log.d(TAG, "  Response body: $text")
                 try {
-                    // Try object format first — backend returns { "favouriteChannelIds": [...] }
                     val obj = JSONObject(text)
-                    // Try all known key names the backend might use
                     val arr = obj.optJSONArray("favouriteChannelIds")
                         ?: obj.optJSONArray("favourite_channel_ids")
                         ?: obj.optJSONArray("data")
@@ -437,21 +265,18 @@ object ApiService {
                             val item = arr.optString(i, "")
                             if (item.isNotEmpty()) ids.add(item)
                         }
-                        Log.d(TAG, "  Parsed from object, ${ids.size} ids: $ids")
                     } else {
-                        Log.e(TAG, "  No known array key found in response object. Keys: ${obj.keys().asSequence().toList()}")
+                        Log.e(TAG, "  No known array key in favourites response")
                     }
                 } catch (e: Exception) {
-                    // Fallback: plain array [ "22", "24", ... ]
                     try {
                         val arr = JSONArray(text)
                         for (i in 0 until arr.length()) {
                             val item = arr.optString(i, "")
                             if (item.isNotEmpty()) ids.add(item)
                         }
-                        Log.d(TAG, "  Parsed as plain array, ${ids.size} ids: $ids")
                     } catch (e2: Exception) {
-                        Log.e(TAG, "  Failed to parse favourites response entirely", e2)
+                        Log.e(TAG, "  Failed to parse favourites response", e2)
                     }
                 }
             } else {
@@ -461,14 +286,12 @@ object ApiService {
             }
         } catch (e: Exception) { Log.e(TAG, "  EXCEPTION in fetchFavourites", e) }
 
-        Log.d(TAG, "=== FETCH FAVOURITES RESULT: $ids ===")
         return ids
     }
 
     fun addFavourite(token: String, channelApiId: String): Boolean {
         val fullUrl = "$BASE_URL/user/preferences/favourite-channels"
         val body = JSONObject().put("channelId", channelApiId).toString()
-        Log.d(TAG, "=== ADD FAVOURITE: POST $fullUrl, body=$body ===")
 
         return try {
             val url = URL(fullUrl)
@@ -482,21 +305,13 @@ object ApiService {
             OutputStreamWriter(conn.outputStream).use { it.write(body) }
 
             val responseCode = conn.responseCode
-            val responseBody = try {
-                if (responseCode in 200..299) conn.inputStream.bufferedReader().readText()
-                else conn.errorStream?.bufferedReader()?.readText()
-            } catch (e: Exception) { "n/a" }
-            Log.d(TAG, "  Response $responseCode: $responseBody")
             conn.disconnect()
-            val success = responseCode in 200..299
-            Log.d(TAG, "=== ADD FAVOURITE ${if (success) "SUCCESS" else "FAILED"} ===")
-            success
+            responseCode in 200..299
         } catch (e: Exception) { Log.e(TAG, "  EXCEPTION in addFavourite", e); false }
     }
 
     fun removeFavourite(token: String, channelApiId: String): Boolean {
         val fullUrl = "$BASE_URL/user/preferences/favourites/$channelApiId"
-        Log.d(TAG, "=== REMOVE FAVOURITE: DELETE $fullUrl, channelId=$channelApiId ===")
 
         return try {
             val url = URL(fullUrl)
@@ -507,15 +322,8 @@ object ApiService {
             conn.setRequestProperty("Accept", "application/json")
 
             val responseCode = conn.responseCode
-            val responseBody = try {
-                if (responseCode in 200..299) conn.inputStream.bufferedReader().readText()
-                else conn.errorStream?.bufferedReader()?.readText()
-            } catch (e: Exception) { "n/a" }
-            Log.d(TAG, "  Response $responseCode: $responseBody")
             conn.disconnect()
-            val success = responseCode in 200..299
-            Log.d(TAG, "=== REMOVE FAVOURITE ${if (success) "SUCCESS" else "FAILED"} ===")
-            success
+            responseCode in 200..299
         } catch (e: Exception) { Log.e(TAG, "  EXCEPTION in removeFavourite", e); false }
     }
 }

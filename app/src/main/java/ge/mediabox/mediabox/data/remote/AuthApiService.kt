@@ -2,51 +2,13 @@ package ge.mediabox.mediabox.data.remote
 
 import ge.mediabox.mediabox.BuildConfig
 import android.content.Context
-import com.google.gson.annotations.SerializedName
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Headers
-import retrofit2.http.POST
-
-data class LoginRequest(
-    val login: String,
-    val password: String
-)
-
-data class User(
-    val id: String,
-    val username: String,
-    val email: String,
-    val full_name: String?,
-    val avatar_url: String?
-)
-
-data class LoginResponse(
-    val message: String?,
-    val access_token: String?,
-    val token_type: String?,
-    val user: User?,
-    val user_id: String?,
-    val code: String?
-)
-
-data class VerifyRequest(
-    val user_id: String,
-    val code: String
-)
-
-data class VerifyResponse(
-    val message: String?,
-    val access_token: String?,
-    val token: String?, // Adding both just in case
-    val status: String?,
-    val user: User?
-)
 
 data class Plan(
     val id: String,
@@ -72,14 +34,6 @@ data class MyPlan(
 
 interface AuthApiService {
     @Headers("Accept: application/json")
-    @POST("api/auth/login")
-    suspend fun login(@Body request: LoginRequest): LoginResponse
-
-    @Headers("Accept: application/json")
-    @POST("api/auth/login/verify")
-    suspend fun verifyLogin(@Body request: VerifyRequest): VerifyResponse
-
-    @Headers("Accept: application/json")
     @GET("api/plans")
     suspend fun getPlans(): List<Plan>
 
@@ -89,6 +43,7 @@ interface AuthApiService {
 
     companion object {
         private val BASE_URL = BuildConfig.BASE_URL
+
         fun create(context: Context): AuthApiService {
             val logging = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY

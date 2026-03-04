@@ -53,25 +53,21 @@
                 android:layout_marginTop="4dp"/>
         </LinearLayout>
 
-        <!-- CENTER: Dummy Logo -->
+        <!-- CENTER: Mediabox logo -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="MB"
-                android:textColor="#FFFFFF"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:background="@drawable/ic_logo_placeholder"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"/>
+            <ImageView
+                android:layout_width="108dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_mediabox_logo"
+                android:scaleType="fitCenter"
+                android:alpha="0.7"
+                android:contentDescription="Mediabox"/>
+
         </LinearLayout>
 
         <!-- RIGHT: Channel number -->
@@ -277,8 +273,7 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="#33FFFFFF"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="0dp"/>
+            android:layout_marginTop="8dp"/>
 
         <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
              BOTTOM BAR  (program info + action buttons)
@@ -327,7 +322,6 @@
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
-                <!-- Action buttons on the RIGHT -->
                 <!-- Live button -->
                 <androidx.cardview.widget.CardView
                     android:id="@+id/btnLive"
@@ -350,7 +344,6 @@
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp">
 
-                        <!-- Broadcast icon (shown when NOT live) -->
                         <ImageView
                             android:id="@+id/ivLiveBroadcastIcon"
                             android:layout_width="20dp"
@@ -360,7 +353,6 @@
                             android:layout_marginEnd="4dp"
                             android:contentDescription="Broadcast"/>
 
-                        <!-- LIVE text (shown when live) -->
                         <TextView
                             android:id="@+id/tvLiveLabel"
                             android:layout_width="wrap_content"
@@ -372,7 +364,7 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Exact time rewind button -->
+                <!-- Jump to time -->
                 <ImageButton
                     android:id="@+id/btnTimeRewind"
                     style="@style/SmallControlButton"
@@ -383,7 +375,7 @@
                     android:nextFocusLeft="@+id/btnLive"
                     android:nextFocusRight="@+id/btnFavorite"/>
 
-                <!-- Favorites button -->
+                <!-- Favorites -->
                 <ImageButton
                     android:id="@+id/btnFavorite"
                     style="@style/SmallControlButton"
@@ -394,7 +386,7 @@
                     android:nextFocusLeft="@+id/btnTimeRewind"
                     android:nextFocusRight="@+id/btnAudioLanguage"/>
 
-                <!-- Audio/language switcher (dummy) -->
+                <!-- Audio/language switcher -->
                 <ImageButton
                     android:id="@+id/btnAudioLanguage"
                     style="@style/SmallControlButton"

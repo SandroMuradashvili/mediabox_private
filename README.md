@@ -1,76 +1,56 @@
-mediabox todo:
+# Mediabox — Android TV App
 
-loading animation
+A lean-back Android TV application for live IPTV streaming with archive (time-shift) support.
 
-intro menu redesign
+## Features
 
-Settings and Profile
+- **QR code login** — scan with phone to authenticate, no keyboard needed on TV
+- **Live TV** — channel list with logo, number, category
+- **Archive / time-shift** — rewind up to the channel's supported hours back
+- **EPG (TV Guide)** — full programme guide with date dividers, archive jump, locked channel handling
+- **Favourites** — star/unstar channels, synced to server
+- **Jump to time** — scroll picker to seek to any archived point
+- **Play/Pause, rewind & forward** — 15s / 1m / 5m controls
+- **Subscription awareness** — locked channels shown dimmed; inaccessible channels blocked
 
-add dummy ADS
+## Architecture
 
-mediabox logo
+```
+ui/
+  LoginActivity       — QR pairing flow
+  MainActivity        — Home menu (Watch TV / Profile / Settings)
+  UserActivity        — Account info + plan details
+  player/
+    PlayerActivity    — ExoPlayer host + key routing
+    ControlOverlayManager   — top/bottom HUD
+    EpgOverlayManager       — TV Guide overlay
+    TimeRewindOverlayManager — jump-to-time picker
 
+data/
+  api/ApiService      — raw HttpURLConnection calls (channels, streams, EPG, favourites)
+  remote/AuthApiService — Retrofit client for plans/account (Bearer token injected automatically)
+  model/Channel, Program
+  repository/ChannelRepository — single source of truth, coordinates API + state
+```
 
-Video Player Redesign tweaks
+## Setup
 
-Favourites
+1. Clone the repo
+2. Open in Android Studio
+3. Build and run on an Android TV device or emulator (API 23+)
 
-Watch History / recents
+API base URL is set in `build.gradle.kts` via `BuildConfig`:
+```
+BASE_URL     = https://tv-api.telecomm1.com/
+BASE_API_URL = https://tv-api.telecomm1.com/api
+```
 
-multi language stream
+## TODO
 
-fast forward / rewind
-
-stream hd and sd settings
-
-
-EPG design tweaks:
-
-
-
-
-Profile design / functions:
-
-1)subscription: (access to different channels | ADS off)
-
-2) language options : En:ge:Ru...
-
-3) clear recently watched / edit
-
-4) pin reset for 18+ channels (not implemented 18+ channels yet)
-
-
-
-
-Settings design / functions:
-
-
-ERRors or Device issues:
-
-sound is scratchy!
-
-
-Optimal changes:
-
-switch buttons so ok opens video player and left and right arrow opens epg
-
-
-
-
--------------------------CONTROL FLOW ---------------------
-
-app opens
-
-loading animation plays
-
-if (not logged in) require sign up / login
-
-Intro menu appears with TV, Profile , Settings option
-
---------------------OPTIMIZATION REQUIRED------------------------
-
-REWIND 5M 1M 30S.
-
-FAST FORWARD AND REWIND 2X 4X 8X 16X 32X
-
-CHANNEL SWITCHING
+- Settings screen (display, audio, about)
+- Multi-language audio track switching (UI exists, logic not wired)
+- Watch history / recents
+- 18+ channel PIN lock
+- Fast-forward / rewind at 2×, 4×, 8× speed
+- Replace loading spinner with branded animation
+- Ad support (subscription tier)
