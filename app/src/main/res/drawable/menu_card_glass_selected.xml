@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Subtle elevated glass base -->
+    <!-- Glass fill -->
     <item>
         <shape android:shape="rectangle">
             <solid android:color="#121D30"/>
             <corners android:radius="16dp"/>
         </shape>
     </item>
-    <!-- White border glow -->
+    <!-- 1dp red outline -->
     <item>
         <shape android:shape="rectangle">
-            <stroke android:width="1dp" android:color="#55FFFFFF"/>
+            <stroke android:width="1dp" android:color="#E8191A"/>
             <corners android:radius="16dp"/>
         </shape>
     </item>

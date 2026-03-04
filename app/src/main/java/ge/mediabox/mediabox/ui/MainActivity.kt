@@ -7,15 +7,15 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.databinding.ActivityMainBinding
 import ge.mediabox.mediabox.ui.player.PlayerActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import ge.mediabox.mediabox.R
-
 
 class MainActivity : AppCompatActivity() {
 
@@ -60,13 +60,10 @@ class MainActivity : AppCompatActivity() {
         if (!::binding.isInitialized) return
 
         val token = getSavedToken()
-        if (token.isNullOrBlank()) {
-            redirectToLogin()
-            return
-        }
+        if (token.isNullOrBlank()) { redirectToLogin(); return }
 
-        val prefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
-        val name = prefs.getString("display_name", null)
+        val name = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
+            .getString("display_name", null)
         binding.tvGreeting.text = if (!name.isNullOrBlank()) "Hello, $name" else ""
     }
 
@@ -117,25 +114,30 @@ class MainActivity : AppCompatActivity() {
         binding.tvSelectionHint.text = hints.getOrElse(selectedIndex) { "" }
     }
 
+    /**
+     * Selected:   full opacity · red outline background · icon 80% · label full · accent dash visible
+     * Unselected: 85% opacity  · plain glass background  · icon 22% · label 50% · accent dash hidden
+     */
     private fun applyCardState(card: View, selected: Boolean) {
-        card.alpha = if (selected) 1.0f else 0.36f
-        card.translationZ = if (selected) 8f else 0f
+        card.alpha = if (selected) 1.0f else 0.85f
+        card.translationZ = if (selected) 6f else 0f
+
         card.setBackgroundResource(
             if (selected) R.drawable.menu_card_glass_selected
             else R.drawable.menu_card_glass
         )
 
-        // Red top accent line
-        card.findViewWithTag<View>("accentLine")?.alpha = if (selected) 1f else 0f
-
-        // Small red label accent dash
-        card.findViewWithTag<View>("labelAccent")?.alpha = if (selected) 1f else 0f
-
-        // Icon
-        card.findViewWithTag<TextView>("icon")?.alpha = if (selected) 0.85f else 0.18f
+        // Vector icon (ImageView)
+        card.findViewWithTag<ImageView>("icon")?.alpha = if (selected) 0.80f else 0.22f
 
         // Label text
-        card.findViewWithTag<TextView>("label")?.alpha = if (selected) 1f else 0.40f
+        card.findViewWithTag<TextView>("label")?.alpha = if (selected) 1.0f else 0.50f
+
+        // Subtitle text — slightly more visible when selected
+        // (no tag needed, just let natural opacity show through card alpha)
+
+        // Small red accent dash above label
+        card.findViewWithTag<View>("labelAccent")?.alpha = if (selected) 1f else 0f
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -149,11 +151,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchProfile() {
         val token = getSavedToken() ?: run { redirectToLogin(); return }
-        val intent = Intent(this, UserActivity::class.java).apply {
+        startActivity(Intent(this, UserActivity::class.java).apply {
             putExtra(UserActivity.EXTRA_TOKEN, token)
             putExtra(UserActivity.EXTRA_FROM_REMEMBER_ME, true)
-        }
-        startActivity(intent)
+        })
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
@@ -195,7 +196,7 @@ class MainActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 cards[selectedIndex].performClick(); true
             }
-            KeyEvent.KEYCODE_BACK -> true // trap back key
+            KeyEvent.KEYCODE_BACK -> true
             else -> super.onKeyDown(keyCode, event)
         }
     }

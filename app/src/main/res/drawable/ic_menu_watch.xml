@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--  ic_menu_watch.xml  — monitor outline with play triangle inside  -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Monitor body -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M6,8 L42,8 A2,2 0 0 1 44,10 L44,32 A2,2 0 0 1 42,34 L6,34 A2,2 0 0 1 4,32 L4,10 A2,2 0 0 1 6,8 Z"/>
+
+    <!-- Stand stem -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:pathData="M24,34 L24,40"/>
+
+    <!-- Stand base -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:pathData="M16,40 L32,40"/>
+
+    <!-- Play triangle (filled) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,16 L20,26 L30,21 Z"/>
+
+</vector>
