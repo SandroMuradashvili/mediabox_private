@@ -1,6 +1,7 @@
 package ge.mediabox.mediabox.ui
 
 import android.content.Context
+import androidx.core.content.edit
 
 object LangPrefs {
     private const val PREFS = "AppPrefs"
@@ -12,7 +13,7 @@ object LangPrefs {
 
     fun set(context: Context, ka: Boolean) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY, if (ka) "ka" else "en").apply()
+            .edit { putString(KEY, if (ka) "ka" else "en") }
 
     fun toggle(context: Context): Boolean {
         val next = !isKa(context)

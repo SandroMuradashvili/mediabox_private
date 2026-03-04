@@ -36,7 +36,7 @@
             app:layout_constraintTop_toBottomOf="@id/ivLogo"
             app:layout_constraintStart_toStartOf="parent"/>
 
-        <!-- Top-right: Clock + Lang toggle -->
+        <!-- Top-right: Lang toggle + Clock -->
         <LinearLayout
             android:id="@+id/topRightGroup"
             android:layout_width="wrap_content"
@@ -48,30 +48,43 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- Language toggle button -->
-            <TextView
+            <!-- Language toggle pill -->
+            <LinearLayout
                 android:id="@+id/btnLang"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:minWidth="48dp"
-                android:minHeight="48dp"
-                android:text="EN"
-                android:textColor="#F1F5F9"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.10"
+                android:layout_height="36dp"
+                android:orientation="horizontal"
                 android:gravity="center"
-                android:alpha="0.55"
-                android:background="@drawable/badge_archive_range"
+                android:background="@drawable/menu_card_glass"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:focusable="true"
                 android:clickable="true"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp"
-                android:layout_marginEnd="20dp"/>
+                android:alpha="0.55"
+                android:layout_marginEnd="20dp"
+                android:minWidth="48dp"
+                android:minHeight="48dp">
 
-            <!-- Clock group -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌐"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="6dp"/>
+
+                <TextView
+                    android:id="@+id/tvLangLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ქართ"
+                    android:textColor="#F1F5F9"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"/>
+
+            </LinearLayout>
+
+            <!-- Clock -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -138,26 +151,68 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:clickable="true">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
                     android:orientation="vertical">
-                    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
-                        android:layout_weight="1.1" android:gravity="center">
-                        <ImageView android:tag="icon" android:layout_width="44dp" android:layout_height="44dp"
-                            android:layout_gravity="center" android:src="@drawable/ic_menu_watch"
-                            android:alpha="0.22" android:scaleType="fitCenter" android:contentDescription="Watch TV"/>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1.1"
+                        android:gravity="center">
+
+                        <ImageView
+                            android:tag="icon"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_menu_watch"
+                            android:alpha="0.22"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="Watch TV"/>
+
                     </FrameLayout>
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="bottom"
-                        android:paddingStart="26dp" android:paddingEnd="26dp" android:paddingBottom="26dp">
-                        <View android:tag="labelAccent" android:layout_width="18dp" android:layout_height="1.5dp"
-                            android:background="#E8191A" android:layout_marginBottom="10dp" android:alpha="0"/>
-                        <TextView android:tag="label" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="Watch TV"
-                            android:textColor="#F1F5F9" android:textSize="17sp" android:textStyle="bold"
-                            android:letterSpacing="-0.01" android:alpha="0.50"/>
-                        <TextView android:tag="sublabel" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="Live · Archive · HD"
-                            android:textColor="#14FFFFFF" android:textSize="10sp" android:layout_marginTop="4dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="bottom"
+                        android:paddingStart="26dp"
+                        android:paddingEnd="26dp"
+                        android:paddingBottom="26dp">
+
+                        <View
+                            android:tag="labelAccent"
+                            android:layout_width="18dp"
+                            android:layout_height="1.5dp"
+                            android:background="#E8191A"
+                            android:layout_marginBottom="10dp"
+                            android:alpha="0"/>
+
+                        <TextView
+                            android:tag="label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="ტელევიზია"
+                            android:textColor="#F1F5F9"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="-0.01"
+                            android:alpha="0.50"/>
+
+                        <TextView
+                            android:tag="sublabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="პირდაპირი · არქივი · HD"
+                            android:textColor="#14FFFFFF"
+                            android:textSize="10sp"
+                            android:layout_marginTop="4dp"/>
+
                     </LinearLayout>
                 </LinearLayout>
             </FrameLayout>
@@ -172,26 +227,68 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:clickable="true">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
                     android:orientation="vertical">
-                    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
-                        android:layout_weight="1.1" android:gravity="center">
-                        <ImageView android:tag="icon" android:layout_width="44dp" android:layout_height="44dp"
-                            android:layout_gravity="center" android:src="@drawable/ic_menu_profile"
-                            android:alpha="0.22" android:scaleType="fitCenter" android:contentDescription="Profile"/>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1.1"
+                        android:gravity="center">
+
+                        <ImageView
+                            android:tag="icon"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_menu_profile"
+                            android:alpha="0.22"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="Profile"/>
+
                     </FrameLayout>
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="bottom"
-                        android:paddingStart="26dp" android:paddingEnd="26dp" android:paddingBottom="26dp">
-                        <View android:tag="labelAccent" android:layout_width="18dp" android:layout_height="1.5dp"
-                            android:background="#E8191A" android:layout_marginBottom="10dp" android:alpha="0"/>
-                        <TextView android:tag="label" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="Profile"
-                            android:textColor="#F1F5F9" android:textSize="17sp" android:textStyle="bold"
-                            android:letterSpacing="-0.01" android:alpha="0.50"/>
-                        <TextView android:tag="sublabel" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="Account · Subscription"
-                            android:textColor="#14FFFFFF" android:textSize="10sp" android:layout_marginTop="4dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="bottom"
+                        android:paddingStart="26dp"
+                        android:paddingEnd="26dp"
+                        android:paddingBottom="26dp">
+
+                        <View
+                            android:tag="labelAccent"
+                            android:layout_width="18dp"
+                            android:layout_height="1.5dp"
+                            android:background="#E8191A"
+                            android:layout_marginBottom="10dp"
+                            android:alpha="0"/>
+
+                        <TextView
+                            android:tag="label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="პროფილი"
+                            android:textColor="#F1F5F9"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="-0.01"
+                            android:alpha="0.50"/>
+
+                        <TextView
+                            android:tag="sublabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="ანგარიში · გამოწერა"
+                            android:textColor="#14FFFFFF"
+                            android:textSize="10sp"
+                            android:layout_marginTop="4dp"/>
+
                     </LinearLayout>
                 </LinearLayout>
             </FrameLayout>
@@ -206,26 +303,68 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:clickable="true">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
                     android:orientation="vertical">
-                    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
-                        android:layout_weight="1.1" android:gravity="center">
-                        <ImageView android:tag="icon" android:layout_width="44dp" android:layout_height="44dp"
-                            android:layout_gravity="center" android:src="@drawable/ic_menu_settings"
-                            android:alpha="0.22" android:scaleType="fitCenter" android:contentDescription="Plans"/>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1.1"
+                        android:gravity="center">
+
+                        <ImageView
+                            android:tag="icon"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_menu_settings"
+                            android:alpha="0.22"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="Plans"/>
+
                     </FrameLayout>
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="bottom"
-                        android:paddingStart="26dp" android:paddingEnd="26dp" android:paddingBottom="26dp">
-                        <View android:tag="labelAccent" android:layout_width="18dp" android:layout_height="1.5dp"
-                            android:background="#E8191A" android:layout_marginBottom="10dp" android:alpha="0"/>
-                        <TextView android:tag="label" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="Plans"
-                            android:textColor="#F1F5F9" android:textSize="17sp" android:textStyle="bold"
-                            android:letterSpacing="-0.01" android:alpha="0.50"/>
-                        <TextView android:tag="sublabel" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="Packages · Balance"
-                            android:textColor="#14FFFFFF" android:textSize="10sp" android:layout_marginTop="4dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="bottom"
+                        android:paddingStart="26dp"
+                        android:paddingEnd="26dp"
+                        android:paddingBottom="26dp">
+
+                        <View
+                            android:tag="labelAccent"
+                            android:layout_width="18dp"
+                            android:layout_height="1.5dp"
+                            android:background="#E8191A"
+                            android:layout_marginBottom="10dp"
+                            android:alpha="0"/>
+
+                        <TextView
+                            android:tag="label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="პაკეტები"
+                            android:textColor="#F1F5F9"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="-0.01"
+                            android:alpha="0.50"/>
+
+                        <TextView
+                            android:tag="sublabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="პაკეტები · ბალანსი"
+                            android:textColor="#14FFFFFF"
+                            android:textSize="10sp"
+                            android:layout_marginTop="4dp"/>
+
                     </LinearLayout>
                 </LinearLayout>
             </FrameLayout>
@@ -248,7 +387,7 @@
                 android:id="@+id/tvSelectionHint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Watch live TV and archive content"
+                android:text="პირდაპირი TV და საარქივო კონტენტი"
                 android:textColor="#20FFFFFF"
                 android:textSize="11sp"
                 android:letterSpacing="0.02"
@@ -257,7 +396,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="◀  ▶  Navigate     ▲  Language     OK  Select"
+                android:text="◀  ▶  ნავიგაცია     ▲  ენა     OK  არჩევა"
                 android:textColor="#0EFFFFFF"
                 android:textSize="9sp"
                 android:letterSpacing="0.06"

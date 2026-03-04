@@ -100,15 +100,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateLangButton() {
-        val isKa = LangPrefs.isKa(this)
-        binding.btnLang.text = if (isKa) "EN" else "KA"
+        binding.btnLang.findViewById<TextView>(R.id.tvLangLabel).text =
+            if (LangPrefs.isKa(this)) "ქართ" else "ENG"
     }
 
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
         // Watch TV card
         binding.cardWatchTv.findViewWithTag<TextView>("label")?.text =
-            if (isKa) "TV" else "Watch TV"
+            if (isKa) "ტელევიზია" else "Watch TV"
         binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
         // Profile card
