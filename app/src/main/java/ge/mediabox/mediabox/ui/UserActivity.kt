@@ -3,17 +3,12 @@ package ge.mediabox.mediabox.ui
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
-import ge.mediabox.mediabox.ui.adapter.PlanAdapter
 import kotlinx.coroutines.launch
-import com.google.zxing.BarcodeFormat
-import com.journeyapps.barcodescanner.BarcodeEncoder
 
 class UserActivity : AppCompatActivity() {
 
@@ -25,8 +20,7 @@ class UserActivity : AppCompatActivity() {
         binding = ActivityUserBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val tokenFromIntent = intent.getStringExtra(EXTRA_TOKEN)
-        val token = tokenFromIntent ?: getSavedToken()
+        val token = intent.getStringExtra(EXTRA_TOKEN) ?: getSavedToken()
 
         if (token.isNullOrBlank()) {
             Toast.makeText(this, "Please login", Toast.LENGTH_SHORT).show()
@@ -35,76 +29,70 @@ class UserActivity : AppCompatActivity() {
             return
         }
 
-        setupRecyclerView()
-        val qrBitmap = BarcodeEncoder().encodeBitmap(
-            "https://tv-api.telecomm1.com/authentication/register",
-            BarcodeFormat.QR_CODE,
-            400, 400
-        )
-        binding.ivQrCode.setImageBitmap(qrBitmap)
         loadUserData()
 
         binding.btnLogout.setOnClickListener {
             clearSavedToken()
-            val intent = Intent(this, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
+            startActivity(Intent(this, LoginActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            })
             finish()
         }
-    }
 
-    private fun setupRecyclerView() {
-        binding.rvPlans.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        binding.rvPlans.adapter = PlanAdapter(emptyList())
+        binding.btnBack.setOnClickListener { finish() }
     }
 
     private fun loadUserData() {
-        binding.pbLoadingPlans.visibility = View.VISIBLE
-        binding.headerContainer.visibility = View.GONE
-        binding.rvPlans.visibility = View.GONE
-        binding.tvPackagesTitle.visibility = View.GONE
+        val prefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
+        val name = prefs.getString("user_name", null)
+        val email = prefs.getString("user_email", null)
 
+        // Display name + avatar initial
+        val displayName = name ?: "User"
+        binding.tvDisplayName.text = displayName
+        binding.tvAvatarInitial.text = displayName.take(1).uppercase()
+        binding.tvAccountSubtitle.text = email ?: ""
+
+        // Fetch plan details from API
         lifecycleScope.launch {
             try {
-                // Balance is not implemented on backend yet
-                binding.tvBalance.text = "Balance: 0.0"
-
-                // Fetch available plans + purchased plans
-                // The token is added automatically by the interceptor in AuthApiService
-                val plans = authApi.getPlans()
                 val myPlans = authApi.getMyPlans()
-                
-                val sharedPrefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
-                binding.tvUsername.text = sharedPrefs.getString("user_name", "User")
-                binding.tvEmail.text = sharedPrefs.getString("user_email", "Email")
-                
-                binding.headerContainer.visibility = View.VISIBLE
 
-                if (plans.isNotEmpty()) {
-                    val purchasedByPlanId = myPlans.associateBy { it.plan_id }
-                    binding.rvPlans.adapter = PlanAdapter(plans, purchasedByPlanId)
-                    binding.rvPlans.visibility = View.VISIBLE
-                    binding.tvPackagesTitle.visibility = View.VISIBLE
+                if (myPlans.isNotEmpty()) {
+                    val active = myPlans.firstOrNull()
+                    binding.tvPlan.text = active?.plan_id?.toString() ?: "—"
+                    binding.tvExpiry.text = active?.let {
+                        // Use expiry field if available, otherwise show plan name
+                        @Suppress("UNNECESSARY_SAFE_CALL")
+                        it.toString().takeIf { s -> s.isNotBlank() } ?: "—"
+                    } ?: "—"
+                    binding.tvStatus.text = "Active"
+                    binding.tvConnectionsCount.text = myPlans.size.toString()
                 } else {
-                    binding.tvPackagesTitle.text = "No packages available"
-                    binding.tvPackagesTitle.visibility = View.VISIBLE
+                    binding.tvPlan.text = "No plan"
+                    binding.tvExpiry.text = "—"
+                    binding.tvStatus.text = "Inactive"
+                    binding.tvConnectionsCount.text = "0"
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@UserActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-            } finally {
-                binding.pbLoadingPlans.visibility = View.GONE
+                binding.tvPlan.text = "—"
+                binding.tvExpiry.text = "—"
+                binding.tvStatus.text = "—"
+                binding.tvConnectionsCount.text = "—"
+                Toast.makeText(this@UserActivity, "Could not load account info", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun getSavedToken(): String? {
-        val sharedPrefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
-        return sharedPrefs.getString("auth_token", null)
-    }
+    private fun getSavedToken(): String? =
+        getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).getString("auth_token", null)
 
     private fun clearSavedToken() {
-        val sharedPrefs = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
-        sharedPrefs.edit().remove("auth_token").remove("user_name").remove("user_email").apply()
+        getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).edit()
+            .remove("auth_token")
+            .remove("user_name")
+            .remove("user_email")
+            .apply()
     }
 
     companion object {

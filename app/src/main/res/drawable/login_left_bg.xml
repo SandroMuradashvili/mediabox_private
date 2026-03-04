@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#060A12"/>
+        </shape>
+    </item>
+    <!-- Subtle center warmth -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="70%p"
+                android:centerX="0.5"
+                android:centerY="0.45"
+                android:startColor="#0C1428"
+                android:endColor="#00000000"/>
+        </shape>
+    </item>
+    <!-- Right edge fade into login card -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="0"
+                android:startColor="#00000000"
+                android:endColor="#08050A18"/>
+        </shape>
+    </item>
+</layer-list>

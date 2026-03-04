@@ -1,165 +1,211 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+    LOGIN SCREEN — QR PAIRING  v2
+    ─────────────────────────────────────────────────────────────
+    • Real ic_mediabox_logo left panel
+    • NO ProgressBar / loading spinner
+    • Clean frosted glass QR card right panel
+    • Red corner bracket accents around QR frame
+    • Thin separator line between panels
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#040911">
+    android:orientation="horizontal"
+    android:background="#070B14">
 
-    <ge.mediabox.mediabox.ui.ParticleFieldView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
+    <!-- ══ LEFT: Brand identity (42%) ══════════════════════════════ -->
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_weight="0.42"
         android:layout_height="match_parent"
-        android:orientation="horizontal">
+        android:background="@drawable/login_left_bg">
 
-        <!-- LEFT: Branding -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="0.45"
+        <!-- Right-edge separator -->
+        <View
+            android:layout_width="1dp"
             android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="#07FFFFFF"/>
+
+        <!-- Centered logo + tagline -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
             android:orientation="vertical"
-            android:gravity="center"
-            android:padding="48dp">
+            android:gravity="start">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="MEDIA"
-                android:textColor="#FFFFFF"
-                android:textSize="56sp"
-                android:textStyle="bold"/>
+            <!-- Real SVG logo -->
+            <ImageView
+                android:layout_width="180dp"
+                android:layout_height="37dp"
+                android:src="@drawable/ic_mediabox_logo"
+                android:scaleType="fitStart"
+                android:contentDescription="Mediabox"/>
 
-            <FrameLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/logo_accent_pill">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="BOX"
-                    android:textColor="#FFFFFF"
-                    android:textSize="56sp"
-                    android:textStyle="bold"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"/>
-            </FrameLayout>
+            <!-- Thin divider -->
+            <View
+                android:layout_width="100dp"
+                android:layout_height="1dp"
+                android:background="#10FFFFFF"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="20dp"/>
 
+            <!-- Tagline -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="PREMIUM STREAMING"
-                android:textColor="#60FFFFFF"
-                android:textSize="11sp"
-                android:letterSpacing="0.25"
-                android:layout_marginTop="20dp"/>
+                android:textColor="#22FFFFFF"
+                android:textSize="9sp"
+                android:letterSpacing="0.22"
+                android:textStyle="bold"/>
 
-        </LinearLayout>
-
-        <!-- RIGHT: QR Login -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="0.55"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:padding="48dp">
-
-            <androidx.cardview.widget.CardView
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                app:cardBackgroundColor="#12FFFFFF"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="40dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Sign In"
-                        android:textColor="#F1F5F9"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="4dp"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Scan with your phone to log in"
-                        android:textColor="#5594A3B8"
-                        android:textSize="13sp"
-                        android:layout_marginBottom="28dp"/>
-
-                    <!-- QR Code -->
-                    <FrameLayout
-                        android:layout_width="200dp"
-                        android:layout_height="200dp"
-                        android:background="#FFFFFF"
-                        android:padding="8dp">
-
-                        <ImageView
-                            android:id="@+id/ivQrCode"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:scaleType="fitCenter"
-                            android:contentDescription="Login QR Code"/>
-
-                        <!-- Loading spinner shown while QR loads -->
-                        <ProgressBar
-                            android:id="@+id/pbQr"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_gravity="center"
-                            android:indeterminateTint="#6366F1"/>
-
-                    </FrameLayout>
-
-                    <!-- Pairing code -->
-                    <TextView
-                        android:id="@+id/tvPairingCode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textColor="#818CF8"
-                        android:textSize="32sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.18"
-                        android:layout_marginTop="20dp"/>
-
-                    <!-- Status -->
-                    <TextView
-                        android:id="@+id/tvStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Initializing..."
-                        android:textColor="#5594A3B8"
-                        android:textSize="13sp"
-                        android:gravity="center"
-                        android:layout_marginTop="12dp"/>
-
-                    <!-- Refresh button (hidden until needed) -->
-                    <Button
-                        android:id="@+id/btnRefresh"
-                        android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:text="Refresh"
-                        android:backgroundTint="#6366F1"
-                        android:textColor="#FFFFFF"
-                        android:layout_marginTop="16dp"
-                        android:visibility="gone"/>
-
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                android:text="Live TV  ·  Archive  ·  HD"
+                android:textColor="#12FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginTop="6dp"/>
 
         </LinearLayout>
-    </LinearLayout>
 
-</FrameLayout>
+        <!-- Version watermark -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:text="v2.0"
+            android:textColor="#0EFFFFFF"
+            android:textSize="9sp"
+            android:layout_margin="18dp"/>
+
+    </FrameLayout>
+
+    <!-- ══ RIGHT: QR Card (58%) ═════════════════════════════════════ -->
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_weight="0.58"
+        android:layout_height="match_parent">
+
+        <!-- Frosted glass card -->
+        <LinearLayout
+            android:layout_width="400dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="@drawable/login_card_glass"
+            android:padding="44dp">
+
+            <!-- Header -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sign In"
+                android:textColor="#F1F5F9"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:letterSpacing="-0.02"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Scan the code with your phone"
+                android:textColor="#28FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginTop="5dp"
+                android:layout_marginBottom="28dp"/>
+
+            <!-- QR frame with red corner brackets -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <!-- White border around QR -->
+                <FrameLayout
+                    android:layout_width="200dp"
+                    android:layout_height="200dp"
+                    android:background="#FFFFFF"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:id="@+id/ivQrCode"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="fitCenter"
+                        android:contentDescription="Login QR Code"/>
+                    <!-- NO ProgressBar here -->
+
+                </FrameLayout>
+
+                <!-- Corner brackets: top-left -->
+                <View android:layout_width="18dp" android:layout_height="2.5dp"
+                    android:background="#E8191A" android:layout_gravity="top|start" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="18dp"
+                    android:background="#E8191A" android:layout_gravity="top|start" android:layout_margin="-1.5dp"/>
+
+                <!-- top-right -->
+                <View android:layout_width="18dp" android:layout_height="2.5dp"
+                    android:background="#E8191A" android:layout_gravity="top|end" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="18dp"
+                    android:background="#E8191A" android:layout_gravity="top|end" android:layout_margin="-1.5dp"/>
+
+                <!-- bottom-left -->
+                <View android:layout_width="18dp" android:layout_height="2.5dp"
+                    android:background="#E8191A" android:layout_gravity="bottom|start" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="18dp"
+                    android:background="#E8191A" android:layout_gravity="bottom|start" android:layout_margin="-1.5dp"/>
+
+                <!-- bottom-right -->
+                <View android:layout_width="18dp" android:layout_height="2.5dp"
+                    android:background="#E8191A" android:layout_gravity="bottom|end" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="18dp"
+                    android:background="#E8191A" android:layout_gravity="bottom|end" android:layout_margin="-1.5dp"/>
+
+            </FrameLayout>
+
+            <!-- Pairing code -->
+            <TextView
+                android:id="@+id/tvPairingCode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#F1F5F9"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.22"
+                android:layout_marginTop="22dp"/>
+
+            <!-- Status -->
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Initializing…"
+                android:textColor="#20FFFFFF"
+                android:textSize="11sp"
+                android:gravity="center"
+                android:layout_marginTop="8dp"/>
+
+            <!-- Refresh (hidden until expired) -->
+            <Button
+                android:id="@+id/btnRefresh"
+                android:layout_width="150dp"
+                android:layout_height="42dp"
+                android:text="Refresh"
+                android:backgroundTint="#E8191A"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>
