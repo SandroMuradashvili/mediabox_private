@@ -77,9 +77,9 @@ class MainActivity : AppCompatActivity() {
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun setupCards() {
-        binding.cardWatchTv.setOnClickListener { launchTv() }
-        binding.cardProfile.setOnClickListener { launchProfile() }
-        binding.cardSettings.setOnClickListener { /* settings */ }
+        binding.cardWatchTv.setOnClickListener  { launchTv() }
+        binding.cardProfile.setOnClickListener  { launchProfile() }
+        binding.cardSettings.setOnClickListener { launchPlans() }
 
         cards.forEachIndexed { index, card ->
             card.setOnFocusChangeListener { _, hasFocus ->
@@ -109,35 +109,23 @@ class MainActivity : AppCompatActivity() {
         val hints = listOf(
             "Watch live TV and archive content",
             "Manage your account and subscription",
-            "Configure app preferences"
+            "Browse and purchase subscription plans"
         )
         binding.tvSelectionHint.text = hints.getOrElse(selectedIndex) { "" }
     }
 
-    /**
-     * Selected:   full opacity · red outline background · icon 80% · label full · accent dash visible
-     * Unselected: 85% opacity  · plain glass background  · icon 22% · label 50% · accent dash hidden
-     */
     private fun applyCardState(card: View, selected: Boolean) {
-        card.alpha = if (selected) 1.0f else 0.85f
-        card.translationZ = if (selected) 6f else 0f
+        card.alpha        = if (selected) 1.0f else 0.85f
+        card.translationZ = if (selected) 6f   else 0f
 
         card.setBackgroundResource(
             if (selected) R.drawable.menu_card_glass_selected
-            else R.drawable.menu_card_glass
+            else          R.drawable.menu_card_glass
         )
 
-        // Vector icon (ImageView)
-        card.findViewWithTag<ImageView>("icon")?.alpha = if (selected) 0.80f else 0.22f
-
-        // Label text
-        card.findViewWithTag<TextView>("label")?.alpha = if (selected) 1.0f else 0.50f
-
-        // Subtitle text — slightly more visible when selected
-        // (no tag needed, just let natural opacity show through card alpha)
-
-        // Small red accent dash above label
-        card.findViewWithTag<View>("labelAccent")?.alpha = if (selected) 1f else 0f
+        card.findViewWithTag<ImageView>("icon")?.alpha       = if (selected) 0.80f else 0.22f
+        card.findViewWithTag<TextView>("label")?.alpha       = if (selected) 1.0f  else 0.50f
+        card.findViewWithTag<View>("labelAccent")?.alpha     = if (selected) 1f    else 0f
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -155,6 +143,11 @@ class MainActivity : AppCompatActivity() {
             putExtra(UserActivity.EXTRA_TOKEN, token)
             putExtra(UserActivity.EXTRA_FROM_REMEMBER_ME, true)
         })
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
+    private fun launchPlans() {
+        startActivity(Intent(this, PlansActivity::class.java))
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 

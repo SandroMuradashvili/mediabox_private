@@ -1,15 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    MAIN MENU — v3
-    ─────────────────────────────────────────────────────
-    • Selected card: 1dp red outline (menu_card_glass_selected)
-    • Unselected cards: 85% opacity
-    • Clock+date group constrained together above the divider
-      so the divider never overlaps the date text
-    • Real vector icons: ic_menu_watch / profile / settings
-    • No emoji, no accentLine tag (outline replaces it)
-    • labelAccent dash kept for subtle selected-state flair
--->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -49,11 +38,6 @@
             app:layout_constraintStart_toStartOf="parent"/>
 
         <!-- ── CLOCK + DATE group top-right ──────────────────── -->
-        <!--
-            Both time and date are inside one LinearLayout constrained
-            to the top-right. The divider is then constrained BELOW
-            this group — so no overlap is possible regardless of text size.
-        -->
         <LinearLayout
             android:id="@+id/clockGroup"
             android:layout_width="wrap_content"
@@ -89,11 +73,7 @@
 
         </LinearLayout>
 
-        <!-- ── DIVIDER — constrained BELOW clockGroup ────────── -->
-        <!--
-            marginTop="10dp" gives comfortable breathing room
-            below the date text before the line appears.
-        -->
+        <!-- ── DIVIDER ────────────────────────────────────────── -->
         <View
             android:id="@+id/dividerTop"
             android:layout_width="0dp"
@@ -134,7 +114,6 @@
                     android:layout_height="match_parent"
                     android:orientation="vertical">
 
-                    <!-- Icon area: upper portion -->
                     <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
@@ -153,7 +132,6 @@
 
                     </FrameLayout>
 
-                    <!-- Label area: lower portion -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
@@ -272,7 +250,7 @@
 
             </FrameLayout>
 
-            <!-- ── CARD: SETTINGS ─────────────────────────────── -->
+            <!-- ── CARD: PLANS ────────────────────────────────── -->
             <FrameLayout
                 android:id="@+id/cardSettings"
                 android:layout_width="260dp"
@@ -302,7 +280,7 @@
                             android:src="@drawable/ic_menu_settings"
                             android:alpha="0.22"
                             android:scaleType="fitCenter"
-                            android:contentDescription="Settings"/>
+                            android:contentDescription="Plans"/>
 
                     </FrameLayout>
 
@@ -328,7 +306,7 @@
                             android:tag="label"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Settings"
+                            android:text="პაკეტები"
                             android:textColor="#F1F5F9"
                             android:textSize="17sp"
                             android:textStyle="bold"
@@ -338,7 +316,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Display · Audio · About"
+                            android:text="პაკეტები · ბალანსი"
                             android:textColor="#14FFFFFF"
                             android:textSize="10sp"
                             android:layout_marginTop="4dp"/>

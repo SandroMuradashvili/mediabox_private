@@ -48,6 +48,12 @@
             android:name=".ui.UserActivity"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation" />
+
+        <activity
+            android:name=".ui.PlansActivity"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation" />
+
     </application>
 
 </manifest>
