@@ -24,6 +24,9 @@ class MainActivity : AppCompatActivity() {
     private var selectedIndex = 0
     private var isReady = false
 
+    // 0=WatchTV, 1=Profile, 2=Plans, 3=LangToggle
+    private var focusSection = 0
+
     private val cards get() = listOf(
         binding.cardWatchTv,
         binding.cardProfile,
@@ -42,15 +45,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         val token = getSavedToken()
-        if (token.isNullOrBlank()) {
-            redirectToLogin()
-            return
-        }
+        if (token.isNullOrBlank()) { redirectToLogin(); return }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         setupCards()
+        setupLangToggle()
         showMenuImmediate()
         clockHandler.post(clockRunnable)
     }
@@ -58,13 +59,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!::binding.isInitialized) return
-
-        val token = getSavedToken()
-        if (token.isNullOrBlank()) { redirectToLogin(); return }
-
-        val name = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE)
-            .getString("display_name", null)
-        binding.tvGreeting.text = if (!name.isNullOrBlank()) "Hello, $name" else ""
+        if (getSavedToken().isNullOrBlank()) { redirectToLogin(); return }
+        updateLangButton()
     }
 
     override fun onDestroy() {
@@ -72,9 +68,7 @@ class MainActivity : AppCompatActivity() {
         clockHandler.removeCallbacksAndMessages(null)
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Setup
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Setup ─────────────────────────────────────────────────────────────────
 
     private fun setupCards() {
         binding.cardWatchTv.setOnClickListener  { launchTv() }
@@ -85,31 +79,74 @@ class MainActivity : AppCompatActivity() {
             card.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
                     selectedIndex = index
+                    focusSection  = index
                     updateSelection()
                 }
             }
         }
     }
 
+    private fun setupLangToggle() {
+        updateLangButton()
+        binding.btnLang.setOnClickListener {
+            LangPrefs.toggle(this)
+            updateLangButton()
+            updateCardLabels()
+        }
+        binding.btnLang.setOnFocusChangeListener { v, hasFocus ->
+            v.alpha = if (hasFocus) 1f else 0.55f
+            if (hasFocus) focusSection = 3
+        }
+    }
+
+    private fun updateLangButton() {
+        val isKa = LangPrefs.isKa(this)
+        binding.btnLang.text = if (isKa) "EN" else "KA"
+    }
+
+    private fun updateCardLabels() {
+        val isKa = LangPrefs.isKa(this)
+        // Watch TV card
+        binding.cardWatchTv.findViewWithTag<TextView>("label")?.text =
+            if (isKa) "TV" else "Watch TV"
+        binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text =
+            if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
+        // Profile card
+        binding.cardProfile.findViewWithTag<TextView>("label")?.text =
+            if (isKa) "პროფილი" else "Profile"
+        binding.cardProfile.findViewWithTag<TextView>("sublabel")?.text =
+            if (isKa) "ანგარიში · გამოწერა" else "Account · Subscription"
+        // Plans card
+        binding.cardSettings.findViewWithTag<TextView>("label")?.text =
+            if (isKa) "პაკეტები" else "Plans"
+        binding.cardSettings.findViewWithTag<TextView>("sublabel")?.text =
+            if (isKa) "პაკეტები · ბალანსი" else "Packages · Balance"
+        // Hint
+        updateSelection()
+    }
+
     private fun showMenuImmediate() {
         cards.forEach { applyCardState(it, selected = false) }
+        updateCardLabels()
         Handler(Looper.getMainLooper()).postDelayed({
             cards[0].requestFocus()
             isReady = true
         }, 120)
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Selection
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Selection ─────────────────────────────────────────────────────────────
 
     private fun updateSelection() {
         cards.forEachIndexed { i, card -> applyCardState(card, i == selectedIndex) }
-
-        val hints = listOf(
+        val isKa = LangPrefs.isKa(this)
+        val hints = if (isKa) listOf(
+            "პირდაპირი TV და საარქივო კონტენტი",
+            "ანგარიშის და გამოწერის მართვა",
+            "პაკეტების ნახვა და შეძენა"
+        ) else listOf(
             "Watch live TV and archive content",
             "Manage your account and subscription",
-            "Browse and purchase subscription plans"
+            "Browse and purchase packages"
         )
         binding.tvSelectionHint.text = hints.getOrElse(selectedIndex) { "" }
     }
@@ -117,20 +154,16 @@ class MainActivity : AppCompatActivity() {
     private fun applyCardState(card: View, selected: Boolean) {
         card.alpha        = if (selected) 1.0f else 0.85f
         card.translationZ = if (selected) 6f   else 0f
-
         card.setBackgroundResource(
             if (selected) R.drawable.menu_card_glass_selected
             else          R.drawable.menu_card_glass
         )
-
-        card.findViewWithTag<ImageView>("icon")?.alpha       = if (selected) 0.80f else 0.22f
-        card.findViewWithTag<TextView>("label")?.alpha       = if (selected) 1.0f  else 0.50f
-        card.findViewWithTag<View>("labelAccent")?.alpha     = if (selected) 1f    else 0f
+        card.findViewWithTag<ImageView>("icon")?.alpha   = if (selected) 0.85f else 0.22f
+        card.findViewWithTag<TextView>("label")?.alpha   = if (selected) 1.0f  else 0.50f
+        card.findViewWithTag<View>("labelAccent")?.alpha = if (selected) 1f    else 0f
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Navigation
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Navigation ────────────────────────────────────────────────────────────
 
     private fun launchTv() {
         startActivity(Intent(this, PlayerActivity::class.java))
@@ -141,7 +174,6 @@ class MainActivity : AppCompatActivity() {
         val token = getSavedToken() ?: run { redirectToLogin(); return }
         startActivity(Intent(this, UserActivity::class.java).apply {
             putExtra(UserActivity.EXTRA_TOKEN, token)
-            putExtra(UserActivity.EXTRA_FROM_REMEMBER_ME, true)
         })
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
@@ -162,32 +194,58 @@ class MainActivity : AppCompatActivity() {
     private fun getSavedToken(): String? =
         getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).getString("auth_token", null)
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Clock
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Clock ─────────────────────────────────────────────────────────────────
 
     private fun updateClock() {
         binding.tvTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
         binding.tvDate.text = SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date())
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Key handling
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Keys ──────────────────────────────────────────────────────────────────
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isReady) return true
         return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                if (focusSection != 3) {
+                    focusSection = 3
+                    binding.btnLang.requestFocus()
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (focusSection == 3) {
+                    focusSection = selectedIndex
+                    cards[selectedIndex].requestFocus()
+                }
+                true
+            }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (selectedIndex > 0) { selectedIndex--; cards[selectedIndex].requestFocus() }
+                when (focusSection) {
+                    3 -> { /* lang button is rightmost, nothing to left in top bar */ }
+                    else -> if (selectedIndex > 0) {
+                        selectedIndex--
+                        cards[selectedIndex].requestFocus()
+                    }
+                }
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (selectedIndex < cards.size - 1) { selectedIndex++; cards[selectedIndex].requestFocus() }
+                when (focusSection) {
+                    3 -> { /* already rightmost */ }
+                    else -> if (selectedIndex < cards.size - 1) {
+                        selectedIndex++
+                        cards[selectedIndex].requestFocus()
+                    }
+                }
                 true
             }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                cards[selectedIndex].performClick(); true
+                when (focusSection) {
+                    3    -> { LangPrefs.toggle(this); updateLangButton(); updateCardLabels() }
+                    else -> cards[selectedIndex].performClick()
+                }
+                true
             }
             KeyEvent.KEYCODE_BACK -> true
             else -> super.onKeyDown(keyCode, event)

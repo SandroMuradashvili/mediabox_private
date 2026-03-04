@@ -6,304 +6,299 @@
     android:layout_height="match_parent"
     android:background="@drawable/main_bg">
 
+    <!-- Loading -->
+    <ProgressBar
+        android:id="@+id/loadingIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:indeterminateTint="#6366F1"
+        android:visibility="gone"/>
+
+    <!-- Main content -->
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/contentRoot"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:visibility="gone">
 
-        <!-- Logo top-left -->
-        <ImageView
-            android:id="@+id/ivLogo"
-            android:layout_width="130dp"
-            android:layout_height="27dp"
-            android:src="@drawable/ic_mediabox_logo"
-            android:scaleType="fitStart"
-            android:contentDescription="Mediabox"
-            android:layout_marginStart="48dp"
-            android:layout_marginTop="26dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"/>
-
-        <!-- Back button top-right -->
-        <TextView
-            android:id="@+id/btnBack"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="← უკან"
-            android:textColor="#F1F5F9"
-            android:textSize="13sp"
-            android:alpha="0.4"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:focusable="true"
-            android:clickable="true"
-            android:layout_marginEnd="48dp"
-            android:layout_marginTop="22dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
-        <!-- Divider -->
-        <View
-            android:id="@+id/dividerTop"
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:background="#07FFFFFF"
-            android:layout_marginStart="48dp"
-            android:layout_marginEnd="48dp"
-            android:layout_marginTop="62dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
-        <!-- Loading indicator -->
-        <ProgressBar
-            android:id="@+id/loadingGroup"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:indeterminateTint="#6366F1"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/dividerTop"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
-        <!-- Content row -->
+        <!-- ══ TOP BAR ══════════════════════════════════════════════ -->
         <LinearLayout
-            android:id="@+id/contentGroup"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:id="@+id/topBar"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/dividerTop"
-            app:layout_constraintBottom_toTopOf="@+id/hintBar"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:background="#08FFFFFF"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- ── LEFT: Identity card ───────────────────── -->
+            <!-- Back button -->
             <FrameLayout
-                android:layout_width="320dp"
-                android:layout_height="300dp"
-                android:layout_margin="12dp"
-                android:background="@drawable/menu_card_glass">
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="2dp"
-                    android:layout_gravity="top"
-                    android:background="#E8191A"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
+                android:id="@+id/btnBack"
+                android:layout_width="100dp"
+                android:layout_height="42dp"
+                android:background="@drawable/menu_card_glass"
+                android:focusable="true"
+                android:clickable="true">
+                <TextView
+                    android:id="@+id/tvBackLabel"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp">
-
-                    <!-- Avatar + name -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="18dp">
-
-                        <FrameLayout
-                            android:layout_width="52dp"
-                            android:layout_height="52dp"
-                            android:layout_marginEnd="16dp">
-                            <View
-                                android:layout_width="52dp"
-                                android:layout_height="52dp"
-                                android:background="@drawable/profile_avatar_bg"/>
-                            <TextView
-                                android:id="@+id/tvAvatarInitial"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center"
-                                android:text="U"
-                                android:textColor="#F1F5F9"
-                                android:textSize="22sp"
-                                android:textStyle="bold"/>
-                        </FrameLayout>
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-                            <TextView
-                                android:id="@+id/tvDisplayName"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="სახელი"
-                                android:textColor="#F1F5F9"
-                                android:textSize="20sp"
-                                android:textStyle="bold"
-                                android:letterSpacing="-0.01"/>
-                            <TextView
-                                android:id="@+id/tvUsername"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@username"
-                                android:textColor="#3394A3B8"
-                                android:textSize="11sp"
-                                android:layout_marginTop="2dp"/>
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <!-- Divider -->
-                    <View android:layout_width="match_parent" android:layout_height="1dp"
-                        android:background="#08FFFFFF" android:layout_marginBottom="14dp"/>
-
-                    <!-- Info rows -->
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:orientation="horizontal" android:layout_marginBottom="10dp">
-                        <TextView android:layout_width="80dp" android:layout_height="wrap_content"
-                            android:text="ელ-ფოსტა" android:textColor="#18FFFFFF" android:textSize="9sp"
-                            android:letterSpacing="0.10" android:textStyle="bold"/>
-                        <TextView android:id="@+id/tvEmail" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="—"
-                            android:textColor="#CDF1F5F9" android:textSize="12sp"/>
-                    </LinearLayout>
-
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:orientation="horizontal" android:layout_marginBottom="10dp">
-                        <TextView android:layout_width="80dp" android:layout_height="wrap_content"
-                            android:text="ტელეფონი" android:textColor="#18FFFFFF" android:textSize="9sp"
-                            android:letterSpacing="0.10" android:textStyle="bold"/>
-                        <TextView android:id="@+id/tvPhone" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="—"
-                            android:textColor="#CDF1F5F9" android:textSize="12sp"/>
-                    </LinearLayout>
-
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-                        <TextView android:layout_width="80dp" android:layout_height="wrap_content"
-                            android:text="როლი" android:textColor="#18FFFFFF" android:textSize="9sp"
-                            android:letterSpacing="0.10" android:textStyle="bold"/>
-                        <TextView android:id="@+id/tvRole" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="მომხმარებელი"
-                            android:textColor="#CDF1F5F9" android:textSize="12sp"/>
-                    </LinearLayout>
-
-                </LinearLayout>
+                    android:layout_gravity="center"
+                    android:text="← Back"
+                    android:textColor="#F1F5F9"
+                    android:textSize="13sp"
+                    android:textStyle="bold"/>
             </FrameLayout>
 
-            <!-- ── MIDDLE: Balance + Plan ───────────────── -->
-            <LinearLayout
-                android:layout_width="240dp"
-                android:layout_height="300dp"
-                android:layout_margin="12dp"
-                android:orientation="vertical">
+            <!-- Logo centered -->
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="22dp"
+                android:layout_weight="1"
+                android:src="@drawable/ic_mediabox_logo"
+                android:scaleType="center"
+                android:alpha="0.6"
+                android:contentDescription="Mediabox"/>
 
-                <!-- Balance card -->
-                <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:layout_marginBottom="10dp"
-                    android:background="@drawable/menu_card_glass">
-
-                    <View android:layout_width="match_parent" android:layout_height="2dp"
-                        android:layout_gravity="top" android:background="#10B981"/>
-
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical" android:orientation="vertical"
-                        android:paddingStart="22dp" android:paddingEnd="22dp">
-
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="ᲑᲐᲚᲐᲜᲡᲘ" android:textColor="#10B981" android:textSize="9sp"
-                            android:letterSpacing="0.18" android:textStyle="bold"
-                            android:layout_marginBottom="6dp"/>
-
-                        <TextView android:id="@+id/tvBalance"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="₾ 0.00" android:textColor="#F1F5F9"
-                            android:textSize="30sp" android:textStyle="bold" android:letterSpacing="-0.02"/>
-                    </LinearLayout>
-                </FrameLayout>
-
-                <!-- Active plan card -->
-                <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/menu_card_glass">
-
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical" android:orientation="vertical"
-                        android:paddingStart="22dp" android:paddingEnd="22dp">
-
-                        <TextView android:id="@+id/tvPlansLabel"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="ᲐᲥᲢᲘᲣᲠᲘ ᲞᲐᲙᲔᲢᲘ" android:textColor="#6366F1"
-                            android:textSize="9sp" android:letterSpacing="0.18" android:textStyle="bold"
-                            android:layout_marginBottom="6dp"/>
-
-                        <TextView android:id="@+id/tvActivePlan"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="—" android:textColor="#F1F5F9"
-                            android:textSize="16sp" android:textStyle="bold"
-                            android:maxLines="2" android:ellipsize="end"/>
-
-                        <TextView android:id="@+id/tvPlanExpiry"
-                            android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="" android:textColor="#3394A3B8"
-                            android:textSize="10sp" android:layout_marginTop="4dp"
-                            android:visibility="gone"/>
-                    </LinearLayout>
-                </FrameLayout>
-
-            </LinearLayout>
-
-            <!-- ── RIGHT: Sign out ──────────────────────── -->
+            <!-- Logout button -->
             <FrameLayout
                 android:id="@+id/btnLogout"
-                android:layout_width="160dp"
-                android:layout_height="300dp"
-                android:layout_margin="12dp"
+                android:layout_width="120dp"
+                android:layout_height="42dp"
                 android:background="@drawable/logout_card_bg"
                 android:focusable="true"
                 android:clickable="true">
-
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical" android:orientation="vertical"
-                    android:paddingStart="22dp" android:paddingEnd="22dp" android:gravity="center">
-
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="⏻" android:textColor="#E8191A" android:textSize="28sp"
-                        android:alpha="0.7" android:layout_marginBottom="12dp"/>
-
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="გამოსვლა" android:textColor="#F1F5F9"
-                        android:textSize="16sp" android:textStyle="bold" android:gravity="center"/>
-
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="სისტემიდან გასვლა" android:textColor="#12FFFFFF"
-                        android:textSize="10sp" android:gravity="center" android:layout_marginTop="4dp"/>
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/tvLogoutLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sign Out"
+                        android:textColor="#F87171"
+                        android:textSize="13sp"
+                        android:textStyle="bold"/>
+                    <TextView
+                        android:id="@+id/tvLogoutSub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="from system"
+                        android:textColor="#30FFFFFF"
+                        android:textSize="9sp"
+                        android:layout_marginTop="1dp"/>
                 </LinearLayout>
             </FrameLayout>
 
         </LinearLayout>
 
-        <!-- Hint bar -->
+        <!-- Thin rule below top bar -->
+        <View
+            android:id="@+id/ruleTop"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="#07FFFFFF"
+            app:layout_constraintTop_toBottomOf="@id/topBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- ══ IDENTITY + STATS STRIP ═══════════════════════════════ -->
+        <LinearLayout
+            android:id="@+id/identityStrip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="20dp"
+            app:layout_constraintTop_toBottomOf="@id/ruleTop"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Avatar -->
+            <FrameLayout
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="20dp">
+                <View android:layout_width="64dp" android:layout_height="64dp"
+                    android:background="@drawable/profile_avatar_bg"/>
+                <TextView
+                    android:id="@+id/tvAvatarInitial"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="U"
+                    android:textColor="#F1F5F9"
+                    android:textSize="26sp"
+                    android:textStyle="bold"/>
+            </FrameLayout>
+
+            <!-- Name + username -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.2"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/tvDisplayName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Full Name"
+                    android:textColor="#F1F5F9"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.01"/>
+                <TextView
+                    android:id="@+id/tvUsername"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@username"
+                    android:textColor="#2894A3B8"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp"/>
+            </LinearLayout>
+
+            <!-- Vertical divider -->
+            <View android:layout_width="1dp" android:layout_height="48dp"
+                android:background="#0CFFFFFF" android:layout_marginEnd="24dp" android:layout_marginStart="8dp"/>
+
+            <!-- Email -->
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="20dp">
+                <TextView android:id="@+id/tvEmailLabel" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="Email"
+                    android:textColor="#1894A3B8" android:textSize="9sp"
+                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                <TextView android:id="@+id/tvEmail" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="—"
+                    android:textColor="#CCF1F5F9" android:textSize="13sp" android:layout_marginTop="3dp"
+                    android:maxLines="1" android:ellipsize="end"/>
+            </LinearLayout>
+
+            <!-- Phone -->
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="0.8" android:orientation="vertical" android:layout_marginEnd="20dp">
+                <TextView android:id="@+id/tvPhoneLabel" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="Phone"
+                    android:textColor="#1894A3B8" android:textSize="9sp"
+                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                <TextView android:id="@+id/tvPhone" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="—"
+                    android:textColor="#CCF1F5F9" android:textSize="13sp" android:layout_marginTop="3dp"/>
+            </LinearLayout>
+
+            <!-- Role -->
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="0.6" android:orientation="vertical" android:layout_marginEnd="20dp">
+                <TextView android:id="@+id/tvRoleLabel" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="Role"
+                    android:textColor="#1894A3B8" android:textSize="9sp"
+                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                <TextView android:id="@+id/tvRole" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="—"
+                    android:textColor="#CCF1F5F9" android:textSize="13sp" android:layout_marginTop="3dp"/>
+            </LinearLayout>
+
+            <!-- Balance -->
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="0.7" android:orientation="vertical">
+                <TextView android:id="@+id/tvBalanceLabel" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="Balance"
+                    android:textColor="#1894A3B8" android:textSize="9sp"
+                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                <TextView android:id="@+id/tvBalance" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="₾ 0.00"
+                    android:textColor="#10B981" android:textSize="18sp"
+                    android:textStyle="bold" android:layout_marginTop="3dp"/>
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Rule below strip -->
+        <View
+            android:id="@+id/ruleStrip"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="#07FFFFFF"
+            app:layout_constraintTop_toBottomOf="@id/identityStrip"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- ══ ACTIVE PLANS SECTION ══════════════════════════════════ -->
+        <TextView
+            android:id="@+id/tvActivePlansHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Active Plans"
+            android:textColor="#2894A3B8"
+            android:textSize="10sp"
+            android:letterSpacing="0.16"
+            android:textStyle="bold"
+            android:layout_marginStart="44dp"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/ruleStrip"
+            app:layout_constraintStart_toStartOf="parent"/>
+
+        <!-- No plans message -->
+        <TextView
+            android:id="@+id/tvNoPlans"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No active plans"
+            android:textColor="#2294A3B8"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:layout_marginStart="44dp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/tvActivePlansHeader"
+            app:layout_constraintStart_toStartOf="parent"/>
+
+        <!-- Plans horizontal list -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvActivePlans"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginStart="36dp"
+            android:layout_marginEnd="36dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:clipToPadding="false"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:scrollbars="none"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/tvActivePlansHeader"
+            app:layout_constraintBottom_toTopOf="@id/hintBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Hint -->
         <LinearLayout
             android:id="@+id/hintBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:gravity="center"
-            android:paddingBottom="18dp"
+            android:paddingBottom="14dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
-
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="◀  ▶  ნავიგაცია     OK  არჩევა     ← უკან"
-                android:textColor="#0EFFFFFF" android:textSize="9sp" android:letterSpacing="0.06"/>
-
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="◀  ▶  Navigate     ▲▼  Switch row     OK  Select"
+                android:textColor="#0EFFFFFF"
+                android:textSize="9sp"
+                android:letterSpacing="0.06"/>
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
