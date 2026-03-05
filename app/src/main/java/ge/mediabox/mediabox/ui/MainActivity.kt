@@ -92,16 +92,18 @@ class MainActivity : AppCompatActivity() {
             LangPrefs.toggle(this)
             updateLangButton()
             updateCardLabels()
+            // After toggle, re-clear selection since focus is still on lang button
+            clearSelectionForLang()
         }
         binding.btnLang.setOnFocusChangeListener { v, hasFocus ->
             v.alpha = if (hasFocus) 1f else 0.55f
-            if (hasFocus) focusSection = 3
+            if (hasFocus) {
+                focusSection = 3
+                clearSelectionForLang()
+            } else {
+                updateSelection()
+            }
         }
-    }
-
-    private fun updateLangButton() {
-        binding.btnLang.findViewById<TextView>(R.id.tvLangLabel).text =
-            if (LangPrefs.isKa(this)) "ქართ" else "ENG"
     }
 
     private fun updateCardLabels() {
@@ -121,9 +123,15 @@ class MainActivity : AppCompatActivity() {
             if (isKa) "პაკეტები" else "Plans"
         binding.cardSettings.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "პაკეტები · ბალანსი" else "Packages · Balance"
-        // Hint
-        updateSelection()
+        // DO NOT call updateSelection() here — caller decides whether to restore or clear
     }
+
+    private fun updateLangButton() {
+        binding.btnLang.findViewById<TextView>(R.id.tvLangLabel).text =
+            if (LangPrefs.isKa(this)) "ქართული" else "ENG"
+    }
+
+
 
     private fun showMenuImmediate() {
         cards.forEach { applyCardState(it, selected = false) }
@@ -151,6 +159,11 @@ class MainActivity : AppCompatActivity() {
         binding.tvSelectionHint.text = hints.getOrElse(selectedIndex) { "" }
     }
 
+    private fun clearSelectionForLang() {
+        // Deselect all cards visually, clear hint text
+        cards.forEach { applyCardState(it, selected = false) }
+        binding.tvSelectionHint.text = ""
+    }
     private fun applyCardState(card: View, selected: Boolean) {
         card.alpha        = if (selected) 1.0f else 0.85f
         card.translationZ = if (selected) 6f   else 0f
@@ -197,8 +210,9 @@ class MainActivity : AppCompatActivity() {
     // ── Clock ─────────────────────────────────────────────────────────────────
 
     private fun updateClock() {
-        binding.tvTime.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-        binding.tvDate.text = SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date())
+        val locale = if (LangPrefs.isKa(this)) Locale("ka", "GE") else Locale.ENGLISH
+        binding.tvTime.text = SimpleDateFormat("HH:mm", locale).format(Date())
+        binding.tvDate.text = SimpleDateFormat("EEE, d MMM", locale).format(Date())
     }
 
     // ── Keys ──────────────────────────────────────────────────────────────────
@@ -210,6 +224,7 @@ class MainActivity : AppCompatActivity() {
                 if (focusSection != 3) {
                     focusSection = 3
                     binding.btnLang.requestFocus()
+                    clearSelectionForLang()
                 }
                 true
             }
@@ -217,6 +232,7 @@ class MainActivity : AppCompatActivity() {
                 if (focusSection == 3) {
                     focusSection = selectedIndex
                     cards[selectedIndex].requestFocus()
+                    updateSelection()
                 }
                 true
             }
