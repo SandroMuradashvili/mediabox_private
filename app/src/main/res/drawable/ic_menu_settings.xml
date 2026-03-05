@@ -1,54 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--  ic_menu_settings.xml  — three horizontal sliders (modern settings icon)  -->
+<!--  ic_menu_settings.xml  — Premium credit card / subscription icon  -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
 
-    <!-- Top rail -->
+    <!-- Card outline — rounded rectangle -->
     <path
+        android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
+        android:strokeWidth="2.2"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M6,14 L42,14"/>
+        android:strokeLineJoin="round"
+        android:pathData="M4,13 Q4,10 7,10 L41,10 Q44,10 44,13 L44,35 Q44,38 41,38 L7,38 Q4,38 4,35 Z"/>
 
-    <!-- Top knob -->
+    <!-- Magnetic stripe / top bar -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:fillColor="#00000000"
-        android:pathData="M30,10 A4,4 0 1 1 30,18 A4,4 0 1 1 30,10 Z"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,17 L44,17 L44,22 L4,22 Z"/>
 
-    <!-- Middle rail -->
+    <!-- Chip placeholder — small rounded rect -->
     <path
+        android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
+        android:strokeWidth="1.8"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M6,24 L42,24"/>
+        android:strokeLineJoin="round"
+        android:pathData="M8,27 Q8,25 10,25 L16,25 Q18,25 18,27 L18,33 Q18,35 16,35 L10,35 Q8,35 8,33 Z"/>
 
-    <!-- Middle knob -->
+    <!-- Signature lines -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
         android:fillColor="#00000000"
-        android:pathData="M18,20 A4,4 0 1 1 18,28 A4,4 0 1 1 18,20 Z"/>
-
-    <!-- Bottom rail -->
-    <path
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
+        android:strokeWidth="1.6"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M6,34 L42,34"/>
+        android:pathData="M22,28 L38,28"/>
 
-    <!-- Bottom knob -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
         android:fillColor="#00000000"
-        android:pathData="M34,30 A4,4 0 1 1 34,38 A4,4 0 1 1 34,30 Z"/>
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:pathData="M22,32 L32,32"/>
 
 </vector>

@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -92,11 +93,10 @@ class MainActivity : AppCompatActivity() {
             LangPrefs.toggle(this)
             updateLangButton()
             updateCardLabels()
-            // After toggle, re-clear selection since focus is still on lang button
             clearSelectionForLang()
         }
         binding.btnLang.setOnFocusChangeListener { v, hasFocus ->
-            v.alpha = if (hasFocus) 1f else 0.55f
+            v.animate().alpha(if (hasFocus) 1f else 0.65f).setDuration(200).start()
             if (hasFocus) {
                 focusSection = 3
                 clearSelectionForLang()
@@ -108,30 +108,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
-        // Watch TV card
         binding.cardWatchTv.findViewWithTag<TextView>("label")?.text =
             if (isKa) "ტელევიზია" else "Watch TV"
         binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
-        // Profile card
         binding.cardProfile.findViewWithTag<TextView>("label")?.text =
             if (isKa) "პროფილი" else "Profile"
         binding.cardProfile.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "ანგარიში · გამოწერა" else "Account · Subscription"
-        // Plans card
         binding.cardSettings.findViewWithTag<TextView>("label")?.text =
             if (isKa) "პაკეტები" else "Plans"
         binding.cardSettings.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "პაკეტები · ბალანსი" else "Packages · Balance"
-        // DO NOT call updateSelection() here — caller decides whether to restore or clear
     }
 
     private fun updateLangButton() {
         binding.btnLang.findViewById<TextView>(R.id.tvLangLabel).text =
             if (LangPrefs.isKa(this)) "ქართული" else "ENG"
     }
-
-
 
     private fun showMenuImmediate() {
         cards.forEach { applyCardState(it, selected = false) }
@@ -160,20 +154,64 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearSelectionForLang() {
-        // Deselect all cards visually, clear hint text
         cards.forEach { applyCardState(it, selected = false) }
         binding.tvSelectionHint.text = ""
     }
+
+    /**
+     * Applies card state with smooth animations:
+     * - Background switches between glass/selected (glow effect)
+     * - Icon fades brighter on focus
+     * - Accent line fades in/out
+     * - Label brightens and sublabel fades in smoothly
+     * - Card lifts slightly via translationZ + scaleX/Y
+     */
     private fun applyCardState(card: View, selected: Boolean) {
-        card.alpha        = if (selected) 1.0f else 0.85f
-        card.translationZ = if (selected) 6f   else 0f
+        val duration = 220L
+        val interp   = AccelerateDecelerateInterpolator()
+
+        // Background (glow border drawable swap)
         card.setBackgroundResource(
             if (selected) R.drawable.menu_card_glass_selected
             else          R.drawable.menu_card_glass
         )
-        card.findViewWithTag<ImageView>("icon")?.alpha   = if (selected) 0.85f else 0.22f
-        card.findViewWithTag<TextView>("label")?.alpha   = if (selected) 1.0f  else 0.50f
-        card.findViewWithTag<View>("labelAccent")?.alpha = if (selected) 1f    else 0f
+
+        // Scale — subtle lift
+        card.animate()
+            .scaleX(if (selected) 1.04f else 1.0f)
+            .scaleY(if (selected) 1.04f else 1.0f)
+            .translationZ(if (selected) 10f else 0f)
+            .setDuration(duration)
+            .setInterpolator(interp)
+            .start()
+
+        // Icon — brighter when selected
+        card.findViewWithTag<ImageView>("icon")?.animate()
+            ?.alpha(if (selected) 1.0f else 0.75f)
+            ?.setDuration(duration)
+            ?.setInterpolator(interp)
+            ?.start()
+
+        // Accent line — fades in/out
+        card.findViewWithTag<View>("labelAccent")?.animate()
+            ?.alpha(if (selected) 1f else 0f)
+            ?.setDuration(duration)
+            ?.setInterpolator(interp)
+            ?.start()
+
+        // Main label — brightens on focus
+        card.findViewWithTag<TextView>("label")?.animate()
+            ?.alpha(if (selected) 1.0f else 0.85f)
+            ?.setDuration(duration)
+            ?.setInterpolator(interp)
+            ?.start()
+
+        // Sublabel — fades in smoothly on focus
+        card.findViewWithTag<TextView>("sublabel")?.animate()
+            ?.alpha(if (selected) 0.65f else 0f)
+            ?.setDuration(if (selected) 280L else 150L)
+            ?.setInterpolator(interp)
+            ?.start()
     }
 
     // ── Navigation ────────────────────────────────────────────────────────────
@@ -238,7 +276,7 @@ class MainActivity : AppCompatActivity() {
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 when (focusSection) {
-                    3 -> { /* lang button is rightmost, nothing to left in top bar */ }
+                    3 -> { }
                     else -> if (selectedIndex > 0) {
                         selectedIndex--
                         cards[selectedIndex].requestFocus()
@@ -248,7 +286,7 @@ class MainActivity : AppCompatActivity() {
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 when (focusSection) {
-                    3 -> { /* already rightmost */ }
+                    3 -> { }
                     else -> if (selectedIndex < cards.size - 1) {
                         selectedIndex++
                         cards[selectedIndex].requestFocus()

@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--  ic_menu_profile.xml  — person outline  -->
+<!--  ic_menu_profile.xml  — Premium geometric person icon  -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
 
-    <!-- Head circle -->
+    <!-- Head — clean circle -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
         android:fillColor="#00000000"
-        android:pathData="M24,8 A8,8 0 1 1 24,24 A8,8 0 1 1 24,8 Z"/>
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
+        android:pathData="M24,7 A8,8 0 1,1 24,23 A8,8 0 1,1 24,7 Z"/>
 
-    <!-- Shoulders / body arc -->
+    <!-- Shoulders — smooth arc, no harsh lines -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
         android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
         android:strokeLineCap="round"
-        android:pathData="M8,42 C8,32 14,28 24,28 C34,28 40,32 40,42"/>
+        android:pathData="M7,43 C7,32 13.5,27 24,27 C34.5,27 41,32 41,43"/>
 
 </vector>
