@@ -111,7 +111,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Cards row — centered vertically -->
+        <!-- Cards row — 4 cards -->
         <LinearLayout
             android:id="@+id/cardsRow"
             android:layout_width="wrap_content"
@@ -128,9 +128,9 @@
             <!-- ═══════════════ WATCH TV ═══════════════ -->
             <FrameLayout
                 android:id="@+id/cardWatchTv"
-                android:layout_width="240dp"
-                android:layout_height="220dp"
-                android:layout_margin="20dp"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_margin="14dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -141,26 +141,24 @@
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="24dp">
+                    android:padding="20dp">
 
-                    <!-- Icon: monitor with play arrow (premium SVG) -->
                     <ImageView
                         android:tag="icon"
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
                         android:src="@drawable/ic_menu_watch"
                         android:alpha="0.75"
                         android:scaleType="fitCenter"
                         android:contentDescription="Watch TV"/>
 
-                    <!-- Accent line -->
                     <View
                         android:tag="labelAccent"
                         android:layout_width="24dp"
                         android:layout_height="2dp"
                         android:background="#E8191A"
-                        android:layout_marginTop="18dp"
-                        android:layout_marginBottom="10dp"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="8dp"
                         android:alpha="0"/>
 
                     <TextView
@@ -169,10 +167,9 @@
                         android:layout_height="wrap_content"
                         android:text="ტელევიზია"
                         android:textColor="#F1F5F9"
-                        android:textSize="20sp"
+                        android:textSize="17sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="-0.01"
                         android:alpha="0.85"/>
 
                     <TextView
@@ -181,20 +178,20 @@
                         android:layout_height="wrap_content"
                         android:text="პირდაპირი · არქივი · HD"
                         android:textColor="#55FFFFFF"
-                        android:textSize="13sp"
+                        android:textSize="11sp"
                         android:gravity="center"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="4dp"
                         android:alpha="0"/>
 
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- ═══════════════ PROFILE ═══════════════ -->
+            <!-- ═══════════════ YOUTUBE ═══════════════ -->
             <FrameLayout
-                android:id="@+id/cardProfile"
-                android:layout_width="240dp"
-                android:layout_height="220dp"
-                android:layout_margin="20dp"
+                android:id="@+id/cardYoutube"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_margin="14dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -205,12 +202,134 @@
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="24dp">
+                    android:padding="20dp">
 
                     <ImageView
                         android:tag="icon"
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:src="@drawable/ic_youtube"
+                        android:alpha="0.75"
+                        android:scaleType="fitCenter"
+                        android:contentDescription="YouTube"/>
+
+                    <View
+                        android:tag="labelAccent"
+                        android:layout_width="24dp"
+                        android:layout_height="2dp"
+                        android:background="#E8191A"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="8dp"
+                        android:alpha="0"/>
+
+                    <TextView
+                        android:tag="label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="YouTube"
+                        android:textColor="#F1F5F9"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:alpha="0.85"/>
+
+                    <TextView
+                        android:tag="sublabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Videos · Music"
+                        android:textColor="#55FFFFFF"
+                        android:textSize="11sp"
+                        android:gravity="center"
+                        android:layout_marginTop="4dp"
+                        android:alpha="0"/>
+
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- ═══════════════ CAST ═══════════════ -->
+            <FrameLayout
+                android:id="@+id/cardRadio"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_margin="14dp"
+                android:background="@drawable/menu_card_glass"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:clickable="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="20dp">
+
+                    <ImageView
+                        android:tag="icon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:src="@drawable/ic_radio"
+                        android:alpha="0.75"
+                        android:scaleType="fitCenter"
+                        android:contentDescription="Cast"/>
+
+                    <View
+                        android:tag="labelAccent"
+                        android:layout_width="24dp"
+                        android:layout_height="2dp"
+                        android:background="#E8191A"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="8dp"
+                        android:alpha="0"/>
+
+                    <TextView
+                        android:tag="label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cast"
+                        android:textColor="#F1F5F9"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:alpha="0.85"/>
+
+                    <TextView
+                        android:tag="sublabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Screen Mirroring"
+                        android:textColor="#55FFFFFF"
+                        android:textSize="11sp"
+                        android:gravity="center"
+                        android:layout_marginTop="4dp"
+                        android:alpha="0"/>
+
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- ═══════════════ PROFILE ═══════════════ -->
+            <FrameLayout
+                android:id="@+id/cardProfile"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_margin="14dp"
+                android:background="@drawable/menu_card_glass"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:clickable="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="20dp">
+
+                    <ImageView
+                        android:tag="icon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
                         android:src="@drawable/ic_menu_profile"
                         android:alpha="0.75"
                         android:scaleType="fitCenter"
@@ -221,8 +340,8 @@
                         android:layout_width="24dp"
                         android:layout_height="2dp"
                         android:background="#E8191A"
-                        android:layout_marginTop="18dp"
-                        android:layout_marginBottom="10dp"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="8dp"
                         android:alpha="0"/>
 
                     <TextView
@@ -231,10 +350,9 @@
                         android:layout_height="wrap_content"
                         android:text="პროფილი"
                         android:textColor="#F1F5F9"
-                        android:textSize="20sp"
+                        android:textSize="17sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:letterSpacing="-0.01"
                         android:alpha="0.85"/>
 
                     <TextView
@@ -243,71 +361,9 @@
                         android:layout_height="wrap_content"
                         android:text="ანგარიში · გამოწერა"
                         android:textColor="#55FFFFFF"
-                        android:textSize="13sp"
+                        android:textSize="11sp"
                         android:gravity="center"
-                        android:layout_marginTop="5dp"
-                        android:alpha="0"/>
-
-                </LinearLayout>
-            </FrameLayout>
-
-            <!-- ═══════════════ PLANS ═══════════════ -->
-            <FrameLayout
-                android:id="@+id/cardSettings"
-                android:layout_width="240dp"
-                android:layout_height="220dp"
-                android:layout_margin="20dp"
-                android:background="@drawable/menu_card_glass"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:clickable="true">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="24dp">
-
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
-                        android:src="@drawable/ic_menu_settings"
-                        android:alpha="0.75"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Plans"/>
-
-                    <View
-                        android:tag="labelAccent"
-                        android:layout_width="24dp"
-                        android:layout_height="2dp"
-                        android:background="#E8191A"
-                        android:layout_marginTop="18dp"
-                        android:layout_marginBottom="10dp"
-                        android:alpha="0"/>
-
-                    <TextView
-                        android:tag="label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="პაკეტები"
-                        android:textColor="#F1F5F9"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:gravity="center"
-                        android:letterSpacing="-0.01"
-                        android:alpha="0.85"/>
-
-                    <TextView
-                        android:tag="sublabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="პაკეტები · ბალანსი"
-                        android:textColor="#55FFFFFF"
-                        android:textSize="13sp"
-                        android:gravity="center"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="4dp"
                         android:alpha="0"/>
 
                 </LinearLayout>
@@ -331,7 +387,7 @@
                 android:id="@+id/tvSelectionHint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="პირდაპირი TV და საარქივო კონტენტი"
+                android:text=""
                 android:textColor="#28FFFFFF"
                 android:textSize="12sp"
                 android:letterSpacing="0.02"

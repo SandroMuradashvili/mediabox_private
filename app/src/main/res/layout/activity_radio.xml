@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0D1117">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <!-- ══ LEFT: Station list (30%) ══════════════════════════════ -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="0.30"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#0A111827">
+
+            <!-- Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:background="#0CFFFFFF">
+
+                <ImageView
+                    android:layout_width="100dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_mediabox_logo"
+                    android:scaleType="fitStart"
+                    android:alpha="0.6"
+                    android:contentDescription="Mediabox"/>
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RADIO"
+                    android:textColor="#3394A3B8"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.18"/>
+
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#0CFFFFFF"/>
+
+            <!-- Station list -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvRadioStations"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:scrollbars="none"/>
+
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#0CFFFFFF"/>
+
+        <!-- ══ RIGHT: Now playing (70%) ══════════════════════════════ -->
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_weight="0.70"
+            android:layout_height="match_parent">
+
+            <!-- Nothing selected state -->
+            <LinearLayout
+                android:id="@+id/layoutNothingPlaying"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="visible">
+
+                <ImageView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:src="@drawable/ic_radio"
+                    android:alpha="0.15"
+                    android:contentDescription="Radio"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Select a station"
+                    android:textColor="#20FFFFFF"
+                    android:textSize="20sp"
+                    android:layout_marginTop="16dp"/>
+
+            </LinearLayout>
+
+            <!-- Now playing panel -->
+            <LinearLayout
+                android:id="@+id/layoutNowPlaying"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="48dp"
+                android:visibility="gone">
+
+                <!-- Station logo -->
+                <FrameLayout
+                    android:layout_width="120dp"
+                    android:layout_height="120dp">
+
+                    <View
+                        android:layout_width="120dp"
+                        android:layout_height="120dp"
+                        android:background="@drawable/profile_avatar_bg"/>
+
+                    <ImageView
+                        android:id="@+id/ivStationLogo"
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_radio"
+                        android:scaleType="fitCenter"
+                        android:contentDescription="Station Logo"/>
+
+                </FrameLayout>
+
+                <!-- Station name -->
+                <TextView
+                    android:id="@+id/tvStationName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Station Name"
+                    android:textColor="#F1F5F9"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_marginTop="24dp"/>
+
+                <!-- Genre -->
+                <TextView
+                    android:id="@+id/tvStationGenre"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Genre"
+                    android:textColor="#3394A3B8"
+                    android:textSize="14sp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/badge_archive_range"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+
+                <!-- LIVE badge -->
+                <TextView
+                    android:id="@+id/tvLiveBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="● LIVE"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/epg_now_badge"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="5dp"
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone"/>
+
+                <!-- Controls row -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginTop="36dp">
+
+                    <!-- Previous -->
+                    <ImageButton
+                        android:id="@+id/btnPrevStation"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@drawable/control_button_background"
+                        android:src="@drawable/ic_rewind"
+                        android:scaleType="centerInside"
+                        android:padding="12dp"
+                        android:contentDescription="Previous station"
+                        android:focusable="true"
+                        android:layout_marginEnd="16dp"/>
+
+                    <!-- Play/Pause -->
+                    <ImageButton
+                        android:id="@+id/btnPlayPauseRadio"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:background="@drawable/control_button_background"
+                        android:src="@drawable/ic_pause"
+                        android:scaleType="centerInside"
+                        android:padding="14dp"
+                        android:contentDescription="Play/Pause"
+                        android:focusable="true"
+                        android:layout_marginEnd="16dp"/>
+
+                    <!-- Next -->
+                    <ImageButton
+                        android:id="@+id/btnNextStation"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@drawable/control_button_background"
+                        android:src="@drawable/ic_fast_forward"
+                        android:scaleType="centerInside"
+                        android:padding="12dp"
+                        android:contentDescription="Next station"
+                        android:focusable="true"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Loading indicator -->
+            <ProgressBar
+                android:id="@+id/radioLoadingBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:indeterminateTint="#6366F1"
+                android:visibility="gone"/>
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

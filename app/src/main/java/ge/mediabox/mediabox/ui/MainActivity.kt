@@ -24,14 +24,13 @@ class MainActivity : AppCompatActivity() {
 
     private var selectedIndex = 0
     private var isReady = false
-
-    // 0=WatchTV, 1=Profile, 2=Plans, 3=LangToggle
-    private var focusSection = 0
+    private var focusSection = 0 // 0-3 = cards, 4 = lang toggle
 
     private val cards get() = listOf(
         binding.cardWatchTv,
-        binding.cardProfile,
-        binding.cardSettings
+        binding.cardYoutube,
+        binding.cardRadio,
+        binding.cardProfile
     )
 
     private val clockHandler = Handler(Looper.getMainLooper())
@@ -72,9 +71,10 @@ class MainActivity : AppCompatActivity() {
     // ── Setup ─────────────────────────────────────────────────────────────────
 
     private fun setupCards() {
-        binding.cardWatchTv.setOnClickListener  { launchTv() }
-        binding.cardProfile.setOnClickListener  { launchProfile() }
-        binding.cardSettings.setOnClickListener { launchPlans() }
+        binding.cardWatchTv.setOnClickListener { launchTv() }
+        binding.cardYoutube.setOnClickListener { launchYouTube() }
+        binding.cardRadio.setOnClickListener   { launchRadio() }
+        binding.cardProfile.setOnClickListener { launchProfile() }
 
         cards.forEachIndexed { index, card ->
             card.setOnFocusChangeListener { _, hasFocus ->
@@ -98,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnLang.setOnFocusChangeListener { v, hasFocus ->
             v.animate().alpha(if (hasFocus) 1f else 0.65f).setDuration(200).start()
             if (hasFocus) {
-                focusSection = 3
+                focusSection = 4
                 clearSelectionForLang()
             } else {
                 updateSelection()
@@ -108,18 +108,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
+
         binding.cardWatchTv.findViewWithTag<TextView>("label")?.text =
             if (isKa) "ტელევიზია" else "Watch TV"
         binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
+
+        binding.cardYoutube.findViewWithTag<TextView>("label")?.text = "YouTube"
+        binding.cardYoutube.findViewWithTag<TextView>("sublabel")?.text =
+            if (isKa) "ვიდეოები · მუსიკა" else "Videos · Music"
+
+        binding.cardRadio.findViewWithTag<TextView>("label")?.text =
+            if (isKa) "რადიო" else "Radio"
+        binding.cardRadio.findViewWithTag<TextView>("sublabel")?.text =
+            if (isKa) "სადგურები · მუსიკა" else "Stations · Music"
+
         binding.cardProfile.findViewWithTag<TextView>("label")?.text =
             if (isKa) "პროფილი" else "Profile"
         binding.cardProfile.findViewWithTag<TextView>("sublabel")?.text =
             if (isKa) "ანგარიში · გამოწერა" else "Account · Subscription"
-        binding.cardSettings.findViewWithTag<TextView>("label")?.text =
-            if (isKa) "პაკეტები" else "Plans"
-        binding.cardSettings.findViewWithTag<TextView>("sublabel")?.text =
-            if (isKa) "პაკეტები · ბალანსი" else "Packages · Balance"
     }
 
     private fun updateLangButton() {
@@ -143,12 +150,14 @@ class MainActivity : AppCompatActivity() {
         val isKa = LangPrefs.isKa(this)
         val hints = if (isKa) listOf(
             "პირდაპირი TV და საარქივო კონტენტი",
-            "ანგარიშის და გამოწერის მართვა",
-            "პაკეტების ნახვა და შეძენა"
+            "YouTube ვიდეოები და მუსიკა",
+            "რადიო სადგურები",
+            "ანგარიშის და გამოწერის მართვა"
         ) else listOf(
             "Watch live TV and archive content",
-            "Manage your account and subscription",
-            "Browse and purchase packages"
+            "Browse YouTube videos and music",
+            "Listen to radio stations",
+            "Manage your account and subscription"
         )
         binding.tvSelectionHint.text = hints.getOrElse(selectedIndex) { "" }
     }
@@ -158,25 +167,14 @@ class MainActivity : AppCompatActivity() {
         binding.tvSelectionHint.text = ""
     }
 
-    /**
-     * Applies card state with smooth animations:
-     * - Background switches between glass/selected (glow effect)
-     * - Icon fades brighter on focus
-     * - Accent line fades in/out
-     * - Label brightens and sublabel fades in smoothly
-     * - Card lifts slightly via translationZ + scaleX/Y
-     */
     private fun applyCardState(card: View, selected: Boolean) {
         val duration = 220L
         val interp   = AccelerateDecelerateInterpolator()
 
-        // Background (glow border drawable swap)
         card.setBackgroundResource(
             if (selected) R.drawable.menu_card_glass_selected
             else          R.drawable.menu_card_glass
         )
-
-        // Scale — subtle lift
         card.animate()
             .scaleX(if (selected) 1.04f else 1.0f)
             .scaleY(if (selected) 1.04f else 1.0f)
@@ -185,39 +183,38 @@ class MainActivity : AppCompatActivity() {
             .setInterpolator(interp)
             .start()
 
-        // Icon — brighter when selected
         card.findViewWithTag<ImageView>("icon")?.animate()
             ?.alpha(if (selected) 1.0f else 0.75f)
-            ?.setDuration(duration)
-            ?.setInterpolator(interp)
-            ?.start()
+            ?.setDuration(duration)?.setInterpolator(interp)?.start()
 
-        // Accent line — fades in/out
         card.findViewWithTag<View>("labelAccent")?.animate()
             ?.alpha(if (selected) 1f else 0f)
-            ?.setDuration(duration)
-            ?.setInterpolator(interp)
-            ?.start()
+            ?.setDuration(duration)?.setInterpolator(interp)?.start()
 
-        // Main label — brightens on focus
         card.findViewWithTag<TextView>("label")?.animate()
             ?.alpha(if (selected) 1.0f else 0.85f)
-            ?.setDuration(duration)
-            ?.setInterpolator(interp)
-            ?.start()
+            ?.setDuration(duration)?.setInterpolator(interp)?.start()
 
-        // Sublabel — fades in smoothly on focus
         card.findViewWithTag<TextView>("sublabel")?.animate()
             ?.alpha(if (selected) 0.65f else 0f)
             ?.setDuration(if (selected) 280L else 150L)
-            ?.setInterpolator(interp)
-            ?.start()
+            ?.setInterpolator(interp)?.start()
     }
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
     private fun launchTv() {
         startActivity(Intent(this, PlayerActivity::class.java))
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
+    private fun launchYouTube() {
+        startActivity(Intent(this, YouTubeActivity::class.java))
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
+    private fun launchRadio() {
+        startActivity(Intent(this, RadioActivity::class.java))
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
@@ -229,16 +226,10 @@ class MainActivity : AppCompatActivity() {
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
-    private fun launchPlans() {
-        startActivity(Intent(this, PlansActivity::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-    }
-
     private fun redirectToLogin() {
         startActivity(Intent(this, LoginActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         })
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
     }
 
@@ -259,15 +250,15 @@ class MainActivity : AppCompatActivity() {
         if (!isReady) return true
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                if (focusSection != 3) {
-                    focusSection = 3
+                if (focusSection != 4) {
+                    focusSection = 4
                     binding.btnLang.requestFocus()
                     clearSelectionForLang()
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (focusSection == 3) {
+                if (focusSection == 4) {
                     focusSection = selectedIndex
                     cards[selectedIndex].requestFocus()
                     updateSelection()
@@ -275,28 +266,22 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                when (focusSection) {
-                    3 -> { }
-                    else -> if (selectedIndex > 0) {
-                        selectedIndex--
-                        cards[selectedIndex].requestFocus()
-                    }
+                if (focusSection != 4 && selectedIndex > 0) {
+                    selectedIndex--
+                    cards[selectedIndex].requestFocus()
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                when (focusSection) {
-                    3 -> { }
-                    else -> if (selectedIndex < cards.size - 1) {
-                        selectedIndex++
-                        cards[selectedIndex].requestFocus()
-                    }
+                if (focusSection != 4 && selectedIndex < cards.size - 1) {
+                    selectedIndex++
+                    cards[selectedIndex].requestFocus()
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 when (focusSection) {
-                    3    -> { LangPrefs.toggle(this); updateLangButton(); updateCardLabels() }
+                    4    -> { LangPrefs.toggle(this); updateLangButton(); updateCardLabels() }
                     else -> cards[selectedIndex].performClick()
                 }
                 true

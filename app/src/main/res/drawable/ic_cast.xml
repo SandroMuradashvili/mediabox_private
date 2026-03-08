@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cast / screen mirroring icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Screen outline -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M5,10 Q5,7 8,7 L40,7 Q43,7 43,10 L43,33 Q43,36 40,36 L8,36 Q5,36 5,33 Z"/>
+
+    <!-- Stand post -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M24,36 L24,42"/>
+
+    <!-- Stand base -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M16,42 L32,42"/>
+
+    <!-- Cast signal waves (bottom-left of screen) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:pathData="M5,28 A5,5 0 0,1 10,33"/>
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:pathData="M5,22 A11,11 0 0,1 16,33"/>
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:pathData="M5,16 A17,17 0 0,1 22,33"/>
+
+    <!-- Small filled dot at cast origin -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M5,31 A2,2 0 1,1 9,31 A2,2 0 1,1 5,31 Z"/>
+
+</vector>

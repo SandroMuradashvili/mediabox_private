@@ -27,12 +27,19 @@ class UserActivity : AppCompatActivity() {
     private lateinit var binding: ActivityUserBinding
     private val authApi by lazy { AuthApiService.create(applicationContext) }
 
-    // focusZone: 0=back  1=logout  2=plans-list
+    // focusZone: 0=back  1=logout  2=plans-list  3=mobileRemoteToggle
     private var focusZone = 0
     private var planFocusIndex = 0
     private var planCount = 0
 
     private lateinit var planAdapter: ActivePlanAdapter
+
+    // ── Mobile remote pref ────────────────────────────────────────────────────
+    private var isMobileRemoteEnabled: Boolean
+        get() = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            .getBoolean("mobile_remote_enabled", false)
+        set(value) = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            .edit().putBoolean("mobile_remote_enabled", value).apply()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +64,8 @@ class UserActivity : AppCompatActivity() {
 
             KeyEvent.KEYCODE_DPAD_UP -> {
                 when (focusZone) {
-                    2 -> { focusZone = 0; applyTopFocus(0) }
+                    2 -> { focusZone = 3; applyRemoteToggleFocus(true) }
+                    3 -> { focusZone = 0; applyTopFocus(0) }
                     else -> {}
                 }
                 true
@@ -65,16 +73,20 @@ class UserActivity : AppCompatActivity() {
 
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 when (focusZone) {
-                    0, 1 -> if (planCount > 0) { focusZone = 2; applyPlanFocus(planFocusIndex) }
-                    else  -> {}
+                    0, 1 -> {
+                        focusZone = 3
+                        applyRemoteToggleFocus(true)
+                    }
+                    3 -> if (planCount > 0) { focusZone = 2; applyPlanFocus(planFocusIndex) }
+                    else -> {}
                 }
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 when (focusZone) {
-                    1    -> { focusZone = 0; applyTopFocus(0) }
-                    2    -> if (planFocusIndex > 0) { planFocusIndex--; applyPlanFocus(planFocusIndex) }
+                    1 -> { focusZone = 0; applyTopFocus(0) }
+                    2 -> if (planFocusIndex > 0) { planFocusIndex--; applyPlanFocus(planFocusIndex) }
                     else -> {}
                 }
                 true
@@ -82,8 +94,8 @@ class UserActivity : AppCompatActivity() {
 
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 when (focusZone) {
-                    0    -> { focusZone = 1; applyTopFocus(1) }
-                    2    -> if (planFocusIndex < planCount - 1) { planFocusIndex++; applyPlanFocus(planFocusIndex) }
+                    0 -> { focusZone = 1; applyTopFocus(1) }
+                    2 -> if (planFocusIndex < planCount - 1) { planFocusIndex++; applyPlanFocus(planFocusIndex) }
                     else -> {}
                 }
                 true
@@ -93,6 +105,7 @@ class UserActivity : AppCompatActivity() {
                 when (focusZone) {
                     0 -> finish()
                     1 -> doLogout()
+                    3 -> toggleMobileRemote()
                     else -> {}
                 }
                 true
@@ -115,9 +128,9 @@ class UserActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         applyTopFocus(0)
-
         binding.btnBack.setOnClickListener { finish() }
         binding.btnLogout.setOnClickListener { doLogout() }
+        binding.btnMobileRemote.setOnClickListener { toggleMobileRemote() }
     }
 
     // ── Focus helpers ─────────────────────────────────────────────────────────
@@ -125,18 +138,28 @@ class UserActivity : AppCompatActivity() {
     private fun applyTopFocus(zone: Int) {
         focusZone = zone
 
-        // Back button
         binding.btnBack.setBackgroundResource(
             if (zone == 0) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass
         )
         binding.btnBack.alpha = if (zone == 0) 1f else 0.55f
 
-        // Logout button
         binding.btnLogout.setBackgroundResource(
             if (zone == 1) R.drawable.menu_card_glass_selected else R.drawable.logout_card_bg
         )
         binding.btnLogout.scaleX = if (zone == 1) 1.04f else 1f
         binding.btnLogout.scaleY = if (zone == 1) 1.04f else 1f
+
+        applyRemoteToggleFocus(false)
+    }
+
+    private fun applyRemoteToggleFocus(focused: Boolean) {
+        if (focused) focusZone = 3
+        binding.btnMobileRemote.setBackgroundResource(
+            if (focused) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass
+        )
+        binding.btnMobileRemote.alpha = if (focused) 1f else 0.7f
+        binding.btnMobileRemote.scaleX = if (focused) 1.04f else 1f
+        binding.btnMobileRemote.scaleY = if (focused) 1.04f else 1f
     }
 
     private fun applyPlanFocus(pos: Int) {
@@ -144,7 +167,39 @@ class UserActivity : AppCompatActivity() {
         planFocusIndex = pos
         planAdapter.setFocused(pos)
         binding.rvActivePlans.smoothScrollToPosition(pos)
-        applyTopFocus(-1) // clear top focus
+        applyTopFocus(-1)
+        applyRemoteToggleFocus(false)
+    }
+
+    // ── Mobile remote toggle ──────────────────────────────────────────────────
+
+    private fun toggleMobileRemote() {
+        val newState = !isMobileRemoteEnabled
+        isMobileRemoteEnabled = newState
+        updateRemoteToggleUI()
+        val isKa = LangPrefs.isKa(this)
+        Toast.makeText(
+            this,
+            if (newState) {
+                if (isKa) "მობილური დისტანციური ჩართულია" else "Mobile remote enabled"
+            } else {
+                if (isKa) "მობილური დისტანციური გამორთულია" else "Mobile remote disabled"
+            },
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun updateRemoteToggleUI() {
+        val enabled = isMobileRemoteEnabled
+        val isKa    = LangPrefs.isKa(this)
+        binding.tvMobileRemoteStatus.text = if (enabled) {
+            if (isKa) "ჩართულია" else "ON"
+        } else {
+            if (isKa) "გამორთულია" else "OFF"
+        }
+        binding.tvMobileRemoteStatus.setTextColor(
+            if (enabled) 0xFF10B981.toInt() else 0xFF94A3B8.toInt()
+        )
     }
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -158,7 +213,6 @@ class UserActivity : AppCompatActivity() {
                 val user    = authApi.getUser()
                 val myPlans = runCatching { authApi.getMyPlans() }.getOrDefault(emptyList())
                 val isKa    = LangPrefs.isKa(this@UserActivity)
-
                 runOnUiThread { bindAll(user, myPlans, isKa) }
             } catch (e: Exception) {
                 runOnUiThread {
@@ -180,18 +234,14 @@ class UserActivity : AppCompatActivity() {
         val displayName = user.full_name?.takeIf { it.isNotBlank() } ?: user.username
         val initial     = displayName.take(1).uppercase(Locale.getDefault())
 
-        // Avatar
         binding.tvAvatarInitial.text = initial
+        binding.tvDisplayName.text   = displayName
+        binding.tvUsername.text      = "@${user.username}"
 
-        // Name + username
-        binding.tvDisplayName.text = displayName
-        binding.tvUsername.text    = "@${user.username}"
-
-        // Contact
-        binding.tvEmailLabel.text  = if (isKa) "ელ-ფოსტა" else "Email"
-        binding.tvPhoneLabel.text  = if (isKa) "ტელეფონი" else "Phone"
-        binding.tvRoleLabel.text   = if (isKa) "როლი"     else "Role"
-        binding.tvBalanceLabel.text= if (isKa) "ბალანსი"  else "Balance"
+        binding.tvEmailLabel.text   = if (isKa) "ელ-ფოსტა" else "Email"
+        binding.tvPhoneLabel.text   = if (isKa) "ტელეფონი" else "Phone"
+        binding.tvRoleLabel.text    = if (isKa) "როლი"     else "Role"
+        binding.tvBalanceLabel.text = if (isKa) "ბალანსი"  else "Balance"
 
         binding.tvEmail.text   = user.email?.takeIf { it.isNotBlank() } ?: "—"
         binding.tvPhone.text   = user.phone?.takeIf { it.isNotBlank() } ?: "—"
@@ -201,20 +251,23 @@ class UserActivity : AppCompatActivity() {
         }
         binding.tvBalance.text = "₾ ${user.account?.balance ?: "0.00"}"
 
-        // Button labels
         binding.tvBackLabel.text   = if (isKa) "← უკან"     else "← Back"
         binding.tvLogoutLabel.text = if (isKa) "გამოსვლა"   else "Sign Out"
         binding.tvLogoutSub.text   = if (isKa) "სისტემიდან" else "from system"
 
-        // Active plans section
+        // Mobile remote label
+        binding.tvMobileRemoteLabel.text = if (isKa) "მობილური დისტანციური" else "Set Mobile as Remote"
+        binding.tvMobileRemoteSub.text   = if (isKa) "ტელეფონი, როგორც პულტი" else "Use phone as TV remote"
+        updateRemoteToggleUI()
+
         binding.tvActivePlansHeader.text = if (isKa) "აქტიური პაკეტები" else "Active Plans"
 
         if (myPlans.isEmpty()) {
-            binding.tvNoPlans.visibility  = View.VISIBLE
+            binding.tvNoPlans.visibility     = View.VISIBLE
             binding.rvActivePlans.visibility = View.GONE
             binding.tvNoPlans.text = if (isKa) "აქტიური პაკეტი არ გაქვს" else "No active plans"
         } else {
-            binding.tvNoPlans.visibility  = View.GONE
+            binding.tvNoPlans.visibility     = View.GONE
             binding.rvActivePlans.visibility = View.VISIBLE
             planAdapter.updateData(myPlans, isKa)
             planCount = myPlans.size
@@ -248,10 +301,10 @@ class UserActivity : AppCompatActivity() {
         private var focusedPos = -1
 
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-            val tvName:    TextView = v.findViewById(R.id.tvActivePlanName)
-            val tvPrice:   TextView = v.findViewById(R.id.tvActivePlanPrice)
-            val tvExpiry:  TextView = v.findViewById(R.id.tvActivePlanExpiry)
-            val tvDaysLeft:TextView = v.findViewById(R.id.tvActivePlanDays)
+            val tvName:     TextView = v.findViewById(R.id.tvActivePlanName)
+            val tvPrice:    TextView = v.findViewById(R.id.tvActivePlanPrice)
+            val tvExpiry:   TextView = v.findViewById(R.id.tvActivePlanExpiry)
+            val tvDaysLeft: TextView = v.findViewById(R.id.tvActivePlanDays)
         }
 
         fun setFocused(pos: Int) {
@@ -272,20 +325,19 @@ class UserActivity : AppCompatActivity() {
         override fun getItemCount() = plans.size
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            val plan     = plans[position]
-            val focused  = position == focusedPos
-            val days     = plan.days_left.toInt()
+            val plan    = plans[position]
+            val focused = position == focusedPos
+            val days    = plan.days_left.toInt()
 
-            holder.tvName.text = if (isKa) plan.name_ka else plan.name_en
-            holder.tvPrice.text = "₾ ${plan.price}"
-            holder.tvExpiry.text = formatExpiry(plan.expires_at)
+            holder.tvName.text     = if (isKa) plan.name_ka else plan.name_en
+            holder.tvPrice.text    = "₾ ${plan.price}"
+            holder.tvExpiry.text   = formatExpiry(plan.expires_at)
             holder.tvDaysLeft.text = if (isKa) "$days დღე დარჩა" else "$days days left"
 
-            // Colour the days badge by urgency
             val daysColor = when {
-                days <= 5  -> 0xFFF87171.toInt()   // red
-                days <= 14 -> 0xFFFBBF24.toInt()   // amber
-                else       -> 0xFF10B981.toInt()   // green
+                days <= 5  -> 0xFFF87171.toInt()
+                days <= 14 -> 0xFFFBBF24.toInt()
+                else       -> 0xFF10B981.toInt()
             }
             holder.tvDaysLeft.setTextColor(daysColor)
 
@@ -307,7 +359,7 @@ class UserActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val EXTRA_TOKEN             = "extra_token"
-        const val EXTRA_FROM_REMEMBER_ME  = "extra_from_remember_me"
+        const val EXTRA_TOKEN            = "extra_token"
+        const val EXTRA_FROM_REMEMBER_ME = "extra_from_remember_me"
     }
 }

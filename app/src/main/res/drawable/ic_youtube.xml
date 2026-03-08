@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- YouTube play-button icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Rounded rectangle background -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M6,12 Q6,8 10,8 L38,8 Q42,8 42,12 L42,36 Q42,40 38,40 L10,40 Q6,40 6,36 Z"/>
+
+    <!-- Play triangle (red) -->
+    <path
+        android:fillColor="#E8191A"
+        android:pathData="M20,17 L20,31 L33,24 Z"/>
+
+</vector>

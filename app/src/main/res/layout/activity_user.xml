@@ -100,7 +100,6 @@
 
         </LinearLayout>
 
-        <!-- Thin rule below top bar -->
         <View
             android:id="@+id/ruleTop"
             android:layout_width="0dp"
@@ -110,7 +109,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- ══ IDENTITY + STATS STRIP ═══════════════════════════════ -->
+        <!-- ══ IDENTITY STRIP ═══════════════════════════════════════ -->
         <LinearLayout
             android:id="@+id/identityStrip"
             android:layout_width="match_parent"
@@ -119,18 +118,18 @@
             android:gravity="center_vertical"
             android:paddingStart="40dp"
             android:paddingEnd="40dp"
-            android:paddingTop="20dp"
-            android:paddingBottom="20dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
             app:layout_constraintTop_toBottomOf="@id/ruleTop"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
             <!-- Avatar -->
             <FrameLayout
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_marginEnd="20dp">
-                <View android:layout_width="64dp" android:layout_height="64dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginEnd="16dp">
+                <View android:layout_width="56dp" android:layout_height="56dp"
                     android:background="@drawable/profile_avatar_bg"/>
                 <TextView
                     android:id="@+id/tvAvatarInitial"
@@ -139,7 +138,7 @@
                     android:layout_gravity="center"
                     android:text="U"
                     android:textColor="#F1F5F9"
-                    android:textSize="26sp"
+                    android:textSize="22sp"
                     android:textStyle="bold"/>
             </FrameLayout>
 
@@ -155,9 +154,8 @@
                     android:layout_height="wrap_content"
                     android:text="Full Name"
                     android:textColor="#F1F5F9"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="-0.01"/>
+                    android:textSize="20sp"
+                    android:textStyle="bold"/>
                 <TextView
                     android:id="@+id/tvUsername"
                     android:layout_width="wrap_content"
@@ -168,63 +166,57 @@
                     android:layout_marginTop="2dp"/>
             </LinearLayout>
 
-            <!-- Vertical divider -->
-            <View android:layout_width="1dp" android:layout_height="48dp"
-                android:background="#0CFFFFFF" android:layout_marginEnd="24dp" android:layout_marginStart="8dp"/>
+            <View android:layout_width="1dp" android:layout_height="40dp"
+                android:background="#0CFFFFFF" android:layout_marginEnd="20dp" android:layout_marginStart="8dp"/>
 
             <!-- Email -->
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="20dp">
+                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="16dp">
                 <TextView android:id="@+id/tvEmailLabel" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="Email"
-                    android:textColor="#1894A3B8" android:textSize="9sp"
-                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                    android:textColor="#1894A3B8" android:textSize="9sp" android:letterSpacing="0.12" android:textStyle="bold"/>
                 <TextView android:id="@+id/tvEmail" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="—"
-                    android:textColor="#CCF1F5F9" android:textSize="13sp" android:layout_marginTop="3dp"
+                    android:textColor="#CCF1F5F9" android:textSize="12sp" android:layout_marginTop="3dp"
                     android:maxLines="1" android:ellipsize="end"/>
             </LinearLayout>
 
             <!-- Phone -->
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="0.8" android:orientation="vertical" android:layout_marginEnd="20dp">
+                android:layout_weight="0.7" android:orientation="vertical" android:layout_marginEnd="16dp">
                 <TextView android:id="@+id/tvPhoneLabel" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="Phone"
-                    android:textColor="#1894A3B8" android:textSize="9sp"
-                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                    android:textColor="#1894A3B8" android:textSize="9sp" android:letterSpacing="0.12" android:textStyle="bold"/>
                 <TextView android:id="@+id/tvPhone" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="—"
-                    android:textColor="#CCF1F5F9" android:textSize="13sp" android:layout_marginTop="3dp"/>
+                    android:textColor="#CCF1F5F9" android:textSize="12sp" android:layout_marginTop="3dp"/>
             </LinearLayout>
 
             <!-- Role -->
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="0.6" android:orientation="vertical" android:layout_marginEnd="20dp">
+                android:layout_weight="0.5" android:orientation="vertical" android:layout_marginEnd="16dp">
                 <TextView android:id="@+id/tvRoleLabel" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="Role"
-                    android:textColor="#1894A3B8" android:textSize="9sp"
-                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                    android:textColor="#1894A3B8" android:textSize="9sp" android:letterSpacing="0.12" android:textStyle="bold"/>
                 <TextView android:id="@+id/tvRole" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="—"
-                    android:textColor="#CCF1F5F9" android:textSize="13sp" android:layout_marginTop="3dp"/>
+                    android:textColor="#CCF1F5F9" android:textSize="12sp" android:layout_marginTop="3dp"/>
             </LinearLayout>
 
             <!-- Balance -->
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="0.7" android:orientation="vertical">
+                android:layout_weight="0.6" android:orientation="vertical">
                 <TextView android:id="@+id/tvBalanceLabel" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="Balance"
-                    android:textColor="#1894A3B8" android:textSize="9sp"
-                    android:letterSpacing="0.12" android:textStyle="bold"/>
+                    android:textColor="#1894A3B8" android:textSize="9sp" android:letterSpacing="0.12" android:textStyle="bold"/>
                 <TextView android:id="@+id/tvBalance" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:text="₾ 0.00"
-                    android:textColor="#10B981" android:textSize="18sp"
+                    android:textColor="#10B981" android:textSize="16sp"
                     android:textStyle="bold" android:layout_marginTop="3dp"/>
             </LinearLayout>
 
         </LinearLayout>
 
-        <!-- Rule below strip -->
         <View
             android:id="@+id/ruleStrip"
             android:layout_width="0dp"
@@ -233,6 +225,76 @@
             app:layout_constraintTop_toBottomOf="@id/identityStrip"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- ══ MOBILE REMOTE TOGGLE ══════════════════════════════════ -->
+        <FrameLayout
+            android:id="@+id/btnMobileRemote"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:layout_marginStart="40dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/menu_card_glass"
+            android:focusable="true"
+            android:clickable="true"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            app:layout_constraintTop_toBottomOf="@id/ruleStrip"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Phone icon -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📱"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/tvMobileRemoteLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Set Mobile as Remote"
+                        android:textColor="#F1F5F9"
+                        android:textSize="13sp"
+                        android:textStyle="bold"/>
+                    <TextView
+                        android:id="@+id/tvMobileRemoteSub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Use phone as TV remote"
+                        android:textColor="#3394A3B8"
+                        android:textSize="10sp"
+                        android:layout_marginTop="1dp"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvMobileRemoteStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="OFF"
+                    android:textColor="#94A3B8"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="18dp"
+                    android:background="@drawable/badge_archive_range"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+
+            </LinearLayout>
+        </FrameLayout>
 
         <!-- ══ ACTIVE PLANS SECTION ══════════════════════════════════ -->
         <TextView
@@ -245,11 +307,10 @@
             android:letterSpacing="0.16"
             android:textStyle="bold"
             android:layout_marginStart="44dp"
-            android:layout_marginTop="16dp"
-            app:layout_constraintTop_toBottomOf="@id/ruleStrip"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/btnMobileRemote"
             app:layout_constraintStart_toStartOf="parent"/>
 
-        <!-- No plans message -->
         <TextView
             android:id="@+id/tvNoPlans"
             android:layout_width="wrap_content"
@@ -259,11 +320,10 @@
             android:textSize="14sp"
             android:visibility="gone"
             android:layout_marginStart="44dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             app:layout_constraintTop_toBottomOf="@id/tvActivePlansHeader"
             app:layout_constraintStart_toStartOf="parent"/>
 
-        <!-- Plans horizontal list -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvActivePlans"
             android:layout_width="0dp"
@@ -282,7 +342,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Hint -->
         <LinearLayout
             android:id="@+id/hintBar"
             android:layout_width="match_parent"
@@ -295,7 +354,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="◀  ▶  Navigate     ▲▼  Switch row     OK  Select"
+                android:text="◀  ▶  Navigate     ▲▼  Switch row     OK  Select / Toggle"
                 android:textColor="#0EFFFFFF"
                 android:textSize="9sp"
                 android:letterSpacing="0.06"/>
