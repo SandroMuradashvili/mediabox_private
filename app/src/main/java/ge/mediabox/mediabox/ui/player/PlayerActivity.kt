@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import ge.mediabox.mediabox.R
@@ -33,6 +34,7 @@ class PlayerActivity : AppCompatActivity() {
     private var isControlsVisible = false
     private var isEpgVisible = false
     private var isTimeRewindVisible = false
+    private var isTrackSelectionVisible = false
 
     // Playback state
     private var isLiveMode = true
@@ -44,7 +46,6 @@ class PlayerActivity : AppCompatActivity() {
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
 
-    // Ticks every second while paused in live mode to keep rewind availability current
     private val pauseTickHandler = Handler(Looper.getMainLooper())
     private val pauseTickRunnable = object : Runnable {
         override fun run() {
@@ -56,6 +57,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var controlOverlayManager: ControlOverlayManager
     private lateinit var epgOverlayManager: EpgOverlayManager
     private lateinit var timeRewindManager: TimeRewindOverlayManager
+    private lateinit var trackSelectionManager: TrackSelectionOverlayManager
 
     private var isSyncingFavorites = false
     private var pendingStreamJob: Job? = null
@@ -75,9 +77,7 @@ class PlayerActivity : AppCompatActivity() {
             binding.loadingIndicator.visibility = View.VISIBLE
             repository.initialize(authToken)
             authToken?.let { token ->
-                launch {
-                    runCatching { repository.fetchAndSyncFavourites(token) }
-                }
+                launch { runCatching { repository.fetchAndSyncFavourites(token) } }
             }
 
             channels = repository.getAllChannels()
@@ -168,6 +168,13 @@ class PlayerActivity : AppCompatActivity() {
             updateRewindButtonAvailability()
         }
 
+        override fun onTracksChanged(tracks: Tracks) {
+            // Feed new track info into the manager — it will rebuild lists
+            trackSelectionManager.onTracksChanged(tracks)
+            // Show/dim the audio button based on whether multiple audio tracks exist
+            updateAudioLanguageButton()
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             binding.loadingIndicator.visibility = View.GONE
             if (error.isBehindLiveWindow()) {
@@ -195,7 +202,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(
-            binding         = binding,
+            binding          = binding,
             onFavoriteToggle = { toggleFavorite() }
         )
 
@@ -236,6 +243,18 @@ class PlayerActivity : AppCompatActivity() {
             },
             onDismiss = { isTimeRewindVisible = false }
         )
+
+        // ── Track selection overlay ───────────────────────────────────────────
+        val trackOverlayView = layoutInflater
+            .inflate(R.layout.overlay_track_selection, binding.root, false)
+            .also { it.visibility = View.GONE; binding.root.addView(it) }
+
+        trackSelectionManager = TrackSelectionOverlayManager(
+            activity       = this,
+            overlayView    = trackOverlayView,
+            playerProvider = { player }
+        )
+        trackSelectionManager.init()
     }
 
     private fun setupControlButtons() {
@@ -248,7 +267,25 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnForward5m)?.setOnClickListener  { forwardSeconds(300) }
             findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
-            findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { /* stub */ }
+
+            // ── Quality button (HD/SD) ────────────────────────────────────────
+            // Reuse the existing btnAudioLanguage slot for quality; add btnQuality if you prefer
+            // Here: long-press = quality, click = audio language (matches common TV UX)
+            // OR wire two separate buttons if your layout has them.
+            // Current layout has only btnAudioLanguage — we'll use it as audio,
+            // and add quality switching via the YELLOW / GREEN remote key OR via
+            // a new button we attach to R.id.btnQuality (added to overlay_controls).
+
+            // Audio language button
+            findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener {
+                showTrackSelection(TrackSelectionOverlayManager.Mode.AUDIO)
+            }
+
+            // Quality button (HD/SD) — falls back gracefully if not in layout
+            findViewById<ImageButton>(R.id.btnQuality)?.setOnClickListener {
+                showTrackSelection(TrackSelectionOverlayManager.Mode.VIDEO)
+            }
+
             findViewById<View>(R.id.btnLive)?.let { btn ->
                 btn.setOnClickListener { returnToLive() }
                 btn.setOnFocusChangeListener { v, hasFocus ->
@@ -257,6 +294,39 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    // ── Track selection ───────────────────────────────────────────────────────
+
+    private fun showTrackSelection(mode: TrackSelectionOverlayManager.Mode) {
+        if (mode == TrackSelectionOverlayManager.Mode.VIDEO &&
+            !trackSelectionManager.hasVideoTracks()) {
+            Toast.makeText(this, "No quality options for this channel", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (mode == TrackSelectionOverlayManager.Mode.AUDIO &&
+            !trackSelectionManager.hasAudioTracks()) {
+            Toast.makeText(this, "No alternate audio for this channel", Toast.LENGTH_SHORT).show()
+            return
+        }
+        hideControls()
+        isTrackSelectionVisible = true
+        trackSelectionManager.show(mode)
+    }
+
+    /**
+     * Updates the audio language button icon/alpha based on whether
+     * multiple audio tracks are actually available.
+     */
+    private fun updateAudioLanguageButton() {
+        val hasAudio   = trackSelectionManager.hasAudioTracks()
+        val hasQuality = trackSelectionManager.hasVideoTracks()
+
+        binding.root.findViewById<ImageButton>(R.id.btnAudioLanguage)?.alpha =
+            if (hasAudio) 1.0f else 0.35f
+
+        binding.root.findViewById<ImageButton>(R.id.btnQuality)?.alpha =
+            if (hasQuality) 1.0f else 0.35f
     }
 
     // ── Playback ──────────────────────────────────────────────────────────────
@@ -304,7 +374,6 @@ class PlayerActivity : AppCompatActivity() {
         loadArchive(channelId, timestampMs)
     }
 
-    /** Shared archive loader — sets archive state then fetches the URL. */
     private fun loadArchive(channelId: Int, timestampMs: Long) {
         isLiveMode              = false
         livePausedAt            = null
@@ -314,7 +383,6 @@ class PlayerActivity : AppCompatActivity() {
         loadStream { repository.getArchiveUrl(channelId, timestampMs) }
     }
 
-    /** Fetches a stream URL in a coroutine, plays it, then refreshes UI. */
     private fun loadStream(urlProvider: suspend () -> String?) {
         binding.loadingIndicator.visibility = View.VISIBLE
         pendingStreamJob?.cancel()
@@ -339,11 +407,6 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Replaces the current media item without tearing down the audio renderer
-     * (pause not stop), which prevents audio loss and cropped-video artefacts
-     * on rapid channel switches.
-     */
     private fun playUrl(url: String) {
         val exo = player ?: return
         exo.pause()
@@ -439,6 +502,7 @@ class PlayerActivity : AppCompatActivity() {
         updateOverlayInfo()
         updateLiveIndicatorState()
         updateRewindButtonAvailability()
+        updateAudioLanguageButton()
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
         rescheduleHideControls()
     }
@@ -512,12 +576,19 @@ class PlayerActivity : AppCompatActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isInitialized) return true
         val handled = when {
-            isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
-            isEpgVisible        -> handleEpgKey(keyCode)
-            isControlsVisible   -> handleControlsKey(keyCode)
-            else                -> handlePlayerKey(keyCode)
+            isTrackSelectionVisible -> handleTrackSelectionKey(keyCode)
+            isTimeRewindVisible     -> timeRewindManager.handleKeyEvent(keyCode)
+            isEpgVisible            -> handleEpgKey(keyCode)
+            isControlsVisible       -> handleControlsKey(keyCode)
+            else                    -> handlePlayerKey(keyCode)
         }
         return handled || super.onKeyDown(keyCode, event)
+    }
+
+    private fun handleTrackSelectionKey(keyCode: Int): Boolean {
+        val consumed = trackSelectionManager.handleKeyEvent(keyCode)
+        if (!trackSelectionManager.isVisible) isTrackSelectionVisible = false
+        return consumed
     }
 
     private fun handlePlayerKey(keyCode: Int): Boolean = when (keyCode) {
@@ -527,6 +598,9 @@ class PlayerActivity : AppCompatActivity() {
         KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
         KeyEvent.KEYCODE_DPAD_CENTER,
         KeyEvent.KEYCODE_ENTER      -> { showControls(); true }
+        // Remote colour buttons — standard TV convention
+        KeyEvent.KEYCODE_PROG_RED   -> { showTrackSelection(TrackSelectionOverlayManager.Mode.VIDEO); true }
+        KeyEvent.KEYCODE_PROG_GREEN -> { showTrackSelection(TrackSelectionOverlayManager.Mode.AUDIO); true }
         KeyEvent.KEYCODE_BACK       -> {
             if (binding.root.findViewById<View>(R.id.controlOverlay)?.visibility == View.VISIBLE) {
                 hideControls()
@@ -542,6 +616,8 @@ class PlayerActivity : AppCompatActivity() {
         rescheduleHideControls()
         return when (keyCode) {
             KeyEvent.KEYCODE_BACK -> { hideControls(); true }
+            KeyEvent.KEYCODE_PROG_RED   -> { showTrackSelection(TrackSelectionOverlayManager.Mode.VIDEO); true }
+            KeyEvent.KEYCODE_PROG_GREEN -> { showTrackSelection(TrackSelectionOverlayManager.Mode.AUDIO); true }
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER -> {
                 (currentFocus ?: binding.root.findViewById<ImageButton>(R.id.btnPlayPause))

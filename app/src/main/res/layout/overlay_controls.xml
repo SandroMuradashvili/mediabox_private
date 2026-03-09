@@ -84,7 +84,7 @@
     </LinearLayout>
 
     <!-- ================================================================
-         BOTTOM SECTION (rewind row + bottom bar stacked at bottom)
+         BOTTOM SECTION
          ================================================================ -->
     <LinearLayout
         android:id="@+id/bottomSection"
@@ -94,9 +94,7 @@
         android:layout_gravity="bottom"
         android:background="@drawable/gradient_bottom">
 
-        <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-             REWIND ROW  (15s / 1m / 5m  back + forward)
-             - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+        <!-- REWIND ROW -->
         <LinearLayout
             android:id="@+id/rewindRow"
             android:layout_width="match_parent"
@@ -109,74 +107,38 @@
             android:paddingBottom="4dp">
 
             <!-- Rewind 5m -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginEnd="8dp">
-                <ImageButton
-                    android:id="@+id/btnRewind5m"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_rewind"
-                    android:contentDescription="Rewind 5 minutes"
-                    android:nextFocusRight="@+id/btnRewind1m"
-                    android:nextFocusDown="@+id/btnPlayPause"/>
-                <TextView
-                    style="@style/CaptionText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="5m"
-                    android:layout_marginTop="2dp"/>
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center" android:layout_marginEnd="8dp">
+                <ImageButton android:id="@+id/btnRewind5m" style="@style/SmallControlButton"
+                    android:src="@drawable/ic_rewind" android:contentDescription="Rewind 5 minutes"
+                    android:nextFocusRight="@+id/btnRewind1m" android:nextFocusDown="@+id/btnPlayPause"/>
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="5m" android:layout_marginTop="2dp"/>
             </LinearLayout>
 
             <!-- Rewind 1m -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginEnd="8dp">
-                <ImageButton
-                    android:id="@+id/btnRewind1m"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_rewind"
-                    android:contentDescription="Rewind 1 minute"
-                    android:nextFocusLeft="@+id/btnRewind5m"
-                    android:nextFocusRight="@+id/btnRewind15s"
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center" android:layout_marginEnd="8dp">
+                <ImageButton android:id="@+id/btnRewind1m" style="@style/SmallControlButton"
+                    android:src="@drawable/ic_rewind" android:contentDescription="Rewind 1 minute"
+                    android:nextFocusLeft="@+id/btnRewind5m" android:nextFocusRight="@+id/btnRewind15s"
                     android:nextFocusDown="@+id/btnPlayPause"/>
-                <TextView
-                    style="@style/CaptionText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="1m"
-                    android:layout_marginTop="2dp"/>
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="1m" android:layout_marginTop="2dp"/>
             </LinearLayout>
 
             <!-- Rewind 15s -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginEnd="16dp">
-                <ImageButton
-                    android:id="@+id/btnRewind15s"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_rewind"
-                    android:contentDescription="Rewind 15 seconds"
-                    android:nextFocusLeft="@+id/btnRewind1m"
-                    android:nextFocusRight="@+id/btnPlayPause"
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center" android:layout_marginEnd="16dp">
+                <ImageButton android:id="@+id/btnRewind15s" style="@style/SmallControlButton"
+                    android:src="@drawable/ic_rewind" android:contentDescription="Rewind 15 seconds"
+                    android:nextFocusLeft="@+id/btnRewind1m" android:nextFocusRight="@+id/btnPlayPause"
                     android:nextFocusDown="@+id/btnPlayPause"/>
-                <TextView
-                    style="@style/CaptionText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="15s"
-                    android:layout_marginTop="2dp"/>
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="15s" android:layout_marginTop="2dp"/>
             </LinearLayout>
 
-            <!-- Play/Pause - center, biggest -->
+            <!-- Play/Pause -->
             <ImageButton
                 android:id="@+id/btnPlayPause"
                 android:layout_width="72dp"
@@ -196,74 +158,37 @@
                 android:nextFocusDown="@+id/btnLive"/>
 
             <!-- Forward 15s -->
-            <LinearLayout
-                android:id="@+id/layoutForward15s"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="8dp">
-                <ImageButton
-                    android:id="@+id/btnForward15s"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_fast_forward"
-                    android:contentDescription="Forward 15 seconds"
-                    android:nextFocusLeft="@+id/btnPlayPause"
-                    android:nextFocusRight="@+id/btnForward1m"
+            <LinearLayout android:id="@+id/layoutForward15s" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center"
+                android:layout_marginStart="16dp" android:layout_marginEnd="8dp">
+                <ImageButton android:id="@+id/btnForward15s" style="@style/SmallControlButton"
+                    android:src="@drawable/ic_fast_forward" android:contentDescription="Forward 15 seconds"
+                    android:nextFocusLeft="@+id/btnPlayPause" android:nextFocusRight="@+id/btnForward1m"
                     android:nextFocusDown="@+id/btnLive"/>
-                <TextView
-                    style="@style/CaptionText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="15s"
-                    android:layout_marginTop="2dp"/>
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="15s" android:layout_marginTop="2dp"/>
             </LinearLayout>
 
             <!-- Forward 1m -->
-            <LinearLayout
-                android:id="@+id/layoutForward1m"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
+            <LinearLayout android:id="@+id/layoutForward1m" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center"
                 android:layout_marginEnd="8dp">
-                <ImageButton
-                    android:id="@+id/btnForward1m"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_fast_forward"
-                    android:contentDescription="Forward 1 minute"
-                    android:nextFocusLeft="@+id/btnForward15s"
-                    android:nextFocusRight="@+id/btnForward5m"
+                <ImageButton android:id="@+id/btnForward1m" style="@style/SmallControlButton"
+                    android:src="@drawable/ic_fast_forward" android:contentDescription="Forward 1 minute"
+                    android:nextFocusLeft="@+id/btnForward15s" android:nextFocusRight="@+id/btnForward5m"
                     android:nextFocusDown="@+id/btnLive"/>
-                <TextView
-                    style="@style/CaptionText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="1m"
-                    android:layout_marginTop="2dp"/>
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="1m" android:layout_marginTop="2dp"/>
             </LinearLayout>
 
             <!-- Forward 5m -->
-            <LinearLayout
-                android:id="@+id/layoutForward5m"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageButton
-                    android:id="@+id/btnForward5m"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_fast_forward"
-                    android:contentDescription="Forward 5 minutes"
-                    android:nextFocusLeft="@+id/btnForward1m"
-                    android:nextFocusDown="@+id/btnLive"/>
-                <TextView
-                    style="@style/CaptionText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="5m"
-                    android:layout_marginTop="2dp"/>
+            <LinearLayout android:id="@+id/layoutForward5m" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnForward5m" style="@style/SmallControlButton"
+                    android:src="@drawable/ic_fast_forward" android:contentDescription="Forward 5 minutes"
+                    android:nextFocusLeft="@+id/btnForward1m" android:nextFocusDown="@+id/btnLive"/>
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="5m" android:layout_marginTop="2dp"/>
             </LinearLayout>
 
         </LinearLayout>
@@ -275,9 +200,7 @@
             android:background="#33FFFFFF"
             android:layout_marginTop="8dp"/>
 
-        <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-             BOTTOM BAR  (program info + action buttons)
-             - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+        <!-- BOTTOM BAR -->
         <LinearLayout
             android:id="@+id/bottomBar"
             android:layout_width="match_parent"
@@ -288,7 +211,6 @@
             android:paddingTop="10dp"
             android:paddingBottom="16dp">
 
-            <!-- Row: program info (left) + action buttons (right) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -384,6 +306,17 @@
                     android:contentDescription="Toggle Favorite"
                     android:nextFocusUp="@+id/btnPlayPause"
                     android:nextFocusLeft="@+id/btnTimeRewind"
+                    android:nextFocusRight="@+id/btnQuality"/>
+
+                <!-- ══ NEW: Video quality (HD/SD) button ══ -->
+                <ImageButton
+                    android:id="@+id/btnQuality"
+                    style="@style/SmallControlButton"
+                    android:src="@drawable/ic_quality"
+                    android:layout_marginStart="10dp"
+                    android:contentDescription="Video Quality"
+                    android:nextFocusUp="@+id/btnPlayPause"
+                    android:nextFocusLeft="@+id/btnFavorite"
                     android:nextFocusRight="@+id/btnAudioLanguage"/>
 
                 <!-- Audio/language switcher -->
@@ -394,7 +327,7 @@
                     android:layout_marginStart="10dp"
                     android:contentDescription="Audio/Language"
                     android:nextFocusUp="@+id/btnPlayPause"
-                    android:nextFocusLeft="@+id/btnFavorite"/>
+                    android:nextFocusLeft="@+id/btnQuality"/>
 
             </LinearLayout>
 
