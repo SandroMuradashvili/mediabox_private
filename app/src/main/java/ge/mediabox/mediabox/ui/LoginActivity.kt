@@ -3,8 +3,6 @@ package ge.mediabox.mediabox.ui
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
@@ -25,7 +23,6 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
 
 class LoginActivity : AppCompatActivity() {
 
@@ -34,7 +31,11 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var tvStatus: TextView
     private lateinit var btnRefresh: Button
 
-    private var deviceId: String = ""
+    // ── Use physical device ID (ANDROID_ID), NOT a random UUID.
+    // The server stores this device_id on /api/tv/init and
+    // requires the SAME id on /api/tv/remote/ready.
+    private lateinit var deviceId: String
+
     private var pairingCode: String = ""
     private var pollingJob: Job? = null
 
@@ -52,20 +53,18 @@ class LoginActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_login_qr)
 
-        ivQrCode = findViewById(R.id.ivQrCode)
+        ivQrCode      = findViewById(R.id.ivQrCode)
         tvPairingCode = findViewById(R.id.tvPairingCode)
-        tvStatus = findViewById(R.id.tvStatus)
-        btnRefresh = findViewById(R.id.btnRefresh)
+        tvStatus      = findViewById(R.id.tvStatus)
+        btnRefresh    = findViewById(R.id.btnRefresh)
 
-        // Use persistent device ID stored in prefs, or generate once
-        deviceId = getPrefs().getString("device_id", null) ?: run {
-            val newId = UUID.randomUUID().toString()
-            getPrefs().edit().putString("device_id", newId).apply()
-            newId
-        }
+        // ── Physical device ID — stable, matches what the server registered ──
+        deviceId = DeviceIdHelper.getDeviceId(this)
+        // Persist it so UserActivity / other components can read it without
+        // re-importing DeviceIdHelper (it's cheap to re-derive but handy).
+        getPrefs().edit().putString("device_id", deviceId).apply()
 
         btnRefresh.setOnClickListener { startPairing() }
-
         startPairing()
     }
 
@@ -83,8 +82,8 @@ class LoginActivity : AppCompatActivity() {
                     pairingCode = result.first
                     val qrUrl = result.second
 
-                    // Generate QR bitmap
-                    val bitmap = BarcodeEncoder().encodeBitmap(qrUrl, BarcodeFormat.QR_CODE, 400, 400)
+                    val bitmap = BarcodeEncoder()
+                        .encodeBitmap(qrUrl, BarcodeFormat.QR_CODE, 400, 400)
                     ivQrCode.setImageBitmap(bitmap)
                     tvPairingCode.text = pairingCode
                     tvStatus.text = "Scan QR code with your phone to log in"
@@ -105,7 +104,7 @@ class LoginActivity : AppCompatActivity() {
         pollingJob?.cancel()
         pollingJob = lifecycleScope.launch {
             while (isActive) {
-                delay(3000)
+                delay(3_000)
                 try {
                     val result = withContext(Dispatchers.IO) { checkPairing() }
                     when (result) {
@@ -114,91 +113,75 @@ class LoginActivity : AppCompatActivity() {
                             btnRefresh.visibility = View.VISIBLE
                             break
                         }
-                        null -> {
-                            // network error, just retry
-                        }
+                        null -> { /* still pending, keep polling */ }
                         else -> {
-                            // result is the access_token
                             getPrefs().edit().putString("auth_token", result).apply()
                             goToMain()
                             break
                         }
                     }
-                } catch (e: Exception) {
-                    // keep polling on error
-                }
+                } catch (_: Exception) { /* keep polling */ }
             }
         }
     }
 
-    // Returns Pair(pairing_code, qr_url) or null on failure
-    private fun initPairing(): Pair<String, String>? {
-        return try {
-            val url = URL("$BASE_URL/tv/init")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.doOutput = true
+    /** Returns Pair(pairing_code, qr_url) or null on failure */
+    private fun initPairing(): Pair<String, String>? = try {
+        val conn = URL("$BASE_URL/tv/init").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.connectTimeout = 10_000
+        conn.readTimeout    = 10_000
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Accept", "application/json")
+        conn.doOutput = true
 
-            val body = JSONObject().put("device_id", deviceId).toString()
-            OutputStreamWriter(conn.outputStream).use { it.write(body) }
-
-            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONObject(conn.inputStream.bufferedReader().readText())
-                conn.disconnect()
-                Pair(json.getString("pairing_code"), json.getString("qr_url"))
-            } else {
-                conn.disconnect()
-                null
-            }
-        } catch (e: Exception) {
-            null
+        // Send the PHYSICAL device_id — server maps this to its Device model
+        OutputStreamWriter(conn.outputStream).use {
+            it.write(JSONObject().put("device_id", deviceId).toString())
         }
-    }
 
-    // Returns: access_token string if paired, "expired" if expired, null if still pending/error
-    private fun checkPairing(): String? {
-        return try {
-            val url = URL("$BASE_URL/tv/check")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Accept", "application/json")
-            conn.doOutput = true
-
-            val body = JSONObject()
-                .put("device_id", deviceId)
-                .put("pairing_code", pairingCode)
-                .toString()
-            OutputStreamWriter(conn.outputStream).use { it.write(body) }
-
-            val responseCode = conn.responseCode
-
-            if (responseCode == 410) {
-                conn.disconnect()
-                return "expired"
-            }
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONObject(conn.inputStream.bufferedReader().readText())
-                conn.disconnect()
-                return when (json.optString("status")) {
-                    "paired" -> json.getString("access_token")
-                    "expired" -> "expired"
-                    else -> null // pending
-                }
-            }
+        if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+            val json = JSONObject(conn.inputStream.bufferedReader().readText())
             conn.disconnect()
-            null
-        } catch (e: Exception) {
-            null
+            Pair(json.getString("pairing_code"), json.getString("qr_url"))
+        } else {
+            conn.disconnect(); null
         }
-    }
+    } catch (e: Exception) { null }
+
+    /** Returns: access_token if paired, "expired" if expired, null if pending */
+    private fun checkPairing(): String? = try {
+        val conn = URL("$BASE_URL/tv/check").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.connectTimeout = 10_000
+        conn.readTimeout    = 10_000
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Accept", "application/json")
+        conn.doOutput = true
+
+        OutputStreamWriter(conn.outputStream).use {
+            it.write(
+                JSONObject()
+                    .put("device_id", deviceId)
+                    .put("pairing_code", pairingCode)
+                    .toString()
+            )
+        }
+
+        when (val code = conn.responseCode) {
+            410 -> { conn.disconnect(); "expired" }
+            HttpURLConnection.HTTP_OK -> {
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                conn.disconnect()
+                when (json.optString("status")) {
+                    "paired"  -> json.getString("access_token")
+                    "expired" -> "expired"
+                    else      -> null
+                }
+            }
+            else -> { conn.disconnect(); null }
+        }
+    } catch (e: Exception) { null }
 
     private fun goToMain() {
         startActivity(Intent(this, MainActivity::class.java).apply {
