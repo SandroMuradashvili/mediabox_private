@@ -112,6 +112,10 @@ class PlayerActivity : AppCompatActivity() {
         override fun onTracksChanged(tracks: Tracks) {
             if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks)
         }
+
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+            updateQualityDisplay(videoSize.height)
+        }
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -169,11 +173,16 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
-            findViewById<ImageButton>(R.id.btnQuality)?.setOnClickListener {
-                hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
+
+            // Target the Layout Pill instead of ImageButton
+            findViewById<View>(R.id.btnQualityLayout)?.setOnClickListener {
+                hideControls()
+                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
             }
+
             findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener {
-                hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
+                hideControls()
+                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
             }
         }
     }
@@ -341,5 +350,23 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         return handled || super.onKeyDown(keyCode, event)
+    }
+
+    private fun updateQualityDisplay(height: Int) {
+        val exo = player ?: return
+
+        // Check if the manifest actually offers more than 1 choice
+        val videoGroup = exo.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
+        val hasMultipleOptions = (videoGroup?.length ?: 0) > 1
+
+        // Check if we are currently in "Auto" mode (no manual overrides)
+        val isAutoMode = exo.trackSelectionParameters.overrides.entries.none {
+            it.key.type == androidx.media3.common.C.TRACK_TYPE_VIDEO
+        }
+
+        // Only show the word "Auto" if there's actually something to auto-switch between
+        val shouldShowAutoLabel = isAutoMode && hasMultipleOptions
+
+        controlOverlayManager.updateQualityInfo(height)
     }
 }

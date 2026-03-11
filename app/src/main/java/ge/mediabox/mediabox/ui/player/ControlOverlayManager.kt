@@ -77,4 +77,16 @@ class ControlOverlayManager(
             if (isFav) R.drawable.ic_star else R.drawable.ic_star_outline
         )
     }
+
+    // Inside ControlOverlayManager.kt
+
+    fun updateQualityInfo(height: Int) {
+        val tvQuality = binding.root.findViewById<TextView>(R.id.tvCurrentQuality) ?: return
+        if (height <= 0) {
+            tvQuality.text = ""
+            return
+        }
+        // Main screen stays simple: just "HD" or "SD"
+        tvQuality.text = if (height >= 700) "HD" else "SD"
+    }
 }

@@ -308,16 +308,35 @@
                     android:nextFocusLeft="@+id/btnTimeRewind"
                     android:nextFocusRight="@+id/btnQuality"/>
 
-                <!-- ══ NEW: Video quality (HD/SD) button ══ -->
-                <ImageButton
-                    android:id="@+id/btnQuality"
-                    style="@style/SmallControlButton"
-                    android:src="@drawable/ic_quality"
-                    android:layout_marginStart="10dp"
-                    android:contentDescription="Video Quality"
-                    android:nextFocusUp="@+id/btnPlayPause"
-                    android:nextFocusLeft="@+id/btnFavorite"
-                    android:nextFocusRight="@+id/btnAudioLanguage"/>
+                <LinearLayout
+                    android:id="@+id/btnQualityLayout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:background="@drawable/control_button_background"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:focusable="true"
+                    android:clickable="true">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_quality"
+                        android:duplicateParentState="true" />
+
+                    <TextView
+                        android:id="@+id/tvCurrentQuality"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HD"
+                        android:textColor="#F1F5F9"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="6dp"
+                        android:duplicateParentState="true" />
+                </LinearLayout>
 
                 <!-- Audio/language switcher -->
                 <ImageButton

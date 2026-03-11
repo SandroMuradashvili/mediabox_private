@@ -82,14 +82,18 @@ class TrackSelectionOverlayManager(
 
     fun show(mode: Mode) {
         currentMode = mode
+
+        // Force a track refresh so the "Auto" label updates to current resolution
+        val player = playerProvider()
+        if (player != null) {
+            onTracksChanged(player.currentTracks)
+        }
+
         val entries = if (mode == Mode.VIDEO) videoEntries else audioEntries
-        if (entries.isEmpty()) return          // nothing to show
+        if (entries.isEmpty()) return
 
         tvTitle.text = if (mode == Mode.VIDEO) "Video Quality" else "Audio Language"
-
-        // Pre-select currently active track
         selectedIndex = findCurrentSelection(entries, mode)
-
         adapter.update(entries, selectedIndex)
         overlayView.visibility = View.VISIBLE
         scrollToSelected()
@@ -141,20 +145,30 @@ class TrackSelectionOverlayManager(
 
     private fun buildVideoEntries(tracks: Tracks): List<TrackEntry> {
         val entries = mutableListOf<TrackEntry>()
-        // Auto always first
-        entries.add(TrackEntry(label = "Auto", isAuto = true))
 
+        // 1. Get current live data from the player for the "Auto" row
+        val player = playerProvider()
+        val fmt = player?.videoFormat
+
+        val currentAutoDetails = if (fmt != null && fmt.height > 0) {
+            val tag = if (fmt.height >= 700) "HD" else "SD"
+            val mbps = if (fmt.bitrate > 0) " · ${String.format("%.1f", fmt.bitrate / 1_000_000f)} Mbps" else ""
+            " ($tag$mbps)"
+        } else ""
+
+        // 2. Add the dynamic Auto label (e.g., "Auto (HD · 4.5 Mbps)")
+        entries.add(TrackEntry(label = "Auto$currentAutoDetails", isAuto = true))
+
+        // 3. Add manual entries using the original detailed formatting
         for (group in tracks.groups) {
             if (group.type != C.TRACK_TYPE_VIDEO) continue
             for (i in 0 until group.length) {
                 val format = group.getTrackFormat(i)
-                entries.add(
-                    TrackEntry(
-                        label      = formatVideoLabel(format),
-                        trackGroup = group.mediaTrackGroup,
-                        trackIndex = i
-                    )
-                )
+                entries.add(TrackEntry(
+                    label = formatVideoLabel(format),
+                    trackGroup = group.mediaTrackGroup,
+                    trackIndex = i
+                ))
             }
         }
         return entries
@@ -183,17 +197,14 @@ class TrackSelectionOverlayManager(
         val height = fmt.height
         val bitrate = fmt.bitrate
         val qualityTag = when {
-            height >= 1080 -> "Full HD · ${height}p"
-            height >= 720  -> "HD · ${height}p"
-            height >= 480  -> "SD · ${height}p"
-            height >= 360  -> "Low · ${height}p"
-            height > 0     -> "${height}p"
-            else           -> "Unknown"
+            height >= 700 -> "HD · ${height}p"
+            height > 0    -> "SD · ${height}p"
+            else          -> "Standard"
         }
         return if (bitrate > 0) {
             val mbps = bitrate / 1_000_000f
-            if (mbps >= 1f) "$qualityTag  (${String.format("%.1f", mbps)} Mbps)"
-            else "$qualityTag  (${bitrate / 1000} kbps)"
+            if (mbps >= 1f) "$qualityTag (${String.format("%.1f", mbps)} Mbps)"
+            else "$qualityTag (${bitrate / 1000} kbps)"
         } else qualityTag
     }
 
