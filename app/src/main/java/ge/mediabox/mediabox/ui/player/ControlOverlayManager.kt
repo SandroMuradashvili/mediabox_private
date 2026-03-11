@@ -1,11 +1,7 @@
 package ge.mediabox.mediabox.ui.player
 
 import android.view.View
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
+import android.widget.*
 import com.bumptech.glide.Glide
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Channel
@@ -19,127 +15,66 @@ class ControlOverlayManager(
     private val binding: ActivityPlayerBinding,
     private val onFavoriteToggle: () -> Unit
 ) {
-    private val timeFormat     = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val dateTimeFormat = SimpleDateFormat("HH:mm  dd.MM.yy", Locale.getDefault())
 
-    init { setupControls() }
-
-    private fun setupControls() {
-        binding.root.findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener {
-            onFavoriteToggle()
-        }
+    init {
+        binding.root.findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener { onFavoriteToggle() }
     }
 
-    /**
-     * Updates all channel info including favorite button state.
-     * This is the main entry point for updating the control overlay.
-     */
-    fun updateChannelInfo(
-        channel: Channel,
-        currentProgram: Program?,
-        streamTimestamp: Long? = null,
-        isPlaying: Boolean = true
-    ) {
+    fun updateChannelInfo(channel: Channel, currentProgram: Program?, streamTimestamp: Long? = null, isPlaying: Boolean = true) {
+        val root = binding.root
         val isLive = streamTimestamp == null
 
-        // Channel logo
-        val channelLogo = binding.root.findViewById<ImageView>(R.id.channelLogo)
-        if (!channel.logoUrl.isNullOrEmpty() && channelLogo != null) {
-            Glide.with(binding.root.context)
-                .load(channel.logoUrl)
-                .placeholder(R.color.surface_light)
-                .error(R.color.surface_light)
-                .into(channelLogo)
+        val logo = root.findViewById<ImageView>(R.id.channelLogo)
+        if (!channel.logoUrl.isNullOrEmpty() && logo != null) {
+            Glide.with(root.context).load(channel.logoUrl).into(logo)
         }
 
-        binding.root.findViewById<TextView>(R.id.tvChannelName)?.text = channel.name
-        binding.root.findViewById<TextView>(R.id.tvChannelNumber)?.text = "${channel.number}"
+        root.findViewById<TextView>(R.id.tvChannelName)?.text = channel.name
+        root.findViewById<TextView>(R.id.tvChannelNumber)?.text = "${channel.number}"
 
-        // Timestamp display
-        val displayTime = if (streamTimestamp != null) {
-            dateTimeFormat.format(Date(streamTimestamp))
-        } else {
-            dateTimeFormat.format(Date())
-        }
-        binding.root.findViewById<TextView>(R.id.tvCurrentTime)?.text = displayTime
+        val displayTime = if (streamTimestamp != null) dateTimeFormat.format(Date(streamTimestamp)) else dateTimeFormat.format(Date())
+        root.findViewById<TextView>(R.id.tvCurrentTime)?.text = displayTime
 
-        // Program info
         if (currentProgram != null) {
-            binding.root.findViewById<TextView>(R.id.tvProgramTitle)?.text = currentProgram.title
-            val start = timeFormat.format(Date(currentProgram.startTime))
-            val end   = timeFormat.format(Date(currentProgram.endTime))
-            binding.root.findViewById<TextView>(R.id.tvProgramTime)?.text = "$start – $end"
-            val progress = (currentProgram.getProgress() * 100).toInt()
-            binding.root.findViewById<ProgressBar>(R.id.programProgress)?.progress = progress
+            root.findViewById<TextView>(R.id.tvProgramTitle)?.text = currentProgram.title
+            root.findViewById<TextView>(R.id.tvProgramTime)?.text = "${timeFormat.format(Date(currentProgram.startTime))} – ${timeFormat.format(Date(currentProgram.endTime))}"
+            root.findViewById<ProgressBar>(R.id.programProgress)?.progress = (currentProgram.getProgress() * 100).toInt()
         }
 
-        // Live indicator
-        updateLiveIndicator(isLive = isLive, isPlaying = isPlaying)
+        updateLiveIndicator(isLive, isPlaying)
 
-        // Forward buttons - DIM when live, don't hide
+        // DIM forward buttons when in LIVE mode
         val forwardAlpha = if (isLive) 0.3f else 1.0f
-        val forwardEnabled = !isLive
+        root.findViewById<View>(R.id.layoutForward15s)?.alpha = forwardAlpha
+        root.findViewById<View>(R.id.layoutForward1m)?.alpha = forwardAlpha
+        root.findViewById<View>(R.id.layoutForward5m)?.alpha = forwardAlpha
 
-        binding.root.findViewById<LinearLayout>(R.id.layoutForward15s)?.apply {
-            alpha = forwardAlpha
-            isEnabled = forwardEnabled
-            findViewById<ImageButton>(R.id.btnForward15s)?.isEnabled = forwardEnabled
-        }
-        binding.root.findViewById<LinearLayout>(R.id.layoutForward1m)?.apply {
-            alpha = forwardAlpha
-            isEnabled = forwardEnabled
-            findViewById<ImageButton>(R.id.btnForward1m)?.isEnabled = forwardEnabled
-        }
-        binding.root.findViewById<LinearLayout>(R.id.layoutForward5m)?.apply {
-            alpha = forwardAlpha
-            isEnabled = forwardEnabled
-            findViewById<ImageButton>(R.id.btnForward5m)?.isEnabled = forwardEnabled
-        }
-
-        // Update favorite button state
-        updateFavoriteButton(channel.isFavorite)
+        root.findViewById<ImageButton>(R.id.btnFavorite)?.setImageResource(
+            if (channel.isFavorite) R.drawable.ic_star else R.drawable.ic_star_outline
+        )
     }
 
-    /**
-     * Updates the LIVE indicator button appearance:
-     * - Live + playing  → red, full opacity, "LIVE" text
-     * - Live + paused   → red, dimmed, broadcast icon (stream paused)
-     * - Archive         → dimmed, broadcast icon (watching past content)
-     */
     fun updateLiveIndicator(isLive: Boolean, isPlaying: Boolean = true) {
-        val btnLive       = binding.root.findViewById<View>(R.id.btnLive) ?: return
-        val tvLiveLabel   = binding.root.findViewById<TextView>(R.id.tvLiveLabel)
-        val ivBroadcast   = binding.root.findViewById<ImageView>(R.id.ivLiveBroadcastIcon)
+        val btnLive = binding.root.findViewById<View>(R.id.btnLive) ?: return
+        val tvLabel = binding.root.findViewById<TextView>(R.id.tvLiveLabel)
+        val ivIcon = binding.root.findViewById<ImageView>(R.id.ivLiveBroadcastIcon)
 
-        when {
-            isLive && isPlaying -> {
-                // Fully live and playing
-                btnLive.alpha = 1.0f
-                tvLiveLabel?.visibility = View.VISIBLE
-                ivBroadcast?.visibility = View.GONE
-            }
-            isLive && !isPlaying -> {
-                // Live stream but paused — show broadcast icon, dimmed
-                btnLive.alpha = 0.5f
-                tvLiveLabel?.visibility = View.GONE
-                ivBroadcast?.visibility = View.VISIBLE
-            }
-            else -> {
-                // Archive mode — show broadcast icon, dimmed
-                btnLive.alpha = 0.4f
-                tvLiveLabel?.visibility = View.GONE
-                ivBroadcast?.visibility = View.VISIBLE
-            }
+        if (isLive && isPlaying) {
+            btnLive.alpha = 1.0f
+            tvLabel?.visibility = View.VISIBLE
+            ivIcon?.visibility = View.GONE
+        } else {
+            btnLive.alpha = 0.5f
+            tvLabel?.visibility = View.GONE
+            ivIcon?.visibility = View.VISIBLE
         }
     }
 
-    /**
-     * Updates the favorite button icon based on favorite state.
-     * IMPORTANT: This directly reflects the channel's isFavorite state.
-     */
-    fun updateFavoriteButton(isFavorite: Boolean) {
+    fun updateFavoriteButton(isFav: Boolean) {
         binding.root.findViewById<ImageButton>(R.id.btnFavorite)?.setImageResource(
-            if (isFavorite) R.drawable.ic_star else R.drawable.ic_star_outline
+            if (isFav) R.drawable.ic_star else R.drawable.ic_star_outline
         )
     }
 }

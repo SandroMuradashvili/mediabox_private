@@ -9,14 +9,12 @@ import android.widget.ImageButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.TrackSelectionDialogBuilder
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.repository.ChannelRepository
@@ -60,6 +58,9 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var controlOverlayManager: ControlOverlayManager
     private lateinit var epgOverlayManager: EpgOverlayManager
     private lateinit var timeRewindManager: TimeRewindOverlayManager
+
+    // NEW: Reference to your custom Track Selector
+    private lateinit var trackSelectionManager: TrackSelectionOverlayManager
 
     private var pendingStreamJob: Job? = null
     private var pendingProgramJob: Job? = null
@@ -116,6 +117,14 @@ class PlayerActivity : AppCompatActivity() {
         override fun onPlaybackStateChanged(state: Int) {
             binding.loadingIndicator.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
         }
+
+        // Pass tracks to the custom manager so it can build the list (HD, SD, etc)
+        override fun onTracksChanged(tracks: Tracks) {
+            if (::trackSelectionManager.isInitialized) {
+                trackSelectionManager.onTracksChanged(tracks)
+            }
+        }
+
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -135,6 +144,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
+
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
@@ -147,6 +157,8 @@ class PlayerActivity : AppCompatActivity() {
                 hideEpg()
             }
         )
+
+        // Time Rewind
         val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also {
             it.visibility = View.GONE
             binding.root.addView(it)
@@ -155,6 +167,14 @@ class PlayerActivity : AppCompatActivity() {
             channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
             onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
             onDismiss = { isTimeRewindVisible = false })
+
+        // NEW: Initialize your TrackSelectionOverlayManager (the right side panel)
+        val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also {
+            it.visibility = View.GONE
+            binding.root.addView(it)
+        }
+        trackSelectionManager = TrackSelectionOverlayManager(this, trackOverlayView, { player })
+        trackSelectionManager.init()
     }
 
     private fun setupControlButtons() {
@@ -169,31 +189,18 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
 
-            // RESTORED QUALITY/AUDIO SWITCHER
+            // FIX: Linked the 4th button (btnQuality) to show the Quality switcher
+            findViewById<ImageButton>(R.id.btnQuality)?.setOnClickListener {
+                hideControls()
+                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
+            }
+
+            // Linked the 5th button (btnAudioLanguage) to show the Audio switcher
             findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener {
-                showTrackSelectionDialog()
+                hideControls()
+                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
             }
         }
-    }
-
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private fun showTrackSelectionDialog() {
-        val exo = player ?: return
-
-        // This builder creates a dialog to switch between Audio tracks and Video qualities
-        val dialogBuilder = TrackSelectionDialogBuilder(
-            this,
-            "Select Quality / Audio",
-            exo,
-            C.TRACK_TYPE_VIDEO // This allows selecting video quality
-        )
-
-        // Allow the user to also see audio tracks in the same dialog logic
-        dialogBuilder.setShowDisableOption(false)
-        dialogBuilder.setAllowAdaptiveSelections(true)
-
-        val dialog = dialogBuilder.build()
-        dialog.show()
     }
 
     private fun playChannel(index: Int) {
@@ -280,18 +287,10 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun updateRewindButtonAvailability() {
         val pausedSeconds = livePausedAt?.let { (System.currentTimeMillis() - it) / 1000L } ?: 0L
-
-        val buttons = listOf(
-            Pair(R.id.layoutForward15s, 15L),
-            Pair(R.id.layoutForward1m, 60L),
-            Pair(R.id.layoutForward5m, 300L)
-        )
-
+        val buttons = listOf(Pair(R.id.layoutForward15s, 15L), Pair(R.id.layoutForward1m, 60L), Pair(R.id.layoutForward5m, 300L))
         for (button in buttons) {
-            val id = button.first
-            val required = button.second
-            val enabled = !isLiveMode || pausedSeconds >= required
-            binding.root.findViewById<View>(id)?.apply {
+            val enabled = !isLiveMode || pausedSeconds >= button.second
+            binding.root.findViewById<View>(button.first)?.apply {
                 alpha = if (enabled) 1f else 0.3f
                 isEnabled = enabled
             }
@@ -305,6 +304,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
+        if (trackSelectionManager.isVisible) return // Don't show HUD if quality panel is open
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.VISIBLE
@@ -354,25 +354,26 @@ class PlayerActivity : AppCompatActivity() {
         if (!isInitialized) return true
 
         val handled = when {
+            // Priority 1: Side Quality Panel
+            trackSelectionManager.isVisible -> trackSelectionManager.handleKeyEvent(keyCode)
+
+            // Priority 2: Time Seek
             isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
 
+            // Priority 3: EPG
             isEpgVisible -> {
-                if (keyCode == KeyEvent.KEYCODE_BACK) {
-                    hideEpg()
-                    true
-                } else {
-                    epgOverlayManager.handleKeyEvent(keyCode)
-                }
+                if (keyCode == KeyEvent.KEYCODE_BACK) { hideEpg(); true }
+                else epgOverlayManager.handleKeyEvent(keyCode)
             }
 
+            // Priority 4: Bottom Controls
             isControlsVisible -> {
                 rescheduleHideControls()
-                if (keyCode == KeyEvent.KEYCODE_BACK) {
-                    hideControls()
-                    true
-                } else false
+                if (keyCode == KeyEvent.KEYCODE_BACK) { hideControls(); true }
+                else false
             }
 
+            // Priority 5: Main Player Keys
             else -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> { changeChannel(1); true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }
