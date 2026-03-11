@@ -111,7 +111,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Cards row — 4 cards -->
+        <!-- Cards row — Updated to 3 cards -->
         <LinearLayout
             android:id="@+id/cardsRow"
             android:layout_width="wrap_content"
@@ -128,9 +128,9 @@
             <!-- ═══════════════ WATCH TV ═══════════════ -->
             <FrameLayout
                 android:id="@+id/cardWatchTv"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_margin="14dp"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:layout_margin="16dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -145,8 +145,8 @@
 
                     <ImageView
                         android:tag="icon"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:src="@drawable/ic_menu_watch"
                         android:alpha="0.75"
                         android:scaleType="fitCenter"
@@ -167,7 +167,7 @@
                         android:layout_height="wrap_content"
                         android:text="ტელევიზია"
                         android:textColor="#F1F5F9"
-                        android:textSize="17sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:gravity="center"
                         android:alpha="0.85"/>
@@ -182,77 +182,15 @@
                         android:gravity="center"
                         android:layout_marginTop="4dp"
                         android:alpha="0"/>
-
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- ═══════════════ YOUTUBE ═══════════════ -->
-            <FrameLayout
-                android:id="@+id/cardYoutube"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_margin="14dp"
-                android:background="@drawable/menu_card_glass"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:clickable="true">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="20dp">
-
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
-                        android:src="@drawable/ic_youtube"
-                        android:alpha="0.75"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="YouTube"/>
-
-                    <View
-                        android:tag="labelAccent"
-                        android:layout_width="24dp"
-                        android:layout_height="2dp"
-                        android:background="#E8191A"
-                        android:layout_marginTop="14dp"
-                        android:layout_marginBottom="8dp"
-                        android:alpha="0"/>
-
-                    <TextView
-                        android:tag="label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="YouTube"
-                        android:textColor="#F1F5F9"
-                        android:textSize="17sp"
-                        android:textStyle="bold"
-                        android:gravity="center"
-                        android:alpha="0.85"/>
-
-                    <TextView
-                        android:tag="sublabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Videos · Music"
-                        android:textColor="#55FFFFFF"
-                        android:textSize="11sp"
-                        android:gravity="center"
-                        android:layout_marginTop="4dp"
-                        android:alpha="0"/>
-
-                </LinearLayout>
-            </FrameLayout>
-
-            <!-- ═══════════════ CAST ═══════════════ -->
+            <!-- ═══════════════ RADIO / CAST ═══════════════ -->
             <FrameLayout
                 android:id="@+id/cardRadio"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_margin="14dp"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:layout_margin="16dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -267,12 +205,12 @@
 
                     <ImageView
                         android:tag="icon"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:src="@drawable/ic_radio"
                         android:alpha="0.75"
                         android:scaleType="fitCenter"
-                        android:contentDescription="Cast"/>
+                        android:contentDescription="Radio"/>
 
                     <View
                         android:tag="labelAccent"
@@ -287,9 +225,9 @@
                         android:tag="label"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Cast"
+                        android:text="რადიო"
                         android:textColor="#F1F5F9"
-                        android:textSize="17sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:gravity="center"
                         android:alpha="0.85"/>
@@ -298,22 +236,21 @@
                         android:tag="sublabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Screen Mirroring"
+                        android:text="სადგურები · მუსიკა"
                         android:textColor="#55FFFFFF"
                         android:textSize="11sp"
                         android:gravity="center"
                         android:layout_marginTop="4dp"
                         android:alpha="0"/>
-
                 </LinearLayout>
             </FrameLayout>
 
             <!-- ═══════════════ PROFILE ═══════════════ -->
             <FrameLayout
                 android:id="@+id/cardProfile"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_margin="14dp"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:layout_margin="16dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
@@ -328,8 +265,8 @@
 
                     <ImageView
                         android:tag="icon"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:src="@drawable/ic_menu_profile"
                         android:alpha="0.75"
                         android:scaleType="fitCenter"
@@ -350,7 +287,7 @@
                         android:layout_height="wrap_content"
                         android:text="პროფილი"
                         android:textColor="#F1F5F9"
-                        android:textSize="17sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:gravity="center"
                         android:alpha="0.85"/>
@@ -365,7 +302,6 @@
                         android:gravity="center"
                         android:layout_marginTop="4dp"
                         android:alpha="0"/>
-
                 </LinearLayout>
             </FrameLayout>
 

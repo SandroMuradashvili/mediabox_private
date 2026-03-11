@@ -54,13 +54,6 @@
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation" />
 
-        <!-- YouTube WebView fallback activity -->
-        <activity
-            android:name=".ui.YouTubeActivity"
-            android:screenOrientation="landscape"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:hardwareAccelerated="true" />
-
     </application>
 
 </manifest>
