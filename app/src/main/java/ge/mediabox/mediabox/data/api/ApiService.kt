@@ -10,7 +10,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ApiService {
-
     private val BASE_URL = BuildConfig.BASE_API_URL
     private const val TAG = "ApiService"
 
@@ -22,8 +21,8 @@ object ApiService {
     private fun openGet(path: String, token: String? = null): HttpURLConnection {
         val conn = URL(path).openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
-        conn.connectTimeout = 10_000
-        conn.readTimeout = 10_000
+        conn.connectTimeout = 10000
+        conn.readTimeout = 10000
         conn.setRequestProperty("Accept", "application/json")
         if (!token.isNullOrBlank()) conn.setRequestProperty("Authorization", "Bearer $token")
         return conn
@@ -32,8 +31,8 @@ object ApiService {
     private fun openPost(path: String, token: String? = null): HttpURLConnection {
         val conn = URL(path).openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
-        conn.connectTimeout = 8_000
-        conn.readTimeout = 8_000
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
         conn.doOutput = true
         conn.setRequestProperty("Content-Type", "application/json")
         conn.setRequestProperty("Accept", "application/json")
@@ -50,11 +49,7 @@ object ApiService {
                 val arr = JSONArray(text)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
-                    categories.add(ApiCategory(
-                        obj.getString("id"),
-                        obj.getString("name_ka"),
-                        obj.getString("name_en")
-                    ))
+                    categories.add(ApiCategory(obj.getString("id"), obj.getString("name_ka"), obj.getString("name_en")))
                 }
             }
         } catch (e: Exception) { Log.e(TAG, "fetchCategories error", e) }
@@ -68,18 +63,11 @@ object ApiService {
             val conn = openGet("$BASE_URL/channels", token)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
-                Log.d(TAG, "RAW CHANNELS: $text")
                 val obj = JSONObject(text)
                 obj.optJSONArray("channels")?.let { arr ->
                     for (i in 0 until arr.length()) {
                         val ch = arr.getJSONObject(i)
-                        channels.add(ApiChannel(
-                            ch.getString("id"),
-                            ch.getString("name"),
-                            ch.optString("logo", ""),
-                            ch.optInt("number", i + 1),
-                            ch.optString("category_id", "")
-                        ))
+                        channels.add(ApiChannel(ch.getString("id"), ch.getString("name"), ch.optString("logo", ""), ch.optInt("number", i + 1), ch.optString("category_id", "")))
                     }
                 }
                 obj.optJSONArray("accessible_external_ids")?.let { arr ->
@@ -89,6 +77,35 @@ object ApiService {
         } catch (e: Exception) { Log.e(TAG, "fetchChannels error", e) }
         return ChannelsResponse(channels, accessibleIds)
     }
+
+    fun fetchFavourites(token: String): List<String> {
+        val ids = mutableListOf<String>()
+        try {
+            val conn = openGet("$BASE_URL/user/preferences/favourite-channels", token)
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                json.optJSONArray("favouriteChannelIds")?.let { arr ->
+                    for (i in 0 until arr.length()) ids.add(arr.getString(i))
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "fetchFavourites error", e) }
+        return ids
+    }
+
+    fun addFavourite(token: String, externalId: String): Boolean = try {
+        val conn = openPost("$BASE_URL/user/preferences/favourite-channels", token)
+        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("channelId", externalId).toString()) }
+        conn.responseCode in 200..299
+    } catch (e: Exception) { false }
+
+    fun removeFavourite(token: String, externalId: String): Boolean = try {
+        val conn = (URL("$BASE_URL/user/preferences/favourites/$externalId").openConnection() as HttpURLConnection).apply {
+            requestMethod = "DELETE"
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Accept", "application/json")
+        }
+        conn.responseCode in 200..299
+    } catch (e: Exception) { false }
 
     fun fetchStreamUrl(channelId: String, deviceId: String, token: String? = null): StreamResponse? = try {
         val conn = openGet("$BASE_URL/channels/$channelId/stream?device_id=$deviceId", token)
@@ -124,35 +141,7 @@ object ApiService {
                     if (uid != 0 && start != 0L) programs.add(Program(uid, title, "", start * 1000L, end * 1000L, 0))
                 }
             }
-        } catch (e: Exception) { Log.e(TAG, "fetchPrograms error", e) }
+        } catch (e: Exception) { }
         return programs
     }
-
-    fun fetchFavourites(token: String): List<String> {
-        val ids = mutableListOf<String>()
-        try {
-            val conn = openGet("$BASE_URL/user/preferences/favourite-channels", token)
-            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                json.optJSONArray("favouriteChannelIds")?.let { arr ->
-                    for (i in 0 until arr.length()) ids.add(arr.getString(i))
-                }
-            }
-        } catch (e: Exception) {}
-        return ids
-    }
-
-    fun addFavourite(token: String, id: String): Boolean = try {
-        val conn = openPost("$BASE_URL/user/preferences/favourite-channels", token)
-        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("channelId", id).toString()) }
-        conn.responseCode in 200..299
-    } catch (e: Exception) { false }
-
-    fun removeFavourite(token: String, id: String): Boolean = try {
-        val conn = (URL("$BASE_URL/user/preferences/favourites/$id").openConnection() as HttpURLConnection).apply {
-            requestMethod = "DELETE"
-            setRequestProperty("Authorization", "Bearer $token")
-        }
-        conn.responseCode in 200..299
-    } catch (e: Exception) { false }
 }

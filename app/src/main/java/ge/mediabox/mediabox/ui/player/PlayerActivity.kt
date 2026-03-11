@@ -25,19 +25,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class PlayerActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityPlayerBinding
     private var player: ExoPlayer? = null
     private val repository = ChannelRepository
-
     private var currentChannelIndex = 0
     private var channels = repository.getAllChannels()
-
     private var isInitialized = false
     private var isControlsVisible = false
     private var isEpgVisible = false
     private var isTimeRewindVisible = false
-
     private var isLiveMode = true
     private var livePausedAt: Long? = null
     private var currentPlayingTimestamp = 0L
@@ -46,12 +42,11 @@ class PlayerActivity : AppCompatActivity() {
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
-
     private val pauseTickHandler = Handler(Looper.getMainLooper())
     private val pauseTickRunnable = object : Runnable {
         override fun run() {
             if (isControlsVisible) updateRewindButtonAvailability()
-            pauseTickHandler.postDelayed(this, 1_000)
+            pauseTickHandler.postDelayed(this, 1000)
         }
     }
 
@@ -59,14 +54,11 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var epgOverlayManager: EpgOverlayManager
     private lateinit var timeRewindManager: TimeRewindOverlayManager
     private lateinit var trackSelectionManager: TrackSelectionOverlayManager
-
     private var pendingStreamJob: Job? = null
     private var pendingProgramJob: Job? = null
 
     private val authToken: String?
         get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
-
-    // Find your onCreate method and update it:
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,10 +67,10 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
-
             val isKa = LangPrefs.isKa(this@PlayerActivity)
+
+            // initialize now handles category fetching, channel fetching, and favorite syncing
             repository.initialize(authToken, isKa)
-            authToken?.let { token -> launch { runCatching { repository.fetchAndSyncFavourites(token) } } }
 
             channels = repository.getAllChannels()
             initializePlayer()
@@ -97,12 +89,10 @@ class PlayerActivity : AppCompatActivity() {
     override fun onResume() { super.onResume(); if (!userIntentionallyPaused) player?.play() }
     override fun onDestroy() {
         super.onDestroy()
-        pendingStreamJob?.cancel()
-        pendingProgramJob?.cancel()
+        pendingStreamJob?.cancel(); pendingProgramJob?.cancel()
         pauseTickHandler.removeCallbacksAndMessages(null)
         hideControlsHandler.removeCallbacksAndMessages(null)
-        player?.release()
-        player = null
+        player?.release(); player = null
     }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -154,8 +144,7 @@ class PlayerActivity : AppCompatActivity() {
             }
         )
         val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also {
-            it.visibility = View.GONE
-            binding.root.addView(it)
+            it.visibility = View.GONE; binding.root.addView(it)
         }
         timeRewindManager = TimeRewindOverlayManager(activity = this, overlayView = rewindOverlayView,
             channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
@@ -163,8 +152,7 @@ class PlayerActivity : AppCompatActivity() {
             onDismiss = { isTimeRewindVisible = false })
 
         val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also {
-            it.visibility = View.GONE
-            binding.root.addView(it)
+            it.visibility = View.GONE; binding.root.addView(it)
         }
         trackSelectionManager = TrackSelectionOverlayManager(this, trackOverlayView, { player })
         trackSelectionManager.init()
@@ -182,12 +170,10 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
             findViewById<ImageButton>(R.id.btnQuality)?.setOnClickListener {
-                hideControls()
-                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
+                hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
             }
             findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener {
-                hideControls()
-                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
+                hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
             }
         }
     }
@@ -195,9 +181,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun playChannel(index: Int) {
         if (index !in channels.indices || channels[index].isLocked) return
         currentChannelIndex = index
-        isLiveMode = true
-        livePausedAt = null
-        userIntentionallyPaused = false
+        isLiveMode = true; livePausedAt = null; userIntentionallyPaused = false
         currentPlayingTimestamp = System.currentTimeMillis()
         fetchProgramsForCurrentChannel()
         showTopBarTemporarily()
@@ -217,9 +201,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun loadArchive(channelId: Int, timestampMs: Long) {
-        isLiveMode = false
-        livePausedAt = null
-        userIntentionallyPaused = false
+        isLiveMode = false; livePausedAt = null; userIntentionallyPaused = false
         currentPlayingTimestamp = timestampMs
         fetchProgramsForCurrentChannel()
         loadStream { repository.getArchiveUrl(channelId, timestampMs) }
@@ -232,10 +214,8 @@ class PlayerActivity : AppCompatActivity() {
             val url = urlProvider()
             if (url != null) {
                 player?.setMediaItem(MediaItem.fromUri(url))
-                player?.prepare()
-                player?.play()
-                updateOverlayInfo()
-                updateLiveIndicatorState()
+                player?.prepare(); player?.play()
+                updateOverlayInfo(); updateLiveIndicatorState()
             }
             binding.loadingIndicator.visibility = View.GONE
         }
@@ -278,17 +258,13 @@ class PlayerActivity : AppCompatActivity() {
         val buttons = listOf(Pair(R.id.layoutForward15s, 15L), Pair(R.id.layoutForward1m, 60L), Pair(R.id.layoutForward5m, 300L))
         for (button in buttons) {
             val enabled = !isLiveMode || pausedSeconds >= button.second
-            binding.root.findViewById<View>(button.first)?.apply {
-                alpha = if (enabled) 1f else 0.3f
-                isEnabled = enabled
-            }
+            binding.root.findViewById<View>(button.first)?.apply { alpha = if (enabled) 1f else 0.3f; isEnabled = enabled }
         }
     }
 
     private fun showTopBarTemporarily() {
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
-        updateOverlayInfo()
-        rescheduleHideControls()
+        updateOverlayInfo(); rescheduleHideControls()
     }
 
     private fun showControls() {
@@ -296,8 +272,7 @@ class PlayerActivity : AppCompatActivity() {
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.VISIBLE
-        updateOverlayInfo()
-        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
+        updateOverlayInfo(); binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
         rescheduleHideControls()
     }
 
@@ -315,26 +290,25 @@ class PlayerActivity : AppCompatActivity() {
     private fun showEpg() {
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
-        epgOverlayManager.refreshData(channels)
-        epgOverlayManager.requestFocus()
+        epgOverlayManager.refreshData(channels); epgOverlayManager.requestFocus()
     }
 
-    private fun hideEpg() {
-        isEpgVisible = false
-        binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE
-    }
-
+    private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }
     private fun showTimeRewind() { hideControls(); isTimeRewindVisible = true; timeRewindManager.show() }
 
     private fun toggleFavorite() {
         val token = authToken ?: return
         val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return
         val willBeFavorite = !channel.isFavorite
-        repository.setFavorite(channel.id, willBeFavorite)
+        val externalId = channel.apiId
+        repository.setFavoriteLocal(channel.id, willBeFavorite)
         controlOverlayManager.updateFavoriteButton(willBeFavorite)
-        lifecycleScope.launch {
-            if (willBeFavorite) repository.addFavouriteRemote(token, channel.apiId)
-            else repository.removeFavouriteRemote(token, channel.apiId)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val success = if (willBeFavorite) repository.addFavouriteRemote(token, externalId) else repository.removeFavouriteRemote(token, externalId)
+            if (!success) withContext(Dispatchers.Main) {
+                repository.setFavoriteLocal(channel.id, !willBeFavorite)
+                controlOverlayManager.updateFavoriteButton(!willBeFavorite)
+            }
         }
     }
 
@@ -343,15 +317,8 @@ class PlayerActivity : AppCompatActivity() {
         val handled = when {
             trackSelectionManager.isVisible -> trackSelectionManager.handleKeyEvent(keyCode)
             isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
-            isEpgVisible -> {
-                if (keyCode == KeyEvent.KEYCODE_BACK) { hideEpg(); true }
-                else epgOverlayManager.handleKeyEvent(keyCode)
-            }
-            isControlsVisible -> {
-                rescheduleHideControls()
-                if (keyCode == KeyEvent.KEYCODE_BACK) { hideControls(); true }
-                else false
-            }
+            isEpgVisible -> if (keyCode == KeyEvent.KEYCODE_BACK) { hideEpg(); true } else epgOverlayManager.handleKeyEvent(keyCode)
+            isControlsVisible -> { rescheduleHideControls(); if (keyCode == KeyEvent.KEYCODE_BACK) { hideControls(); true } else false }
             else -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> { changeChannel(1); true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }

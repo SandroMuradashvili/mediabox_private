@@ -18,6 +18,7 @@ import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
+import ge.mediabox.mediabox.ui.LangPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,7 +44,7 @@ class EpgOverlayManager(
     // ── State ─────────────────────────────────────────────────────────────────
 
     private val repository = ChannelRepository
-    private var currentCategory = "All"
+    private var currentCategory = ""
     private var filteredChannels: List<Channel> = channels
     private var selectedChannelIndex = 0
     private var selectedProgramIndex = 0
@@ -114,7 +115,10 @@ class EpgOverlayManager(
         container?.removeAllViews()
         categoryButtons.clear()
 
-        repository.getCategories().forEachIndexed { index, category ->
+        val isKa = LangPrefs.isKa(activity)
+        val categories = repository.getCategories(isKa)
+
+        categories.forEachIndexed { index, category ->
             val btn = TextView(activity).apply {
                 text = category
                 setTextAppearance(R.style.CategoryButton)
@@ -136,14 +140,22 @@ class EpgOverlayManager(
             categoryButtons.add(btn)
         }
 
-        selectedCategoryIndex = 0
-        selectCategory(categoryButtons.firstOrNull()?.text?.toString() ?: "All")
+        // Logic to maintain category selection on language swap or refresh
+        if (currentCategory.isEmpty() || !categories.contains(currentCategory)) {
+            selectedCategoryIndex = 0
+            currentCategory = categories.firstOrNull() ?: ""
+        } else {
+            selectedCategoryIndex = categories.indexOf(currentCategory)
+        }
+
+        selectCategory(currentCategory)
         highlightCategory()
     }
 
     private fun selectCategory(category: String) {
+        val isKa = LangPrefs.isKa(activity)
         currentCategory = category
-        filteredChannels = repository.getChannelsByCategory(category)
+        filteredChannels = repository.getChannelsByCategory(category, isKa)
         channelAdapter.updateChannels(filteredChannels)
         selectedChannelIndex = 0
         binding.root.findViewById<RecyclerView>(R.id.channelList)
@@ -170,9 +182,9 @@ class EpgOverlayManager(
         programPanel?.visibility = View.GONE
         programPlaceholder?.visibility = View.VISIBLE
         tvHoveredDate?.visibility = View.GONE
-        tvPlaceholderTitle?.text = "Select a channel"
+        tvPlaceholderTitle?.text = if (LangPrefs.isKa(activity)) "აირჩიეთ არხი" else "Select a channel"
         tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
-        tvPlaceholderSubtitle?.text = "Press → to browse programs"
+        tvPlaceholderSubtitle?.text = if (LangPrefs.isKa(activity)) "დააჭირეთ → პროგრამების სანახავად" else "Press → to browse programs"
         tvPlaceholderSubtitle?.setTextColor(0x60B0B3F5.toInt())
     }
 
@@ -182,7 +194,7 @@ class EpgOverlayManager(
         programPlaceholder?.visibility = View.VISIBLE
         tvPlaceholderTitle?.text = channel.name
         tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
-        tvPlaceholderSubtitle?.text = "Not included in your subscription"
+        tvPlaceholderSubtitle?.text = if (LangPrefs.isKa(activity)) "არ შედის თქვენს პაკეტში" else "Not included in your subscription"
         tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt())
     }
 
@@ -273,7 +285,7 @@ class EpgOverlayManager(
         when {
             program.isCurrentlyPlaying(now)   -> if (globalIndex >= 0) onChannelSelected(globalIndex)
             program.endTime < now             -> onArchiveSelected("ARCHIVE_ID:${channel.id}:TIME:${program.startTime}")
-            else -> Toast.makeText(activity, "This program hasn't started yet", Toast.LENGTH_SHORT).show()
+            else -> Toast.makeText(activity, if (LangPrefs.isKa(activity)) "ეს პროგრამა ჯერ არ დაწყებულა" else "This program hasn't started yet", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -281,8 +293,10 @@ class EpgOverlayManager(
 
     fun refreshData(newChannels: List<Channel>) {
         channels = newChannels
+        val isKa = LangPrefs.isKa(activity)
+        repository.refreshLocalization(isKa)
         setupCategories()
-        filteredChannels = repository.getChannelsByCategory(currentCategory)
+        filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
         channelAdapter.updateChannels(filteredChannels)
         selectedChannelIndex = 0
         hideProgramPanel()
@@ -338,14 +352,29 @@ class EpgOverlayManager(
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
         return when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val now = System.currentTimeMillis()
-                if (now - lastChannelScrollTime < scrollThrottleMs) return true
-                lastChannelScrollTime = now
-                val delta = if (keyCode == KeyEvent.KEYCODE_DPAD_UP) -1 else 1
-                val next  = (selectedChannelIndex + delta).coerceIn(0, filteredChannels.size - 1)
-                if (next != selectedChannelIndex) {
-                    selectedChannelIndex = next
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                if (selectedChannelIndex > 0) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastChannelScrollTime < scrollThrottleMs) return true
+                    lastChannelScrollTime = now
+                    selectedChannelIndex--
+                    channelAdapter.setHighlight(selectedChannelIndex)
+                    channelList.smoothScrollToPosition(selectedChannelIndex)
+                    val ch = filteredChannels.getOrNull(selectedChannelIndex)
+                    if (ch?.isLocked == true) showLockedChannelInfo(ch) else hideProgramPanel()
+                } else {
+                    focusSection = FocusSection.CATEGORIES
+                    channelAdapter.setHighlight(-1)
+                    highlightCategory()
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (selectedChannelIndex < filteredChannels.size - 1) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastChannelScrollTime < scrollThrottleMs) return true
+                    lastChannelScrollTime = now
+                    selectedChannelIndex++
                     channelAdapter.setHighlight(selectedChannelIndex)
                     channelList.smoothScrollToPosition(selectedChannelIndex)
                     val ch = filteredChannels.getOrNull(selectedChannelIndex)
@@ -355,7 +384,7 @@ class EpgOverlayManager(
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 focusSection = FocusSection.CATEGORIES
-                channelAdapter.setHighlight(selectedChannelIndex)
+                channelAdapter.setHighlight(-1)
                 highlightCategory()
                 hideProgramPanel()
                 true
@@ -427,7 +456,7 @@ class EpgOverlayManager(
     // ── Channel Adapter ───────────────────────────────────────────────────────
 
     inner class ChannelAdapter(
-        private var channels: List<Channel>,
+        private var list: List<Channel>,
         private val onChannelClick: (Int) -> Unit
     ) : RecyclerView.Adapter<ChannelAdapter.VH>() {
 
@@ -482,12 +511,12 @@ class EpgOverlayManager(
             LayoutInflater.from(parent.context).inflate(R.layout.item_epg_channel, parent, false)
         )
         override fun onBindViewHolder(holder: VH, position: Int) {
-            if (position in channels.indices) holder.bind(channels[position], position == highlightedPos)
+            if (position in list.indices) holder.bind(list[position], position == highlightedPos)
         }
-        override fun getItemCount() = channels.size
+        override fun getItemCount() = list.size
 
         fun updateChannels(newChannels: List<Channel>) {
-            channels = newChannels
+            list = newChannels
             highlightedPos = -1
             notifyDataSetChanged()
         }
@@ -495,6 +524,7 @@ class EpgOverlayManager(
 
     // ── Program Adapter ───────────────────────────────────────────────────────
 
+    // FIX: Removed 'inner' to allow Companion Object
     class ProgramAdapter(
         private var items: List<ProgramItem>,
         private val onProgramClick: (Program) -> Unit
