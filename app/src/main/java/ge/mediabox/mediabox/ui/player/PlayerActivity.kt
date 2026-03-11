@@ -263,16 +263,28 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showTopBarTemporarily() {
+        // Show the main overlay container
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
-        updateOverlayInfo(); rescheduleHideControls()
+
+        // Specifically show the Top Bar but HIDE the Bottom Section
+        binding.root.findViewById<View>(R.id.topBar)?.visibility = View.VISIBLE
+        binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.GONE
+
+        updateOverlayInfo()
+        rescheduleHideControls()
     }
 
     private fun showControls() {
         if (trackSelectionManager.isVisible) return
         isControlsVisible = true
+
+        // Show everything
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
+        binding.root.findViewById<View>(R.id.topBar)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.VISIBLE
-        updateOverlayInfo(); binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
+
+        updateOverlayInfo()
+        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
         rescheduleHideControls()
     }
 
