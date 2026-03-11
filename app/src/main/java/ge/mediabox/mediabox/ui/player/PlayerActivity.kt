@@ -6,7 +6,6 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.widget.ImageButton
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
@@ -19,6 +18,7 @@ import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
+import ge.mediabox.mediabox.ui.LangPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -58,8 +58,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var controlOverlayManager: ControlOverlayManager
     private lateinit var epgOverlayManager: EpgOverlayManager
     private lateinit var timeRewindManager: TimeRewindOverlayManager
-
-    // NEW: Reference to your custom Track Selector
     private lateinit var trackSelectionManager: TrackSelectionOverlayManager
 
     private var pendingStreamJob: Job? = null
@@ -68,6 +66,8 @@ class PlayerActivity : AppCompatActivity() {
     private val authToken: String?
         get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
+    // Find your onCreate method and update it:
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
@@ -75,7 +75,9 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             binding.loadingIndicator.visibility = View.VISIBLE
-            repository.initialize(authToken)
+
+            val isKa = LangPrefs.isKa(this@PlayerActivity)
+            repository.initialize(authToken, isKa)
             authToken?.let { token -> launch { runCatching { repository.fetchAndSyncFavourites(token) } } }
 
             channels = repository.getAllChannels()
@@ -117,14 +119,9 @@ class PlayerActivity : AppCompatActivity() {
         override fun onPlaybackStateChanged(state: Int) {
             binding.loadingIndicator.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
         }
-
-        // Pass tracks to the custom manager so it can build the list (HD, SD, etc)
         override fun onTracksChanged(tracks: Tracks) {
-            if (::trackSelectionManager.isInitialized) {
-                trackSelectionManager.onTracksChanged(tracks)
-            }
+            if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks)
         }
-
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -144,7 +141,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
-
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
@@ -157,8 +153,6 @@ class PlayerActivity : AppCompatActivity() {
                 hideEpg()
             }
         )
-
-        // Time Rewind
         val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also {
             it.visibility = View.GONE
             binding.root.addView(it)
@@ -168,7 +162,6 @@ class PlayerActivity : AppCompatActivity() {
             onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
             onDismiss = { isTimeRewindVisible = false })
 
-        // NEW: Initialize your TrackSelectionOverlayManager (the right side panel)
         val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also {
             it.visibility = View.GONE
             binding.root.addView(it)
@@ -188,14 +181,10 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
-
-            // FIX: Linked the 4th button (btnQuality) to show the Quality switcher
             findViewById<ImageButton>(R.id.btnQuality)?.setOnClickListener {
                 hideControls()
                 trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
             }
-
-            // Linked the 5th button (btnAudioLanguage) to show the Audio switcher
             findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener {
                 hideControls()
                 trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
@@ -210,7 +199,6 @@ class PlayerActivity : AppCompatActivity() {
         livePausedAt = null
         userIntentionallyPaused = false
         currentPlayingTimestamp = System.currentTimeMillis()
-
         fetchProgramsForCurrentChannel()
         showTopBarTemporarily()
         loadStream { repository.getStreamUrl(channels[index].id) }
@@ -304,7 +292,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
-        if (trackSelectionManager.isVisible) return // Don't show HUD if quality panel is open
+        if (trackSelectionManager.isVisible) return
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.VISIBLE
@@ -352,28 +340,18 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isInitialized) return true
-
         val handled = when {
-            // Priority 1: Side Quality Panel
             trackSelectionManager.isVisible -> trackSelectionManager.handleKeyEvent(keyCode)
-
-            // Priority 2: Time Seek
             isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
-
-            // Priority 3: EPG
             isEpgVisible -> {
                 if (keyCode == KeyEvent.KEYCODE_BACK) { hideEpg(); true }
                 else epgOverlayManager.handleKeyEvent(keyCode)
             }
-
-            // Priority 4: Bottom Controls
             isControlsVisible -> {
                 rescheduleHideControls()
                 if (keyCode == KeyEvent.KEYCODE_BACK) { hideControls(); true }
                 else false
             }
-
-            // Priority 5: Main Player Keys
             else -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> { changeChannel(1); true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }

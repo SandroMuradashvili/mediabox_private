@@ -14,7 +14,8 @@ object ApiService {
     private val BASE_URL = BuildConfig.BASE_API_URL
     private const val TAG = "ApiService"
 
-    data class ApiChannel(val id: String, val name: String, val logo: String, val number: Int, val category: String)
+    data class ApiChannel(val id: String, val name: String, val logo: String, val number: Int, val categoryId: String)
+    data class ApiCategory(val id: String, val nameKa: String, val nameEn: String)
     data class ChannelsResponse(val channels: List<ApiChannel>, val accessibleIds: List<String>)
     data class StreamResponse(val url: String, val expiresAt: Long, val serverTime: Long, val hoursBack: Int = 0)
 
@@ -40,6 +41,26 @@ object ApiService {
         return conn
     }
 
+    fun fetchCategories(token: String? = null): List<ApiCategory> {
+        val categories = mutableListOf<ApiCategory>()
+        try {
+            val conn = openGet("$BASE_URL/channels/categories", token)
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val arr = JSONArray(text)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    categories.add(ApiCategory(
+                        obj.getString("id"),
+                        obj.getString("name_ka"),
+                        obj.getString("name_en")
+                    ))
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "fetchCategories error", e) }
+        return categories
+    }
+
     fun fetchChannels(token: String? = null): ChannelsResponse {
         val channels = mutableListOf<ApiChannel>()
         val accessibleIds = mutableListOf<String>()
@@ -47,18 +68,24 @@ object ApiService {
             val conn = openGet("$BASE_URL/channels", token)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
-                conn.disconnect()
+                Log.d(TAG, "RAW CHANNELS: $text")
                 val obj = JSONObject(text)
                 obj.optJSONArray("channels")?.let { arr ->
                     for (i in 0 until arr.length()) {
                         val ch = arr.getJSONObject(i)
-                        channels.add(ApiChannel(ch.getString("id"), ch.getString("name"), ch.optString("logo", ""), ch.optInt("number", i + 1), ch.optString("category", "General")))
+                        channels.add(ApiChannel(
+                            ch.getString("id"),
+                            ch.getString("name"),
+                            ch.optString("logo", ""),
+                            ch.optInt("number", i + 1),
+                            ch.optString("category_id", "")
+                        ))
                     }
                 }
                 obj.optJSONArray("accessible_external_ids")?.let { arr ->
                     for (i in 0 until arr.length()) accessibleIds.add(arr.getString(i))
                 }
-            } else { conn.disconnect() }
+            }
         } catch (e: Exception) { Log.e(TAG, "fetchChannels error", e) }
         return ChannelsResponse(channels, accessibleIds)
     }
@@ -67,18 +94,16 @@ object ApiService {
         val conn = openGet("$BASE_URL/channels/$channelId/stream?device_id=$deviceId", token)
         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-            conn.disconnect()
             StreamResponse(json.getString("url"), json.optLong("expires_at", 0), json.optLong("server_time", 0))
-        } else { conn.disconnect(); null }
+        } else null
     } catch (e: Exception) { null }
 
     fun fetchArchiveUrl(channelId: String, ts: Long, deviceId: String, token: String? = null): StreamResponse? = try {
         val conn = openGet("$BASE_URL/channels/$channelId/archive?timestamp=$ts&device_id=$deviceId", token)
         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-            conn.disconnect()
             StreamResponse(json.getString("url"), json.optLong("expires_at", 0), 0, json.optInt("hoursBack", 0))
-        } else { conn.disconnect(); null }
+        } else null
     } catch (e: Exception) { null }
 
     fun fetchPrograms(channelApiId: String): List<Program> = fetchProgramsFromUrl("$BASE_URL/channels/$channelApiId/programs")
@@ -90,7 +115,6 @@ object ApiService {
             val conn = openGet(url)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val json = JSONArray(conn.inputStream.bufferedReader().use { it.readText() })
-                conn.disconnect()
                 for (i in 0 until json.length()) {
                     val obj = json.getJSONObject(i)
                     val uid = obj.optInt("id", obj.optInt("UID", 0))
@@ -99,7 +123,7 @@ object ApiService {
                     val title = obj.optString("title", obj.optString("TITLE", "No Title"))
                     if (uid != 0 && start != 0L) programs.add(Program(uid, title, "", start * 1000L, end * 1000L, 0))
                 }
-            } else { conn.disconnect() }
+            }
         } catch (e: Exception) { Log.e(TAG, "fetchPrograms error", e) }
         return programs
     }
@@ -110,11 +134,10 @@ object ApiService {
             val conn = openGet("$BASE_URL/user/preferences/favourite-channels", token)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                conn.disconnect()
                 json.optJSONArray("favouriteChannelIds")?.let { arr ->
                     for (i in 0 until arr.length()) ids.add(arr.getString(i))
                 }
-            } else { conn.disconnect() }
+            }
         } catch (e: Exception) {}
         return ids
     }
@@ -122,8 +145,7 @@ object ApiService {
     fun addFavourite(token: String, id: String): Boolean = try {
         val conn = openPost("$BASE_URL/user/preferences/favourite-channels", token)
         OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("channelId", id).toString()) }
-        val ok = conn.responseCode in 200..299
-        conn.disconnect(); ok
+        conn.responseCode in 200..299
     } catch (e: Exception) { false }
 
     fun removeFavourite(token: String, id: String): Boolean = try {
@@ -131,7 +153,6 @@ object ApiService {
             requestMethod = "DELETE"
             setRequestProperty("Authorization", "Bearer $token")
         }
-        val ok = conn.responseCode in 200..299
-        conn.disconnect(); ok
+        conn.responseCode in 200..299
     } catch (e: Exception) { false }
 }

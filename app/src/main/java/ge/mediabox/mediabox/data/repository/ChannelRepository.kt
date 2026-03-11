@@ -7,17 +7,39 @@ import kotlinx.coroutines.withContext
 
 object ChannelRepository {
     private val channels = mutableListOf<Channel>()
+    private val categoryNamesMap = mutableMapOf<String, String>()
     private var isInitialized = false
 
-    suspend fun initialize(token: String?) = withContext(Dispatchers.IO) {
+    suspend fun initialize(token: String?, isKa: Boolean) = withContext(Dispatchers.IO) {
         if (isInitialized) return@withContext
+
+        // 1. Fetch Categories
+        val apiCategories = ApiService.fetchCategories(token)
+        categoryNamesMap.clear()
+        apiCategories.forEach { cat ->
+            categoryNamesMap[cat.id] = if (isKa) cat.nameKa else cat.nameEn
+        }
+
+        // 2. Fetch Channels
         val resp = ApiService.fetchChannels(token)
         channels.clear()
         resp.channels.forEach { apiCh ->
-            channels.add(Channel(channels.size + 1, apiCh.id, "", apiCh.name, "", apiCh.logo, apiCh.category, apiCh.number, isLocked = resp.accessibleIds.isNotEmpty() && !resp.accessibleIds.contains(apiCh.id)))
+            val readableCategory = categoryNamesMap[apiCh.categoryId] ?: "General"
+
+            channels.add(Channel(
+                id = channels.size + 1,
+                apiId = apiCh.id,
+                name = apiCh.name,
+                streamUrl = "",
+                logoUrl = apiCh.logo,
+                category = readableCategory,
+                number = apiCh.number,
+                isLocked = resp.accessibleIds.isNotEmpty() && !resp.accessibleIds.contains(apiCh.id)
+            ))
         }
         isInitialized = true
     }
+
 
     suspend fun getStreamUrl(id: Int) = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == id } ?: return@withContext null
@@ -38,8 +60,16 @@ object ChannelRepository {
 
     fun getHoursBack(id: Int) = channels.find { it.id == id }?.hoursBack ?: 0
     fun getAllChannels() = channels
-    fun getChannelsByCategory(cat: String) = if (cat.lowercase() == "all") channels else channels.filter { it.category.equals(cat, true) }
-    fun getCategories() = listOf("All") + channels.map { it.category }.distinct()
+
+    fun getChannelsByCategory(cat: String) =
+        if (cat.lowercase() == "all") channels
+        else channels.filter { it.category.equals(cat, true) }
+
+    fun getCategories(): List<String> {
+        val cats = channels.map { it.category }.distinct().sorted()
+        return listOf("All") + cats
+    }
+
     fun setFavorite(id: Int, fav: Boolean) { channels.find { it.id == id }?.isFavorite = fav }
     suspend fun fetchAndSyncFavourites(token: String) = ApiService.fetchFavourites(token)
     suspend fun addFavouriteRemote(token: String, apiId: String) = ApiService.addFavourite(token, apiId)
