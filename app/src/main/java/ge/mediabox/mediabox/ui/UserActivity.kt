@@ -3,7 +3,6 @@ package ge.mediabox.mediabox.ui
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -30,20 +29,15 @@ class UserActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TOKEN = "extra_token"
-        private const val TAG = "UserActivity"
         private const val BASE_API_URL = "https://tv-api.telecomm1.com/api"
     }
 
     private lateinit var binding: ActivityUserBinding
     private val authApi by lazy { AuthApiService.create(applicationContext) }
-
     private var focusZone = 0
     private var planFocusIndex = 0
     private var planCount = 0
     private lateinit var planAdapter: ActivePlanAdapter
-
-    private var mobileRemoteManager: MobileRemoteManager? = null
-    private var isRemoteConnecting = false
 
     private var isMobileRemoteEnabled: Boolean
         get() = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getBoolean("mobile_remote_enabled", false)
@@ -62,15 +56,60 @@ class UserActivity : AppCompatActivity() {
         setupPlansList()
         setupButtons()
         loadData()
-
-        if (isMobileRemoteEnabled) connectMobileRemote()
+        updateRemoteToggleUI()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        mobileRemoteManager?.disconnect()
-        mobileRemoteManager = null
+    private fun toggleMobileRemote() {
+        if (isMobileRemoteEnabled) {
+            isMobileRemoteEnabled = false
+            MobileRemoteManager.disconnect { runOnUiThread { updateRemoteToggleUI() } }
+        } else {
+            connectMobileRemote()
+        }
     }
+
+    private fun connectMobileRemote() {
+        val token = getSavedToken() ?: return
+        val deviceId = DeviceIdHelper.getDeviceId(this)
+
+        binding.tvMobileRemoteStatus.text = if (LangPrefs.isKa(this)) "დაკავშირება..." else "Connecting..."
+
+        lifecycleScope.launch {
+            val response = withContext(Dispatchers.IO) { callRemoteReadyEndpoint(deviceId, token) }
+            val socketToken = response?.optString("socket_token")
+
+            if (socketToken != null) {
+                isMobileRemoteEnabled = true
+                MobileRemoteManager.connect(socketToken) {
+                    runOnUiThread { updateRemoteToggleUI() }
+                }
+            } else {
+                Toast.makeText(this@UserActivity, "Connection Failed", Toast.LENGTH_SHORT).show()
+                updateRemoteToggleUI()
+            }
+        }
+    }
+
+    private fun updateRemoteToggleUI() {
+        val isKa = LangPrefs.isKa(this)
+        val isWs = MobileRemoteManager.isConnected()
+
+        binding.tvMobileRemoteStatus.text = when {
+            isWs -> if (isKa) "ჩართულია" else "ON"
+            else -> if (isKa) "გამორთულია" else "OFF"
+        }
+        binding.tvMobileRemoteStatus.setTextColor(if (isWs) 0xFF10B981.toInt() else 0xFF94A3B8.toInt())
+    }
+
+    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
+        val conn = URL("$BASE_API_URL/tv/remote/ready").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Authorization", "Bearer $token")
+        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("device_id", deviceId).toString()) }
+        if (conn.responseCode in 200..299) JSONObject(conn.inputStream.bufferedReader().readText()) else null
+    } catch (e: Exception) { null }
 
     private fun setupPlansList() {
         planAdapter = ActivePlanAdapter(emptyList(), LangPrefs.isKa(this))
@@ -83,103 +122,6 @@ class UserActivity : AppCompatActivity() {
         binding.btnBack.setOnClickListener { finish() }
         binding.btnLogout.setOnClickListener { doLogout() }
         binding.btnMobileRemote.setOnClickListener { toggleMobileRemote() }
-    }
-
-    private fun toggleMobileRemote() {
-        if (isRemoteConnecting) return
-        if (isMobileRemoteEnabled) disconnectMobileRemote() else connectMobileRemote()
-    }
-
-    private fun connectMobileRemote() {
-        val token = getSavedToken() ?: return
-        val deviceId = DeviceIdHelper.getDeviceId(this)
-
-        isRemoteConnecting = true
-        binding.tvMobileRemoteStatus.text = if (LangPrefs.isKa(this)) "დაკავშირება..." else "Connecting..."
-
-        lifecycleScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) { callRemoteReadyEndpoint(deviceId, token) }
-                val socketToken = response?.optString("socket_token") ?: return@launch
-
-                isMobileRemoteEnabled = true
-                mobileRemoteManager = MobileRemoteManager(
-                    onButtonEvent = { action ->
-                        runOnUiThread {
-                            // DEBUG TOAST ON TV SCREEN
-                            Toast.makeText(this@UserActivity, "REMOTE PRESS: $action", Toast.LENGTH_SHORT).show()
-                            handleRemoteButtonEvent(action)
-                        }
-                    },
-                    onConnected = { runOnUiThread { isRemoteConnecting = false; updateRemoteToggleUI() } },
-                    onDisconnected = { runOnUiThread { isRemoteConnecting = false; updateRemoteToggleUI() } }
-                )
-                mobileRemoteManager!!.connect(socketToken)
-            } catch (e: Exception) {
-                isRemoteConnecting = false
-                updateRemoteToggleUI()
-            }
-        }
-    }
-
-    private fun handleRemoteButtonEvent(action: String) {
-        Log.d("REMOTE_DEBUG", "Processing Action: $action")
-
-        // 1. Map the string to an actual Integer KeyCode
-        val keyCode = when {
-            // Handle short names from SPA
-            action.equals("up", true) || action.contains("DPAD_UP") -> KeyEvent.KEYCODE_DPAD_UP
-            action.equals("down", true) || action.contains("DPAD_DOWN") -> KeyEvent.KEYCODE_DPAD_DOWN
-            action.equals("left", true) || action.contains("DPAD_LEFT") -> KeyEvent.KEYCODE_DPAD_LEFT
-            action.equals("right", true) || action.contains("DPAD_RIGHT") -> KeyEvent.KEYCODE_DPAD_RIGHT
-            action.equals("ok", true) || action.contains("DPAD_CENTER") || action.contains("ENTER") -> KeyEvent.KEYCODE_DPAD_CENTER
-            action.equals("back", true) || action.contains("BACK") -> KeyEvent.KEYCODE_BACK
-            action.equals("play", true) || action.equals("play_pause", true) || action.contains("MEDIA_PLAY_PAUSE") -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
-            action.equals("rew", true) || action.contains("REWIND") -> KeyEvent.KEYCODE_MEDIA_REWIND
-            action.equals("fwd", true) || action.contains("FAST_FORWARD") -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
-            action.equals("vol+", true) || action.contains("VOLUME_UP") -> KeyEvent.KEYCODE_VOLUME_UP
-            action.equals("vol-", true) || action.contains("VOLUME_DOWN") -> KeyEvent.KEYCODE_VOLUME_DOWN
-            action.equals("ch+", true) || action.contains("CHANNEL_UP") -> KeyEvent.KEYCODE_CHANNEL_UP
-            action.equals("ch-", true) || action.contains("CHANNEL_DOWN") -> KeyEvent.KEYCODE_CHANNEL_DOWN
-            action.equals("home", true) || action.contains("HOME") -> KeyEvent.KEYCODE_HOME
-            action.equals("power", true) || action.contains("POWER") -> KeyEvent.KEYCODE_POWER
-            action.startsWith("num") -> {
-                val n = action.replace("num", "").toIntOrNull()
-                if (n != null) KeyEvent.KEYCODE_0 + n else -1
-            }
-            else -> -1
-        }
-
-        if (keyCode != -1) {
-            // 2. Use a thread to simulate a REAL hardware press
-            // dispatchKeyEvent often fails if the UI is busy; Instrumentation is more reliable.
-            Thread {
-                try {
-                    android.app.Instrumentation().sendKeyDownUpSync(keyCode)
-                } catch (e: Exception) {
-                    Log.e("REMOTE_DEBUG", "Security exception: cannot inject key. Falling back to local dispatch.")
-                    runOnUiThread { simulateKeyLocal(keyCode) }
-                }
-            }.start()
-        }
-    }
-
-    // Fallback if the thread method is blocked
-    private fun simulateKeyLocal(keyCode: Int) {
-        dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
-        dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
-    }
-
-    private fun updateRemoteToggleUI() {
-        val isKa = LangPrefs.isKa(this)
-        val enabled = isMobileRemoteEnabled
-        val isWs = mobileRemoteManager?.isConnected ?: false
-        binding.tvMobileRemoteStatus.text = when {
-            isRemoteConnecting -> if (isKa) "დაკავშირება..." else "Connecting..."
-            enabled && isWs -> if (isKa) "ჩართულია" else "ON"
-            else -> if (isKa) "გამორთულია" else "OFF"
-        }
-        binding.tvMobileRemoteStatus.setTextColor(if (enabled && isWs) 0xFF10B981.toInt() else 0xFF94A3B8.toInt())
     }
 
     private fun loadData() {
@@ -204,7 +146,9 @@ class UserActivity : AppCompatActivity() {
         binding.tvEmail.text = user.email ?: "—"
         binding.tvPhone.text = user.phone ?: "—"
         binding.tvBalance.text = "₾ ${user.account?.balance ?: "0.00"}"
+
         updateRemoteToggleUI()
+
         if (myPlans.isEmpty()) {
             binding.tvNoPlans.visibility = View.VISIBLE
             binding.rvActivePlans.visibility = View.GONE
@@ -232,25 +176,8 @@ class UserActivity : AppCompatActivity() {
         applyTopFocus(-1)
     }
 
-    private fun disconnectMobileRemote() {
-        isMobileRemoteEnabled = false
-        mobileRemoteManager?.disconnect()
-        mobileRemoteManager = null
-        updateRemoteToggleUI()
-    }
-
-    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
-        val conn = URL("$BASE_API_URL/tv/remote/ready").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.setRequestProperty("Authorization", "Bearer $token")
-        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("device_id", deviceId).toString()) }
-        if (conn.responseCode in 200..299) JSONObject(conn.inputStream.bufferedReader().readText()) else null
-    } catch (e: Exception) { null }
-
     private fun doLogout() {
-        mobileRemoteManager?.disconnect()
+        MobileRemoteManager.disconnect()
         getSharedPreferences("AuthPrefs", MODE_PRIVATE).edit().clear().apply()
         startActivity(Intent(this, LoginActivity::class.java)); finish()
     }

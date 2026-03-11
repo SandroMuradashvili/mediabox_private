@@ -11,9 +11,17 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.databinding.ActivityMainBinding
 import ge.mediabox.mediabox.ui.player.PlayerActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -24,7 +32,9 @@ class MainActivity : AppCompatActivity() {
 
     private var selectedIndex = 0
     private var isReady = false
-    private var focusSection = 0 // 0-3 = cards, 4 = lang toggle
+
+    // 0-3 = cards, 4 = lang toggle
+    private var focusSection = 0
 
     private val cards get() = listOf(
         binding.cardWatchTv,
@@ -50,6 +60,23 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // ── AUTO-CONNECT REMOTE IF ENABLED ──
+        val isRemoteEnabled = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            .getBoolean("mobile_remote_enabled", false)
+
+        if (isRemoteEnabled && !MobileRemoteManager.isConnected()) {
+            val deviceId = DeviceIdHelper.getDeviceId(this)
+            lifecycleScope.launch {
+                val response = withContext(Dispatchers.IO) {
+                    callRemoteReadyEndpoint(deviceId, token)
+                }
+                val socketToken = response?.optString("socket_token")
+                if (socketToken != null) {
+                    MobileRemoteManager.connect(socketToken)
+                }
+            }
+        }
+
         setupCards()
         setupLangToggle()
         showMenuImmediate()
@@ -67,6 +94,24 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         clockHandler.removeCallbacksAndMessages(null)
     }
+
+    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
+        val conn = URL("https://tv-api.telecomm1.com/api/tv/remote/ready").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Authorization", "Bearer $token")
+
+        OutputStreamWriter(conn.outputStream).use {
+            it.write(JSONObject().put("device_id", deviceId).toString())
+        }
+
+        if (conn.responseCode in 200..299) {
+            JSONObject(conn.inputStream.bufferedReader().readText())
+        } else null
+    } catch (e: Exception) { null }
 
     // ── Setup ─────────────────────────────────────────────────────────────────
 
@@ -108,7 +153,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
-
         binding.cardWatchTv.findViewWithTag<TextView>("label")?.text =
             if (isKa) "ტელევიზია" else "Watch TV"
         binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text =
@@ -230,6 +274,7 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(this, LoginActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         })
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
     }
 
