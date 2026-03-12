@@ -6,12 +6,14 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.widget.ImageButton
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import ge.mediabox.mediabox.R
@@ -39,6 +41,11 @@ class PlayerActivity : AppCompatActivity() {
     private var currentPlayingTimestamp = 0L
     private var isPlayerPlaying = true
     private var userIntentionallyPaused = false
+
+    private var playingArchiveChannelId: Int = -1
+
+    private var archiveBaseTimestamp: Long = 0L // The start timestamp of the archive request
+    private var lastArchiveUrlTemplate: String? = null // For optimized seeking
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
@@ -82,6 +89,15 @@ class PlayerActivity : AppCompatActivity() {
 
             binding.loadingIndicator.visibility = View.GONE
             isInitialized = true
+        }
+    }
+
+    private fun getCurrentAbsoluteTime(): Long {
+        return if (isLiveMode) {
+            livePausedAt ?: System.currentTimeMillis()
+        } else {
+            // archiveBaseTimestamp (the epoch you started at) + player progress
+            archiveBaseTimestamp + (player?.currentPosition ?: 0L)
         }
     }
 
@@ -189,12 +205,22 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun playChannel(index: Int) {
         if (index !in channels.indices || channels[index].isLocked) return
+
+        // FIX: Update index immediately so Top Bar reflects the NEW channel
         currentChannelIndex = index
-        isLiveMode = true; livePausedAt = null; userIntentionallyPaused = false
-        currentPlayingTimestamp = System.currentTimeMillis()
+        val channel = channels[index]
+
+        isLiveMode = true
+        livePausedAt = null
+        archiveBaseTimestamp = 0
+        playingArchiveChannelId = -1 // Reset archive state
+        lastArchiveUrlTemplate = null
+
+        updateOverlayInfo() // Sync UI (Top Bar) immediately
         fetchProgramsForCurrentChannel()
         showTopBarTemporarily()
-        loadStream { repository.getStreamUrl(channels[index].id) }
+
+        loadStream { repository.getStreamUrl(channel.id) }
     }
 
     private fun fetchProgramsForCurrentChannel() {
@@ -232,16 +258,79 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun updateOverlayInfo() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
-        val playingTime = livePausedAt ?: if (!isLiveMode) currentPlayingTimestamp else System.currentTimeMillis()
-        val currentProgram = channel.programs.find { playingTime in it.startTime until it.endTime }
-        controlOverlayManager.updateChannelInfo(channel, currentProgram, if (isLiveMode && livePausedAt == null) null else playingTime, isPlayerPlaying)
+        val currentTs = getCurrentAbsoluteTime()
+
+        // Find program based on the dynamic absolute time
+        val currentProgram = channel.programs.find { currentTs in it.startTime until it.endTime }
+
+        // Update the HUD
+        controlOverlayManager.updateChannelInfo(
+            channel,
+            currentProgram,
+            if (isLiveMode && livePausedAt == null) null else currentTs,
+            isPlayerPlaying
+        )
     }
 
-    private fun playArchiveAt(id: Int, ts: Long) = loadArchive(id, ts)
-    private fun returnToLive() = playChannel(currentChannelIndex)
-    private fun rewindSeconds(s: Int) = loadArchive(channels[currentChannelIndex].id, (livePausedAt ?: currentPlayingTimestamp) - s.toLong() * 1000L)
-    private fun forwardSeconds(s: Int) = loadArchive(channels[currentChannelIndex].id, (livePausedAt ?: currentPlayingTimestamp) + s.toLong() * 1000L)
+    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
+        // 1. Find and update the current channel index first
+        val targetIndex = channels.indexOfFirst { it.id == channelId }
+        if (targetIndex != -1) {
+            currentChannelIndex = targetIndex
+        }
 
+        val channel = channels[currentChannelIndex]
+        isLiveMode = false
+        livePausedAt = null
+
+        // 2. Optimization Logic:
+        // Only swap the URL if we are already watching an archive of the SAME channel.
+        // If it's a different channel, we MUST fetch a new URL from the API.
+        if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
+            archiveBaseTimestamp = timestampMs
+            val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
+
+            // Skip the API call and play directly
+            player?.setMediaItem(MediaItem.fromUri(optimizedUrl))
+            player?.prepare()
+            player?.play()
+            updateOverlayInfo()
+        } else {
+            // Different channel or first time: Fetch from API
+            archiveBaseTimestamp = timestampMs
+            playingArchiveChannelId = channelId
+
+            loadStream {
+                val url = repository.getArchiveUrl(channelId, timestampMs)
+                lastArchiveUrlTemplate = url // Store template for future rewinds on THIS channel
+                url
+            }
+        }
+
+        fetchProgramsForCurrentChannel()
+        updateOverlayInfo()
+    }
+
+    private fun playDirectUrl(url: String) {
+        player?.setMediaItem(MediaItem.fromUri(url))
+        player?.prepare()
+        player?.play()
+        updateOverlayInfo()
+    }
+
+    private fun returnToLive() = playChannel(currentChannelIndex)
+    private fun rewindSeconds(s: Int) {
+        val targetTs = getCurrentAbsoluteTime() - (s * 1000L)
+        playArchiveAt(channels[currentChannelIndex].id, targetTs)
+    }
+    private fun forwardSeconds(s: Int) {
+        val targetTs = getCurrentAbsoluteTime() + (s * 1000L)
+        if (targetTs >= System.currentTimeMillis()) {
+            returnToLive()
+        } else {
+            playArchiveAt(channels[currentChannelIndex].id, targetTs)
+        }
+    }
     private fun togglePlayPause() {
         val isPlaying = player?.isPlaying == true
         userIntentionallyPaused = isPlaying
@@ -311,7 +400,11 @@ class PlayerActivity : AppCompatActivity() {
     private fun showEpg() {
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
-        epgOverlayManager.refreshData(channels); epgOverlayManager.requestFocus()
+        epgOverlayManager.refreshData(channels)
+
+        // FIX: Pass the ID of the channel currently playing
+        val currentId = channels.getOrNull(currentChannelIndex)?.id ?: -1
+        epgOverlayManager.requestFocus(currentId)
     }
 
     private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }
@@ -352,7 +445,7 @@ class PlayerActivity : AppCompatActivity() {
         return handled || super.onKeyDown(keyCode, event)
     }
 
-    private fun updateQualityDisplay(height: Int) {
+    @OptIn(UnstableApi::class) private fun updateQualityDisplay(height: Int) {
         val exo = player ?: return
 
         // Check if the manifest actually offers more than 1 choice

@@ -40,7 +40,12 @@ class ControlOverlayManager(
         if (currentProgram != null) {
             root.findViewById<TextView>(R.id.tvProgramTitle)?.text = currentProgram.title
             root.findViewById<TextView>(R.id.tvProgramTime)?.text = "${timeFormat.format(Date(currentProgram.startTime))} – ${timeFormat.format(Date(currentProgram.endTime))}"
-            root.findViewById<ProgressBar>(R.id.programProgress)?.progress = (currentProgram.getProgress() * 100).toInt()
+
+            // FIX: Use streamTimestamp (the archive time) if available, otherwise use real time
+            val playbackTime = streamTimestamp ?: System.currentTimeMillis()
+
+            // Pass the playbackTime into getProgress so the bar reflects the archive position
+            root.findViewById<ProgressBar>(R.id.programProgress)?.progress = (currentProgram.getProgress(playbackTime) * 100).toInt()
         }
 
         updateLiveIndicator(isLive, isPlaying)

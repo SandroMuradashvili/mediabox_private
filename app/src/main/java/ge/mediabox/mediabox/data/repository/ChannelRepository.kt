@@ -10,6 +10,8 @@ object ChannelRepository {
     private var cachedApiCategories = listOf<ApiService.ApiCategory>()
     private var isInitialized = false
 
+    private var lastArchiveTemplate: String? = null
+
     private fun getLabelAll(isKa: Boolean) = if (isKa) "ყველა" else "All"
     private fun getLabelFavs(isKa: Boolean) = if (isKa) "ფავორიტები" else "Favorites"
     private fun getLabelLocked(isKa: Boolean) = if (isKa) "მიუწვდომელი" else "Unavailable"
@@ -76,9 +78,25 @@ object ChannelRepository {
     }
     suspend fun getArchiveUrl(id: Int, ts: Long) = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == id } ?: return@withContext null
+
+        // If we are already in an archive stream for this channel, just swap the TS
+        // However, for safety (tokens expire), we call the API if we don't have a template
         val resp = ApiService.fetchArchiveUrl(ch.apiId, ts / 1000, "tv-device", null)
-        if (resp != null && resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
-        resp?.url
+        if (resp != null) {
+            if (resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
+            lastArchiveTemplate = resp.url
+            resp.url
+        } else null
+    }
+
+    // Helper to swap timestamp in the abs URL
+    fun getOptimizedArchiveUrl(originalUrl: String, newTs: Long): String {
+        val pattern = Regex("video-timeshift_abs-\\d+")
+        return if (originalUrl.contains(pattern)) {
+            originalUrl.replace(pattern, "video-timeshift_abs-${newTs / 1000}")
+        } else {
+            originalUrl
+        }
     }
     fun getArchiveStartMs(id: Int): Long? {
         val h = channels.find { it.id == id }?.hoursBack?.takeIf { it > 0 } ?: return null

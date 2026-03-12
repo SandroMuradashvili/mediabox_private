@@ -302,10 +302,32 @@ class EpgOverlayManager(
         hideProgramPanel()
     }
 
-    fun requestFocus() {
-        focusSection = FocusSection.CATEGORIES
-        highlightCategory()
-        channelAdapter.setHighlight(-1)
+    fun requestFocus(currentChannelId: Int) {
+        // 1. Find where the current playing channel is in the current filtered list
+        val index = filteredChannels.indexOfFirst { it.id == currentChannelId }
+
+        if (index != -1) {
+            // Focus the channel list directly
+            focusSection = FocusSection.CHANNELS
+            selectedChannelIndex = index
+            channelAdapter.setHighlight(selectedChannelIndex)
+
+            // Clear category highlights
+            categoryButtons.forEach { it.alpha = 0.55f; it.isSelected = false }
+
+            // Scroll the list to the channel
+            val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
+            (rv?.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(selectedChannelIndex, 150)
+        } else {
+            // Fallback: If current channel isn't in this category, focus first category
+            focusSection = FocusSection.CATEGORIES
+            highlightCategory()
+        }
+    }
+
+    // Ensure the title updates when the archive starts
+    fun updateSelectedChannelUI(channel: Channel) {
+        binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
     }
 
     // ── Key handling ──────────────────────────────────────────────────────────
