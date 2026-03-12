@@ -7,15 +7,19 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.data.remote.MyPlan
+import ge.mediabox.mediabox.data.remote.PlanChannel
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,9 +38,13 @@ class UserActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUserBinding
     private val authApi by lazy { AuthApiService.create(applicationContext) }
-    private var focusZone = 0
+
+    // Navigation State
+    private var focusZone = 0 // 0: Back, 1: Logout, 2: Plans, 3: Remote, 4: Lang
     private var planFocusIndex = 0
     private var planCount = 0
+    private var isDetailsOpen = false
+
     private lateinit var planAdapter: ActivePlanAdapter
 
     private var isMobileRemoteEnabled: Boolean
@@ -56,8 +64,139 @@ class UserActivity : AppCompatActivity() {
         setupPlansList()
         setupButtons()
         loadData()
-        updateRemoteToggleUI()
     }
+
+    private fun setupPlansList() {
+        planAdapter = ActivePlanAdapter(emptyList(), LangPrefs.isKa(this))
+        binding.rvActivePlans.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.rvActivePlans.adapter = planAdapter
+    }
+
+    private fun setupButtons() {
+        applyFocus(0)
+
+        binding.btnBack.setOnClickListener { finish() }
+        binding.btnLogout.setOnClickListener { doLogout() }
+        binding.btnMobileRemote.setOnClickListener { toggleMobileRemote() }
+
+        binding.btnUserLang.setOnClickListener {
+            LangPrefs.toggle(this)
+            updateLangUI()
+            // Pass 'true' to indicate this is just a language refresh
+            loadData(isLanguageRefresh = true)
+        }
+    }
+
+    private fun updateLangUI() {
+        binding.tvUserLangLabel.text = if (LangPrefs.isKa(this)) "ქართული" else "ENG"
+    }
+
+    private fun loadData(isLanguageRefresh: Boolean = false) {
+        // Only show the big loading screen if it's the FIRST load
+        if (!isLanguageRefresh) {
+            binding.loadingIndicator.visibility = View.VISIBLE
+            binding.contentRoot.visibility = View.GONE
+        }
+
+        updateLangUI()
+
+        lifecycleScope.launch {
+            try {
+                val user = authApi.getUser()
+                val myPlans = runCatching { authApi.getMyPlans() }.getOrDefault(emptyList())
+
+                // UI Update
+                bindUserData(user, myPlans)
+
+                // If it was just a language refresh, the UI is already visible,
+                // so we don't need to do anything else to the visibility.
+            } catch (e: Exception) {
+                if (!isLanguageRefresh) {
+                    binding.loadingIndicator.visibility = View.GONE
+                    binding.contentRoot.visibility = View.VISIBLE
+                }
+                Toast.makeText(this@UserActivity, "Connection Error", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun bindUserData(user: ge.mediabox.mediabox.data.remote.User, myPlans: List<MyPlan>) {
+        val isKa = LangPrefs.isKa(this)
+
+        // Update all text fields with new localized strings
+        val displayName = user.full_name?.takeIf { it.isNotBlank() } ?: user.username
+        binding.tvAvatarInitial.text = displayName.take(1).uppercase()
+        binding.tvDisplayName.text = displayName
+        binding.tvUsername.text = "@${user.username}"
+        binding.tvEmail.text = user.email ?: "—"
+        binding.tvPhone.text = user.phone ?: "—"
+        binding.tvRole.text = user.role.uppercase()
+        binding.tvBalance.text = "₾ ${user.account?.balance ?: "0.00"}"
+
+        // Translation for UI labels that aren't in the XML
+        binding.tvBackLabel.text = if (isKa) "← უკან" else "← Back"
+        binding.tvLogoutLabel.text = if (isKa) "გამოსვლა" else "Sign Out"
+        binding.tvLogoutSub.text = if (isKa) "სისტემიდან" else "from system"
+        binding.tvMobileRemoteLabel.text = if (isKa) "ტელეფონი როგორც პულტი" else "Set Mobile as Remote"
+        binding.tvMobileRemoteSub.text = if (isKa) "მართეთ ტელევიზორი მობილურით" else "Use phone as TV remote"
+        binding.tvActivePlansHeader.text = if (isKa) "აქტიური პაკეტები" else "Active Plans"
+
+        updateRemoteToggleUI()
+
+        if (myPlans.isEmpty()) {
+            binding.tvNoPlans.visibility = View.VISIBLE
+            binding.rvActivePlans.visibility = View.GONE
+            binding.tvNoPlans.text = if (isKa) "აქტიური პაკეტები არ გაქვთ" else "No active plans"
+            planCount = 0
+        } else {
+            binding.tvNoPlans.visibility = View.GONE
+            binding.rvActivePlans.visibility = View.VISIBLE
+            planAdapter.updateData(myPlans, isKa)
+            planCount = myPlans.size
+        }
+
+        // Final visibility sync
+        binding.loadingIndicator.visibility = View.GONE
+        binding.contentRoot.visibility = View.VISIBLE
+    }
+
+    // --- Plan Details Logic ---
+
+    private fun showPlanDetails(plan: MyPlan) {
+        isDetailsOpen = true
+        binding.planDetailsOverlay.visibility = View.VISIBLE
+        binding.tvDetailPlanName.text = if (LangPrefs.isKa(this)) plan.name_ka else plan.name_en
+        binding.tvDetailChannelCount.text = "..."
+        binding.rvPlanChannels.adapter = null
+
+        android.util.Log.d("PlanDetails", "Fetching channels for Plan ID: ${plan.plan_id}")
+
+        lifecycleScope.launch {
+            try {
+                // Call the API
+                val response = authApi.getPlanChannels(plan.plan_id)
+
+                // Log the result
+                android.util.Log.d("PlanDetails", "Successfully fetched ${response.channels.size} channels")
+
+                binding.tvDetailChannelCount.text = "${response.channels.size} Channels"
+
+                // Pass response.channels (the actual list) to the adapter
+                val channelAdapter = PlanChannelAdapter(response.channels, LangPrefs.isKa(this@UserActivity))
+                binding.rvPlanChannels.layoutManager = GridLayoutManager(this@UserActivity, 5)
+                binding.rvPlanChannels.adapter = channelAdapter
+
+            } catch (e: Exception) {
+                // Detailed error logging
+                android.util.Log.e("PlanDetails", "Error fetching channels", e)
+
+                binding.tvDetailChannelCount.text = "Error: ${e.localizedMessage}"
+                Toast.makeText(this@UserActivity, "API Error: Check Logcat", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // --- Mobile Remote Logic ---
 
     private fun toggleMobileRemote() {
         if (isMobileRemoteEnabled) {
@@ -71,20 +210,15 @@ class UserActivity : AppCompatActivity() {
     private fun connectMobileRemote() {
         val token = getSavedToken() ?: return
         val deviceId = DeviceIdHelper.getDeviceId(this)
-
-        binding.tvMobileRemoteStatus.text = if (LangPrefs.isKa(this)) "დაკავშირება..." else "Connecting..."
+        binding.tvMobileRemoteStatus.text = "..."
 
         lifecycleScope.launch {
             val response = withContext(Dispatchers.IO) { callRemoteReadyEndpoint(deviceId, token) }
             val socketToken = response?.optString("socket_token")
-
             if (socketToken != null) {
                 isMobileRemoteEnabled = true
-                MobileRemoteManager.connect(socketToken) {
-                    runOnUiThread { updateRemoteToggleUI() }
-                }
+                MobileRemoteManager.connect(socketToken) { runOnUiThread { updateRemoteToggleUI() } }
             } else {
-                Toast.makeText(this@UserActivity, "Connection Failed", Toast.LENGTH_SHORT).show()
                 updateRemoteToggleUI()
             }
         }
@@ -93,7 +227,6 @@ class UserActivity : AppCompatActivity() {
     private fun updateRemoteToggleUI() {
         val isKa = LangPrefs.isKa(this)
         val isWs = MobileRemoteManager.isConnected()
-
         binding.tvMobileRemoteStatus.text = when {
             isWs -> if (isKa) "ჩართულია" else "ON"
             else -> if (isKa) "გამორთულია" else "OFF"
@@ -111,69 +244,84 @@ class UserActivity : AppCompatActivity() {
         if (conn.responseCode in 200..299) JSONObject(conn.inputStream.bufferedReader().readText()) else null
     } catch (e: Exception) { null }
 
-    private fun setupPlansList() {
-        planAdapter = ActivePlanAdapter(emptyList(), LangPrefs.isKa(this))
-        binding.rvActivePlans.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        binding.rvActivePlans.adapter = planAdapter
-    }
+    // --- Navigation Logic ---
 
-    private fun setupButtons() {
-        applyTopFocus(0)
-        binding.btnBack.setOnClickListener { finish() }
-        binding.btnLogout.setOnClickListener { doLogout() }
-        binding.btnMobileRemote.setOnClickListener { toggleMobileRemote() }
-    }
-
-    private fun loadData() {
-        binding.loadingIndicator.visibility = View.VISIBLE
-        binding.contentRoot.visibility = View.GONE
-        lifecycleScope.launch {
-            try {
-                val user = authApi.getUser()
-                val myPlans = runCatching { authApi.getMyPlans() }.getOrDefault(emptyList())
-                runOnUiThread { bindAll(user, myPlans, LangPrefs.isKa(this@UserActivity)) }
-            } catch (e: Exception) {
-                runOnUiThread { binding.loadingIndicator.visibility = View.GONE; binding.contentRoot.visibility = View.VISIBLE }
-            }
-        }
-    }
-
-    private fun bindAll(user: ge.mediabox.mediabox.data.remote.User, myPlans: List<MyPlan>, isKa: Boolean) {
-        val displayName = user.full_name?.takeIf { it.isNotBlank() } ?: user.username
-        binding.tvAvatarInitial.text = displayName.take(1).uppercase()
-        binding.tvDisplayName.text = displayName
-        binding.tvUsername.text = "@${user.username}"
-        binding.tvEmail.text = user.email ?: "—"
-        binding.tvPhone.text = user.phone ?: "—"
-        binding.tvBalance.text = "₾ ${user.account?.balance ?: "0.00"}"
-
-        updateRemoteToggleUI()
-
-        if (myPlans.isEmpty()) {
-            binding.tvNoPlans.visibility = View.VISIBLE
-            binding.rvActivePlans.visibility = View.GONE
-        } else {
-            binding.tvNoPlans.visibility = View.GONE
-            binding.rvActivePlans.visibility = View.VISIBLE
-            planAdapter.updateData(myPlans, isKa)
-            planCount = myPlans.size
-        }
-        binding.loadingIndicator.visibility = View.GONE
-        binding.contentRoot.visibility = View.VISIBLE
-    }
-
-    private fun applyTopFocus(zone: Int) {
+    private fun applyFocus(zone: Int) {
         focusZone = zone
-        binding.btnBack.alpha = if (zone == 0) 1f else 0.55f
-        binding.btnLogout.scaleX = if (zone == 1) 1.04f else 1f
-        binding.btnLogout.scaleY = if (zone == 1) 1.04f else 1f
+        // Reset all visuals
+        binding.btnBack.setBackgroundResource(R.drawable.menu_card_glass)
+        binding.btnLogout.alpha = 1f
+        binding.btnLogout.scaleX = 1f
+        binding.btnUserLang.setBackgroundResource(R.drawable.menu_card_glass)
+        binding.btnMobileRemote.setBackgroundResource(R.drawable.menu_card_glass)
+        planAdapter.setFocused(-1)
+
+        // Apply visual to current zone
+        when (zone) {
+            0 -> binding.btnBack.setBackgroundResource(R.drawable.menu_card_glass_selected)
+            1 -> {
+                binding.btnLogout.alpha = 1.04f
+                binding.btnLogout.scaleX = 1.04f
+                binding.btnLogout.scaleY = 1.04f
+            }
+            2 -> if (planCount > 0) planAdapter.setFocused(planFocusIndex)
+            3 -> binding.btnMobileRemote.setBackgroundResource(R.drawable.menu_card_glass_selected)
+            4 -> binding.btnUserLang.setBackgroundResource(R.drawable.menu_card_glass_selected)
+        }
     }
 
-    private fun applyPlanFocus(pos: Int) {
-        focusZone = 2; planFocusIndex = pos
-        planAdapter.setFocused(pos)
-        binding.rvActivePlans.smoothScrollToPosition(pos)
-        applyTopFocus(-1)
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // Handle Overlay Back
+        if (isDetailsOpen && keyCode == KeyEvent.KEYCODE_BACK) {
+            binding.planDetailsOverlay.visibility = View.GONE
+            isDetailsOpen = false
+            return true
+        }
+
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                when (focusZone) {
+                    2 -> applyFocus(3)
+                    3 -> applyFocus(0)
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                when (focusZone) {
+                    0, 1, 4 -> applyFocus(3)
+                    3 -> if (planCount > 0) applyFocus(2)
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                when (focusZone) {
+                    1 -> applyFocus(0)
+                    4 -> applyFocus(1)
+                    2 -> if (planFocusIndex > 0) { planFocusIndex--; applyFocus(2) }
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                when (focusZone) {
+                    0 -> applyFocus(1)
+                    1 -> applyFocus(4)
+                    2 -> if (planFocusIndex < planCount - 1) { planFocusIndex++; applyFocus(2) }
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                when (focusZone) {
+                    0 -> finish()
+                    1 -> doLogout()
+                    3 -> toggleMobileRemote()
+                    4 -> binding.btnUserLang.performClick()
+                    2 -> showPlanDetails(planAdapter.getPlan(planFocusIndex))
+                }
+                true
+            }
+            KeyEvent.KEYCODE_BACK -> { finish(); true }
+            else -> super.onKeyDown(keyCode, event)
+        }
     }
 
     private fun doLogout() {
@@ -184,27 +332,27 @@ class UserActivity : AppCompatActivity() {
 
     private fun getSavedToken() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_BACK -> { finish(); true }
-            KeyEvent.KEYCODE_DPAD_UP -> { if (focusZone == 2) { focusZone = 3; applyTopFocus(-1) } else { focusZone = 0; applyTopFocus(0) }; true }
-            KeyEvent.KEYCODE_DPAD_DOWN -> { if (focusZone < 2) { focusZone = 3 } else if (planCount > 0) { focusZone = 2; applyPlanFocus(planFocusIndex) }; true }
-            KeyEvent.KEYCODE_DPAD_LEFT -> { if (focusZone == 1) { focusZone = 0; applyTopFocus(0) } else if (planFocusIndex > 0) { planFocusIndex--; applyPlanFocus(planFocusIndex) }; true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> { if (focusZone == 0) { focusZone = 1; applyTopFocus(1) } else if (planFocusIndex < planCount - 1) { planFocusIndex++; applyPlanFocus(planFocusIndex) }; true }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { when(focusZone){ 0->finish(); 1->doLogout(); 3->toggleMobileRemote() }; true }
-            else -> super.onKeyDown(keyCode, event)
-        }
-    }
+    // --- Adapters ---
 
-    inner class ActivePlanAdapter(private var plans: List<MyPlan>, private var isKa: Boolean) : RecyclerView.Adapter<ActivePlanAdapter.VH>() {
+    inner class ActivePlanAdapter(private var plans: List<MyPlan>, private var isKa: Boolean) :
+        RecyclerView.Adapter<ActivePlanAdapter.VH>() {
+
         private var focusedPos = -1
+
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val tvName: TextView = v.findViewById(R.id.tvActivePlanName)
             val tvPrice: TextView = v.findViewById(R.id.tvActivePlanPrice)
             val tvDaysLeft: TextView = v.findViewById(R.id.tvActivePlanDays)
+
+            init {
+                v.setOnClickListener { showPlanDetails(plans[adapterPosition]) }
+            }
         }
+
+        fun getPlan(index: Int) = plans[index]
         fun setFocused(pos: Int) { val old = focusedPos; focusedPos = pos; notifyItemChanged(old); notifyItemChanged(pos) }
         fun updateData(new: List<MyPlan>, ka: Boolean) { plans = new; isKa = ka; notifyDataSetChanged() }
+
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_active_plan, p, false))
         override fun onBindViewHolder(h: VH, p: Int) {
             val plan = plans[p]
@@ -214,5 +362,22 @@ class UserActivity : AppCompatActivity() {
             h.itemView.setBackgroundResource(if (p == focusedPos) R.drawable.menu_card_glass_selected else R.drawable.purchased_plan_background)
         }
         override fun getItemCount() = plans.size
+    }
+
+    inner class PlanChannelAdapter(private val channels: List<PlanChannel>, private val isKa: Boolean) :
+        RecyclerView.Adapter<PlanChannelAdapter.VH>() {
+
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val logo: ImageView = v.findViewById(R.id.ivPlanChannelLogo)
+            val name: TextView = v.findViewById(R.id.tvPlanChannelName)
+        }
+
+        override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_plan_channel, p, false))
+        override fun onBindViewHolder(h: VH, p: Int) {
+            val ch = channels[p]
+            h.name.text = if (isKa) ch.name_ka else ch.name_en
+            Glide.with(h.itemView.context).load(ch.icon_url).placeholder(R.drawable.epg_logo_bg).into(h.logo)
+        }
+        override fun getItemCount() = channels.size
     }
 }

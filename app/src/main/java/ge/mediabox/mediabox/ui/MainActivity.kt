@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var selectedIndex = 0
     private var isReady = false
-    private var focusSection = 0 // 0-2 = cards, 3 = lang toggle
 
     private val cards get() = listOf(
         binding.cardWatchTv,
@@ -49,13 +48,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         val token = getSavedToken()
-        if (token.isNullOrBlank()) { redirectToLogin(); return }
+        if (token.isNullOrBlank()) {
+            redirectToLogin()
+            return
+        }
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Auto-connect mobile remote if enabled
+        // Auto-connect mobile remote if enabled in settings
         val isRemoteEnabled = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
             .getBoolean("mobile_remote_enabled", false)
 
@@ -68,7 +71,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupCards()
-        setupLangToggle()
         showMenuImmediate()
         clockHandler.post(clockRunnable)
     }
@@ -76,8 +78,13 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!::binding.isInitialized) return
-        if (getSavedToken().isNullOrBlank()) { redirectToLogin(); return }
-        updateLangButton()
+        if (getSavedToken().isNullOrBlank()) {
+            redirectToLogin()
+            return
+        }
+        // Refresh labels in case language was changed in the Profile activity
+        updateCardLabels()
+        updateSelection()
     }
 
     override fun onDestroy() {
@@ -94,7 +101,6 @@ class MainActivity : AppCompatActivity() {
             card.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
                     selectedIndex = index
-                    focusSection  = index
                     updateSelection()
                 }
             }
@@ -103,6 +109,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
+
         binding.cardWatchTv.findViewWithTag<TextView>("label")?.text = if (isKa) "ტელევიზია" else "Watch TV"
         binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
 
@@ -113,20 +120,9 @@ class MainActivity : AppCompatActivity() {
         binding.cardProfile.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "ანგარიში · გამოწერა" else "Account · Subscription"
     }
 
-    private fun setupLangToggle() {
-        updateLangButton()
-        binding.btnLang.setOnClickListener {
-            LangPrefs.toggle(this)
-            updateLangButton(); updateCardLabels(); clearSelectionForLang()
-        }
-        binding.btnLang.setOnFocusChangeListener { v, hasFocus ->
-            v.animate().alpha(if (hasFocus) 1f else 0.65f).setDuration(200).start()
-            if (hasFocus) { focusSection = 3; clearSelectionForLang() } else { updateSelection() }
-        }
-    }
-
     private fun updateSelection() {
         cards.forEachIndexed { i, card -> applyCardState(card, i == selectedIndex) }
+
         val isKa = LangPrefs.isKa(this)
         val hints = if (isKa) listOf(
             "პირდაპირი TV და საარქივო კონტენტი",
@@ -143,9 +139,16 @@ class MainActivity : AppCompatActivity() {
     private fun applyCardState(card: View, selected: Boolean) {
         val duration = 220L
         val interp   = AccelerateDecelerateInterpolator()
+
         card.setBackgroundResource(if (selected) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass)
-        card.animate().scaleX(if (selected) 1.04f else 1.0f).scaleY(if (selected) 1.04f else 1.0f)
-            .translationZ(if (selected) 10f else 0f).setDuration(duration).setInterpolator(interp).start()
+
+        card.animate()
+            .scaleX(if (selected) 1.04f else 1.0f)
+            .scaleY(if (selected) 1.04f else 1.0f)
+            .translationZ(if (selected) 10f else 0f)
+            .setDuration(duration)
+            .setInterpolator(interp)
+            .start()
 
         card.findViewWithTag<ImageView>("icon")?.animate()?.alpha(if (selected) 1.0f else 0.75f)?.setDuration(duration)?.start()
         card.findViewWithTag<View>("labelAccent")?.animate()?.alpha(if (selected) 1f else 0f)?.setDuration(duration)?.start()
@@ -153,43 +156,96 @@ class MainActivity : AppCompatActivity() {
         card.findViewWithTag<TextView>("sublabel")?.animate()?.alpha(if (selected) 0.65f else 0f)?.setDuration(if (selected) 280L else 150L)?.start()
     }
 
-    private fun launchTv()      { startActivity(Intent(this, PlayerActivity::class.java)); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out) }
-    private fun launchRadio()   { startActivity(Intent(this, RadioActivity::class.java)); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out) }
+    private fun launchTv() {
+        startActivity(Intent(this, PlayerActivity::class.java))
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
+    private fun launchRadio() {
+        startActivity(Intent(this, RadioActivity::class.java))
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
     private fun launchProfile() {
         val token = getSavedToken() ?: return
-        startActivity(Intent(this, UserActivity::class.java).apply { putExtra(UserActivity.EXTRA_TOKEN, token) })
+        startActivity(Intent(this, UserActivity::class.java).apply {
+            putExtra(UserActivity.EXTRA_TOKEN, token)
+        })
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isReady) return true
+
         return when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP -> { if (focusSection != 3) { focusSection = 3; binding.btnLang.requestFocus(); clearSelectionForLang() }; true }
-            KeyEvent.KEYCODE_DPAD_DOWN -> { if (focusSection == 3) { focusSection = selectedIndex; cards[selectedIndex].requestFocus(); updateSelection() }; true }
-            KeyEvent.KEYCODE_DPAD_LEFT -> { if (focusSection != 3 && selectedIndex > 0) { selectedIndex--; cards[selectedIndex].requestFocus() }; true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> { if (focusSection != 3 && selectedIndex < cards.size - 1) { selectedIndex++; cards[selectedIndex].requestFocus() }; true }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { if (focusSection == 3) { LangPrefs.toggle(this); updateLangButton(); updateCardLabels() } else cards[selectedIndex].performClick(); true }
-            KeyEvent.KEYCODE_BACK -> true
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (selectedIndex > 0) {
+                    selectedIndex--
+                    cards[selectedIndex].requestFocus()
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (selectedIndex < cards.size - 1) {
+                    selectedIndex++
+                    cards[selectedIndex].requestFocus()
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                cards[selectedIndex].performClick()
+                true
+            }
+            KeyEvent.KEYCODE_BACK -> {
+                // Prevent exiting app with back button from main menu usually
+                true
+            }
             else -> super.onKeyDown(keyCode, event)
         }
     }
-
-    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
-        val conn = URL("https://tv-api.telecomm1.com/api/tv/remote/ready").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"; conn.doOutput = true; conn.connectTimeout = 8000; conn.readTimeout = 8000
-        conn.setRequestProperty("Content-Type", "application/json"); conn.setRequestProperty("Authorization", "Bearer $token")
-        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("device_id", deviceId).toString()) }
-        if (conn.responseCode in 200..299) JSONObject(conn.inputStream.bufferedReader().readText()) else null
-    } catch (e: Exception) { null }
 
     private fun updateClock() {
         val locale = if (LangPrefs.isKa(this)) Locale("ka", "GE") else Locale.ENGLISH
         binding.tvTime.text = SimpleDateFormat("HH:mm", locale).format(Date())
         binding.tvDate.text = SimpleDateFormat("EEE, d MMM", locale).format(Date())
     }
-    private fun updateLangButton() { binding.btnLang.findViewById<TextView>(R.id.tvLangLabel).text = if (LangPrefs.isKa(this)) "ქართული" else "ENG" }
-    private fun clearSelectionForLang() { cards.forEach { applyCardState(it, false) }; binding.tvSelectionHint.text = "" }
-    private fun showMenuImmediate() { cards.forEach { applyCardState(it, false) }; updateCardLabels(); Handler(Looper.getMainLooper()).postDelayed({ cards[0].requestFocus(); isReady = true }, 120) }
-    private fun redirectToLogin() { startActivity(Intent(this, LoginActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }); finish() }
-    private fun getSavedToken(): String? = getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).getString("auth_token", null)
+
+    private fun showMenuImmediate() {
+        updateCardLabels()
+        cards.forEach { applyCardState(it, false) }
+
+        // Short delay to ensure layout is ready before requesting focus
+        Handler(Looper.getMainLooper()).postDelayed({
+            cards[0].requestFocus()
+            isReady = true
+        }, 150)
+    }
+
+    private fun redirectToLogin() {
+        startActivity(Intent(this, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
+        finish()
+    }
+
+    private fun getSavedToken(): String? =
+        getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).getString("auth_token", null)
+
+    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
+        val conn = URL("https://tv-api.telecomm1.com/api/tv/remote/ready").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Authorization", "Bearer $token")
+
+        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("device_id", deviceId).toString()) }
+
+        if (conn.responseCode in 200..299) {
+            JSONObject(conn.inputStream.bufferedReader().readText())
+        } else null
+    } catch (e: Exception) {
+        null
+    }
 }

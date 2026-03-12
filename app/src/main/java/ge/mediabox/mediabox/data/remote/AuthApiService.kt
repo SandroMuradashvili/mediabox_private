@@ -11,6 +11,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 data class Plan(
     val id: String,
@@ -57,6 +58,20 @@ data class User(
     val account: Account?
 )
 
+data class PlanChannel(
+    val id: String,
+    val external_id: String,
+    val number: Int,
+    val name_ka: String,
+    val name_en: String,
+    val icon_url: String?,
+    val is_active: Boolean
+)
+
+data class PlanChannelsResponse(
+    val channels: List<PlanChannel>
+)
+
 data class PurchaseRequest(val plan_id: String)
 data class PurchaseResponse(val message: String?, val success: Boolean = true)
 
@@ -76,6 +91,11 @@ interface AuthApiService {
     @Headers("Accept: application/json", "Content-Type: application/json")
     @POST("api/plans/purchase")
     suspend fun purchasePlan(@Body request: PurchaseRequest): PurchaseResponse
+
+    @Headers("Accept: application/json")
+    @GET("api/plans/{planId}/channels")
+    // 2. Change return type from List<PlanChannel> to PlanChannelsResponse
+    suspend fun getPlanChannels(@Path("planId") planId: String): PlanChannelsResponse
 
     companion object {
         private val BASE_URL = BuildConfig.BASE_URL
