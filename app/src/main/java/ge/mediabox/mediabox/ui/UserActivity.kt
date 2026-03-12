@@ -163,35 +163,53 @@ class UserActivity : AppCompatActivity() {
     // --- Plan Details Logic ---
 
     private fun showPlanDetails(plan: MyPlan) {
+        val isKa = LangPrefs.isKa(this)
         isDetailsOpen = true
+
+        // 1. Show overlay and set basic info
         binding.planDetailsOverlay.visibility = View.VISIBLE
-        binding.tvDetailPlanName.text = if (LangPrefs.isKa(this)) plan.name_ka else plan.name_en
-        binding.tvDetailChannelCount.text = "..."
+        binding.tvDetailPlanName.text = if (isKa) plan.name_ka else plan.name_en
+
+        // 2. Set the "Free Channels" note
+        binding.tvDetailHeaderNote.text = if (isKa) {
+            "მოიცავს უფასო არხებს და ჩამონათვალს:"
+        } else {
+            "Includes Free channels and the following:"
+        }
+
+        binding.tvDetailChannelCount.text = if (isKa) "... არხი" else "... Channels"
+
+        // 3. Clear existing list while loading
         binding.rvPlanChannels.adapter = null
 
-        android.util.Log.d("PlanDetails", "Fetching channels for Plan ID: ${plan.plan_id}")
+        android.util.Log.d("PlanDetails", "Loading channels for: ${plan.plan_id}")
 
         lifecycleScope.launch {
             try {
-                // Call the API
                 val response = authApi.getPlanChannels(plan.plan_id)
+                val count = response.channels.size
 
-                // Log the result
-                android.util.Log.d("PlanDetails", "Successfully fetched ${response.channels.size} channels")
+                // 4. Update the channel count label with correct localization
+                binding.tvDetailChannelCount.text = if (isKa) {
+                    "$count არხი"
+                } else {
+                    if (count == 1) "1 Channel" else "$count Channels"
+                }
 
-                binding.tvDetailChannelCount.text = "${response.channels.size} Channels"
-
-                // Pass response.channels (the actual list) to the adapter
-                val channelAdapter = PlanChannelAdapter(response.channels, LangPrefs.isKa(this@UserActivity))
-                binding.rvPlanChannels.layoutManager = GridLayoutManager(this@UserActivity, 5)
+                // 5. Setup Grid
+                val channelAdapter = PlanChannelAdapter(response.channels, isKa)
+                binding.rvPlanChannels.layoutManager = GridLayoutManager(this@UserActivity, 6)
                 binding.rvPlanChannels.adapter = channelAdapter
 
-            } catch (e: Exception) {
-                // Detailed error logging
-                android.util.Log.e("PlanDetails", "Error fetching channels", e)
+                // 6. KEY FOR TV: Transfer focus into the list so scrolling works immediately
+                binding.rvPlanChannels.postDelayed({
+                    binding.rvPlanChannels.requestFocus()
+                    binding.rvPlanChannels.layoutManager?.findViewByPosition(0)?.requestFocus()
+                }, 150)
 
-                binding.tvDetailChannelCount.text = "Error: ${e.localizedMessage}"
-                Toast.makeText(this@UserActivity, "API Error: Check Logcat", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                android.util.Log.e("PlanDetails", "Error loading plan channels", e)
+                binding.tvDetailChannelCount.text = if (isKa) "ვერ ჩაიტვირთა" else "Failed to load"
             }
         }
     }
@@ -271,41 +289,53 @@ class UserActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // Handle Overlay Back
-        if (isDetailsOpen && keyCode == KeyEvent.KEYCODE_BACK) {
-            binding.planDetailsOverlay.visibility = View.GONE
-            isDetailsOpen = false
-            return true
+        // ── CASE A: Plan Details Overlay is Open ──
+        if (isDetailsOpen) {
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                binding.planDetailsOverlay.visibility = View.GONE
+                isDetailsOpen = false
+                applyFocus(2) // Return focus to the plans cards
+                return true
+            }
+            // Important: Let the system handle DPAD keys so the RecyclerView scrolls naturally
+            return super.onKeyDown(keyCode, event)
         }
 
+        // ── CASE B: Main Profile Screen Navigation ──
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
                 when (focusZone) {
-                    2 -> applyFocus(3)
-                    3 -> applyFocus(0)
+                    2 -> applyFocus(3) // From Plans to Remote button
+                    3 -> applyFocus(0) // From Remote to Back button
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 when (focusZone) {
-                    0, 1, 4 -> applyFocus(3)
-                    3 -> if (planCount > 0) applyFocus(2)
+                    0, 1, 4 -> applyFocus(3)    // From Top bar to Remote
+                    3 -> if (planCount > 0) applyFocus(2) // From Remote to Plans
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 when (focusZone) {
-                    1 -> applyFocus(0)
-                    4 -> applyFocus(1)
-                    2 -> if (planFocusIndex > 0) { planFocusIndex--; applyFocus(2) }
+                    1 -> applyFocus(0) // From Logout to Back
+                    4 -> applyFocus(1) // From Lang to Logout
+                    2 -> if (planFocusIndex > 0) {
+                        planFocusIndex--
+                        applyFocus(2)
+                    }
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 when (focusZone) {
-                    0 -> applyFocus(1)
-                    1 -> applyFocus(4)
-                    2 -> if (planFocusIndex < planCount - 1) { planFocusIndex++; applyFocus(2) }
+                    0 -> applyFocus(1) // From Back to Logout
+                    1 -> applyFocus(4) // From Logout to Lang
+                    2 -> if (planFocusIndex < planCount - 1) {
+                        planFocusIndex++
+                        applyFocus(2)
+                    }
                 }
                 true
             }
@@ -315,11 +345,17 @@ class UserActivity : AppCompatActivity() {
                     1 -> doLogout()
                     3 -> toggleMobileRemote()
                     4 -> binding.btnUserLang.performClick()
-                    2 -> showPlanDetails(planAdapter.getPlan(planFocusIndex))
+                    2 -> {
+                        val selectedPlan = planAdapter.getPlan(planFocusIndex)
+                        showPlanDetails(selectedPlan)
+                    }
                 }
                 true
             }
-            KeyEvent.KEYCODE_BACK -> { finish(); true }
+            KeyEvent.KEYCODE_BACK -> {
+                finish()
+                true
+            }
             else -> super.onKeyDown(keyCode, event)
         }
     }

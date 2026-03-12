@@ -1,25 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="140dp"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="8dp">
+    android:padding="10dp"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:background="@drawable/epg_channel_item_glass"> <!-- Reuse existing glass selector -->
 
-    <ImageView
-        android:id="@+id/ivPlanChannelLogo"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:scaleType="fitCenter"/>
+    <FrameLayout
+        android:id="@+id/logoContainer"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="@drawable/epg_logo_bg"
+        android:padding="12dp"
+        android:duplicateParentState="true"> <!-- Container reacts to parent focus -->
+
+        <ImageView
+            android:id="@+id/ivPlanChannelLogo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"/>
+    </FrameLayout>
 
     <TextView
         android:id="@+id/tvPlanChannelName"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#F1F5F9"
-        android:textSize="11sp"
+        android:textColor="#D1D5DB"
+        android:textSize="12sp"
         android:gravity="center"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="8dp"
         android:maxLines="2"
-        android:ellipsize="end"/>
+        android:ellipsize="end"
+        android:duplicateParentState="true"/>
+
 </LinearLayout>
