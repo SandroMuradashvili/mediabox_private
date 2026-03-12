@@ -568,31 +568,48 @@ class EpgOverlayManager(
             val nowBadge:  TextView? = itemView.findViewById(R.id.tvNowBadge)
             val dateCol:   TextView? = itemView.findViewById(R.id.tvProgramDate)
 
-            init {
-                itemView.setOnClickListener {
-                    val pos = adapterPosition
-                    if (pos != RecyclerView.NO_POSITION)
-                        (items[pos] as? ProgramItem.ProgramData)?.let { onProgramClick(it.program) }
-                }
-            }
-
             fun bind(program: Program, isHighlighted: Boolean) {
+                val now = System.currentTimeMillis()
+                val isPlaying = program.isCurrentlyPlaying(now)
+                val isPast    = program.endTime < now
+                val isFuture  = program.startTime > now // Define future status
+
                 time.text  = "${timeFmt.format(Date(program.startTime))}–${timeFmt.format(Date(program.endTime))}"
                 title.text = program.title
                 dateCol?.text = rowDateFmt.format(Date(program.startTime))
-
-                val isPlaying = program.isCurrentlyPlaying()
-                val isPast    = program.endTime < System.currentTimeMillis()
 
                 itemView.isActivated = isHighlighted
                 itemView.isSelected  = isPlaying && !isHighlighted
                 accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
                 nowBadge?.visibility  = if (isPlaying) View.VISIBLE else View.GONE
 
-                time.setTextColor(if (isHighlighted || isPlaying) 0xFFB0B3F5.toInt() else if (isPast) 0xC46366F1.toInt() else 0x886366F1.toInt())
-                title.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xEEF1F5F9.toInt())
-                dateCol?.setTextColor(if (isHighlighted) 0xAAB0B3F5.toInt() else if (isPast) 0x8094A3B8.toInt() else 0x3594A3B8.toInt())
-                itemView.alpha = if (isHighlighted || isPast || isPlaying) 1f else 0.8f
+                // 1. Text Color Logic
+                time.setTextColor(when {
+                    isHighlighted || isPlaying -> 0xFFB0B3F5.toInt() // Bright primary
+                    isPast -> 0xC46366F1.toInt()                    // Muted primary
+                    else -> 0x446366F1.toInt()                      // Very dim primary for future
+                })
+
+                title.setTextColor(when {
+                    isHighlighted -> 0xFFF1F5F9.toInt()             // Pure white
+                    isFuture -> 0x55F1F5F9.toInt()                  // Dim white for future
+                    else -> 0xEEF1F5F9.toInt()                      // Standard white
+                })
+
+                dateCol?.setTextColor(when {
+                    isHighlighted -> 0xAAB0B3F5.toInt()
+                    isFuture -> 0x2294A3B8.toInt()                  // Barely visible date
+                    else -> 0x8094A3B8.toInt()
+                })
+
+                // 2. Alpha (Dimming) Logic
+                itemView.alpha = when {
+                    isHighlighted -> 1.0f
+                    isPlaying     -> 1.0f
+                    isPast        -> 0.85f // Past/Archive is slightly dimmed
+                    isFuture      -> 0.35f // FUTURE is now significantly dimmed
+                    else          -> 1.0f
+                }
             }
         }
 
