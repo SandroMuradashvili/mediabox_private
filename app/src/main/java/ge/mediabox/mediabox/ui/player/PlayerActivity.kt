@@ -1,5 +1,8 @@
 package ge.mediabox.mediabox.ui.player
 
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.RenderersFactory
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -75,6 +78,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.setBackgroundDrawableResource(android.R.color.transparent)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -117,19 +121,69 @@ class PlayerActivity : AppCompatActivity() {
         player?.release(); player = null
     }
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun initializePlayer() {
-        val rf = DefaultRenderersFactory(this).setEnableDecoderFallback(true)
-        player = ExoPlayer.Builder(this, rf).build().also { exo ->
-            binding.playerView.player = exo
-            exo.addListener(playerListener)
-            exo.playWhenReady = true
-        }
+        val renderersFactory = DefaultRenderersFactory(this)
+            .setEnableDecoderFallback(true)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+
+        // 1. Aggressive Bitrate Estimate: Assume high speed so it doesn't "handshake" at low quality
+        val bandwidthMeter = DefaultBandwidthMeter.Builder(this)
+            .setInitialBitrateEstimate(25_000_000L)
+            .build()
+
+        // 2. ULTRA FAST LOAD CONTROL: Reduced buffer requirements for instant start
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15_000, // Min buffer 15s (down from 30s)
+                50_000, // Max buffer 50s
+                800,    // START playback after only 800ms is buffered (Instant feel)
+                1500    // Re-buffer threshold
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        player = ExoPlayer.Builder(this, renderersFactory)
+            .setBandwidthMeter(bandwidthMeter)
+            .setLoadControl(loadControl)
+            .build().also { exo ->
+                binding.playerView.player = exo
+                exo.addListener(playerListener)
+                exo.playWhenReady = true
+            }
     }
 
     private val playerListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(state: Int) {
-            binding.loadingIndicator.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
+
+        override fun onRenderedFirstFrame() {
+            // Smooth cross-fade transition
+            binding.videoPlaceholder.animate()
+                .alpha(0f)
+                .setDuration(50) // 400ms feels smooth on TV
+                .withEndAction {
+                    binding.videoPlaceholder.visibility = View.GONE
+                    binding.videoPlaceholder.alpha = 1f // Reset for next channel switch
+                }
+                .start()
         }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            // Use our own indicator, hide Media3's default one
+            binding.loadingIndicator.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
+
+            if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
+                binding.videoPlaceholder.visibility = View.VISIBLE
+            }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            // On fatal error, show placeholder so user doesn't see a frozen/corrupt frame
+            binding.videoPlaceholder.visibility = View.VISIBLE
+            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                returnToLive()
+            }
+        }
+
         override fun onTracksChanged(tracks: Tracks) {
             if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks)
         }
@@ -137,6 +191,7 @@ class PlayerActivity : AppCompatActivity() {
         override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
             updateQualityDisplay(videoSize.height)
         }
+
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -148,9 +203,6 @@ class PlayerActivity : AppCompatActivity() {
             }
             updateLiveIndicatorState()
             updateRewindButtonAvailability()
-        }
-        override fun onPlayerError(error: PlaybackException) {
-            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) returnToLive()
         }
     }
 
@@ -211,17 +263,19 @@ class PlayerActivity : AppCompatActivity() {
     private fun playChannel(index: Int) {
         if (index !in channels.indices || channels[index].isLocked) return
 
-        // FIX: Update index immediately so Top Bar reflects the NEW channel
         currentChannelIndex = index
         val channel = channels[index]
 
         isLiveMode = true
         livePausedAt = null
         archiveBaseTimestamp = 0
-        playingArchiveChannelId = -1 // Reset archive state
+        playingArchiveChannelId = -1
         lastArchiveUrlTemplate = null
 
-        updateOverlayInfo() // Sync UI (Top Bar) immediately
+        // Show placeholder to hide the transition
+        binding.videoPlaceholder.visibility = View.VISIBLE
+
+        updateOverlayInfo()
         fetchProgramsForCurrentChannel()
         showTopBarTemporarily()
 
@@ -291,23 +345,19 @@ class PlayerActivity : AppCompatActivity() {
     private suspend fun refreshStreamSeamlessly() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
 
-        // Fetch new URL from API
-        val newUrl = if (isLiveMode) {
-            repository.getStreamUrl(channel.id)
-        } else {
-            // If in archive, use the current absolute playback time
-            repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+        val newUrl = withContext(Dispatchers.IO) {
+            if (isLiveMode) {
+                repository.getStreamUrl(channel.id)
+            } else {
+                repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+            }
         }
 
-        if (newUrl != null && newUrl != currentStreamUrl) {
+        if (!newUrl.isNullOrBlank() && newUrl != currentStreamUrl) {
             currentStreamUrl = newUrl
-
-            // This is the "Magic" part for Seamless update in Media3/ExoPlayer:
-            // By using setMediaItem with 'resetPosition = false',
-            // the player swaps the manifest/token but continues playing from current buffer.
+            // CRITICAL: resetPosition = false ensures no gap in video
+            // We DO NOT touch the placeholder here so it stays seamless.
             player?.setMediaItem(MediaItem.fromUri(newUrl), false)
-
-            // Reschedule for the NEXT expiry
             scheduleStreamRefresh()
         }
     }
@@ -329,36 +379,31 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        // 1. Find and update the current channel index first
         val targetIndex = channels.indexOfFirst { it.id == channelId }
         if (targetIndex != -1) {
             currentChannelIndex = targetIndex
         }
 
+        // Show placeholder to hide the transition
+        binding.videoPlaceholder.visibility = View.VISIBLE
+
         val channel = channels[currentChannelIndex]
         isLiveMode = false
         livePausedAt = null
 
-        // 2. Optimization Logic:
-        // Only swap the URL if we are already watching an archive of the SAME channel.
-        // If it's a different channel, we MUST fetch a new URL from the API.
         if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
             archiveBaseTimestamp = timestampMs
             val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
-
-            // Skip the API call and play directly
             player?.setMediaItem(MediaItem.fromUri(optimizedUrl))
             player?.prepare()
             player?.play()
             updateOverlayInfo()
         } else {
-            // Different channel or first time: Fetch from API
             archiveBaseTimestamp = timestampMs
             playingArchiveChannelId = channelId
-
             loadStream {
                 val url = repository.getArchiveUrl(channelId, timestampMs)
-                lastArchiveUrlTemplate = url // Store template for future rewinds on THIS channel
+                lastArchiveUrlTemplate = url
                 url
             }
         }
