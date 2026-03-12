@@ -5,24 +5,25 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- 1. The Player: Using texture_view for perfect Z-index and no gray flashes -->
+    <!-- 1. The Player: texture_view allows us to hide initialization mess with a placeholder -->
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@android:color/black"
         app:use_controller="false"
         app:surface_type="texture_view"
         app:resize_mode="fixed_width"
-        app:shutter_background_color="@android:color/transparent"
+        app:shutter_background_color="@android:color/black"
         app:show_buffering="never"
         app:use_artwork="false" />
 
-    <!-- 2. The Placeholder: Matches main background, hides decoder initialization -->
+    <!-- 2. The Black Placeholder: Sits ON TOP of the player to hide resizing -->
     <View
         android:id="@+id/videoPlaceholder"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#0D1117"
+        android:background="@android:color/black"
         android:visibility="visible" />
 
     <!-- 3. Control Overlay -->
@@ -41,7 +42,7 @@
         android:layout_height="match_parent"
         android:visibility="gone" />
 
-    <!-- 5. Branded Loading Indicator -->
+    <!-- 5. Loading Indicator (Hidden by default to avoid circles) -->
     <ProgressBar
         android:id="@+id/loadingIndicator"
         android:layout_width="60dp"

@@ -121,10 +121,16 @@ object ApiService {
     } catch (e: Exception) { false }
 
     fun fetchStreamUrl(channelId: String, deviceId: String, token: String? = null): StreamResponse? = try {
+        print(token + "    Sandro")
         val conn = openGet("$BASE_URL/channels/$channelId/stream?device_id=$deviceId", token)
         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-            StreamResponse(json.getString("url"), json.optLong("expires_at", 0), json.optLong("server_time", 0))
+            StreamResponse(
+                json.getString("url"),
+                json.optLong("expires_at", 0),
+                json.optLong("server_time", 0),
+                json.optInt("hoursBack", 0) // Capture archive window
+            )
         } else null
     } catch (e: Exception) { null }
 
@@ -132,7 +138,12 @@ object ApiService {
         val conn = openGet("$BASE_URL/channels/$channelId/archive?timestamp=$ts&device_id=$deviceId", token)
         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-            StreamResponse(json.getString("url"), json.optLong("expires_at", 0), 0, json.optInt("hoursBack", 0))
+            StreamResponse(
+                json.getString("url"),
+                json.optLong("expires_at", 0),
+                0,
+                json.optInt("hoursBack", 0) // Capture archive window
+            )
         } else null
     } catch (e: Exception) { null }
 

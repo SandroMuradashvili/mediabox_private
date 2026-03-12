@@ -1,7 +1,6 @@
 package ge.mediabox.mediabox.ui.player
 
 import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import android.os.Bundle
 import android.os.Handler
@@ -24,11 +23,12 @@ import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
 import ge.mediabox.mediabox.ui.LangPrefs
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 
 class PlayerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerBinding
@@ -42,18 +42,19 @@ class PlayerActivity : AppCompatActivity() {
     private var isTimeRewindVisible = false
     private var isLiveMode = true
     private var livePausedAt: Long? = null
-
-    private var streamExpiryJob: Job? = null
-
-    private var currentStreamUrl: String? = null
-
     private var isPlayerPlaying = true
     private var userIntentionallyPaused = false
-
     private var playingArchiveChannelId: Int = -1
+    private var archiveBaseTimestamp: Long = 0L
+    private var lastArchiveUrlTemplate: String? = null
 
-    private var archiveBaseTimestamp: Long = 0L // The start timestamp of the archive request
-    private var lastArchiveUrlTemplate: String? = null // For optimized seeking
+    // Zap & Cache Logic
+    private val zapHandler = Handler(Looper.getMainLooper())
+    private var zapRunnable: Runnable? = null
+    private var isBrowsing = false
+    private var prefetchJob: Job? = null
+    private var streamExpiryJob: Job? = null
+    private var currentStreamUrl: String? = null
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
@@ -72,53 +73,35 @@ class PlayerActivity : AppCompatActivity() {
     private var pendingStreamJob: Job? = null
     private var pendingProgramJob: Job? = null
 
-    private val authToken: String?
-        get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
+    private val authToken: String? get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.setBackgroundDrawableResource(android.R.color.transparent)
+        window.setBackgroundDrawableResource(android.R.color.black)
+
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         lifecycleScope.launch {
-            binding.loadingIndicator.visibility = View.VISIBLE
             val isKa = LangPrefs.isKa(this@PlayerActivity)
-
-            // initialize now handles category fetching, channel fetching, and favorite syncing
             repository.initialize(authToken, isKa)
-
             channels = repository.getAllChannels()
+
             initializePlayer()
             setupOverlays()
             setupControlButtons()
 
             val firstUnlocked = channels.indexOfFirst { !it.isLocked }
-            if (firstUnlocked >= 0) playChannel(firstUnlocked)
-
-            binding.loadingIndicator.visibility = View.GONE
+            if (firstUnlocked >= 0) {
+                currentChannelIndex = firstUnlocked
+                // Use a short delay so the Top Bar isn't "blocked" by the activity loading
+                zapHandler.postDelayed({
+                    playChannel(firstUnlocked)
+                }, 300)
+            }
             isInitialized = true
         }
-    }
-
-    private fun getCurrentAbsoluteTime(): Long {
-        return if (isLiveMode) {
-            livePausedAt ?: System.currentTimeMillis()
-        } else {
-            // archiveBaseTimestamp (the epoch you started at) + player progress
-            archiveBaseTimestamp + (player?.currentPosition ?: 0L)
-        }
-    }
-
-    override fun onPause() { super.onPause(); player?.pause() }
-    override fun onResume() { super.onResume(); if (!userIntentionallyPaused) player?.play() }
-    override fun onDestroy() {
-        super.onDestroy()
-        pendingStreamJob?.cancel(); pendingProgramJob?.cancel()
-        pauseTickHandler.removeCallbacksAndMessages(null)
-        hideControlsHandler.removeCallbacksAndMessages(null)
-        player?.release(); player = null
     }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -127,25 +110,23 @@ class PlayerActivity : AppCompatActivity() {
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
-        // 1. Aggressive Bitrate Estimate: Assume high speed so it doesn't "handshake" at low quality
         val bandwidthMeter = DefaultBandwidthMeter.Builder(this)
             .setInitialBitrateEstimate(25_000_000L)
             .build()
 
-        // 2. ULTRA FAST LOAD CONTROL: Reduced buffer requirements for instant start
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15_000, // Min buffer 15s (down from 30s)
-                50_000, // Max buffer 50s
-                800,    // START playback after only 800ms is buffered (Instant feel)
-                1500    // Re-buffer threshold
-            )
+            .setBufferDurationsMs(15_000, 50_000, 800, 1500)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
+
+        val hlsFactory = androidx.media3.exoplayer.hls.HlsMediaSource.Factory(
+            androidx.media3.datasource.DefaultDataSource.Factory(this)
+        ).setAllowChunklessPreparation(true)
 
         player = ExoPlayer.Builder(this, renderersFactory)
             .setBandwidthMeter(bandwidthMeter)
             .setLoadControl(loadControl)
+            .setMediaSourceFactory(hlsFactory)
             .build().also { exo ->
                 binding.playerView.player = exo
                 exo.addListener(playerListener)
@@ -154,44 +135,20 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private val playerListener = object : Player.Listener {
-
         override fun onRenderedFirstFrame() {
-            // Smooth cross-fade transition
-            binding.videoPlaceholder.animate()
-                .alpha(0f)
-                .setDuration(50) // 400ms feels smooth on TV
-                .withEndAction {
-                    binding.videoPlaceholder.visibility = View.GONE
-                    binding.videoPlaceholder.alpha = 1f // Reset for next channel switch
-                }
-                .start()
+            binding.videoPlaceholder.visibility = View.GONE
         }
-
         override fun onPlaybackStateChanged(state: Int) {
-            // Use our own indicator, hide Media3's default one
-            binding.loadingIndicator.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
-
             if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
                 binding.videoPlaceholder.visibility = View.VISIBLE
             }
         }
-
         override fun onPlayerError(error: PlaybackException) {
-            // On fatal error, show placeholder so user doesn't see a frozen/corrupt frame
             binding.videoPlaceholder.visibility = View.VISIBLE
-            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                returnToLive()
-            }
+            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) returnToLive()
         }
-
-        override fun onTracksChanged(tracks: Tracks) {
-            if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks)
-        }
-
-        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-            updateQualityDisplay(videoSize.height)
-        }
-
+        override fun onTracksChanged(tracks: Tracks) { if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks) }
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) { updateQualityDisplay(videoSize.height) }
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -206,31 +163,218 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun changeChannel(direction: Int) {
+        isBrowsing = true
+        zapRunnable?.let { zapHandler.removeCallbacks(it) }
+
+        var index = currentChannelIndex
+        repeat(channels.size) {
+            index = (index + direction + channels.size) % channels.size
+            if (!channels[index].isLocked) {
+                currentChannelIndex = index
+                updateOverlayInfo()
+                showTopBarTemporarily()
+                val runnable = Runnable {
+                    isBrowsing = false
+                    playChannel(currentChannelIndex)
+                }
+                zapRunnable = runnable
+                zapHandler.postDelayed(runnable, 400)
+                return
+            }
+        }
+    }
+
+    private fun playChannel(index: Int) {
+        if (index !in channels.indices || channels[index].isLocked) return
+        currentChannelIndex = index
+        val channel = channels[index]
+        isLiveMode = true
+        livePausedAt = null
+        archiveBaseTimestamp = 0
+        playingArchiveChannelId = -1
+        lastArchiveUrlTemplate = null
+
+        if (!isBrowsing) binding.videoPlaceholder.visibility = View.VISIBLE
+
+        updateOverlayInfo()
+        fetchProgramsForCurrentChannel()
+        prefetchNeighbors(index)
+        loadStream { repository.getStreamUrl(channel.id, useCache = true) }
+    }
+
+    private fun loadStream(urlProvider: suspend () -> String?) {
+        pendingStreamJob?.cancel()
+        pendingStreamJob = lifecycleScope.launch {
+            val channel = channels.getOrNull(currentChannelIndex)
+
+            // We fetch the full response so we can get the 'hoursBack' metadata
+            val resp = withContext(Dispatchers.IO) {
+                if (isLiveMode) {
+                    channel?.let { ApiService.fetchStreamUrl(it.apiId, "tv-device", authToken) }
+                } else null
+            }
+
+            val url = resp?.url ?: urlProvider()
+
+            // Update the archive window limit in the channel object
+            if (resp != null && channel != null) {
+                if (resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
+            }
+
+            if (url != null) {
+                currentStreamUrl = url
+                player?.setMediaItem(MediaItem.fromUri(url))
+                player?.prepare()
+                player?.play()
+                scheduleStreamRefresh()
+                updateOverlayInfo()
+                updateLiveIndicatorState()
+            }
+        }
+    }
+
+    private fun prefetchNeighbors(currentIndex: Int) {
+        prefetchJob?.cancel()
+        prefetchJob = lifecycleScope.launch {
+            delay(2000)
+            val next = (currentIndex + 1) % channels.size
+            val prev = (currentIndex - 1 + channels.size) % channels.size
+            if (!channels[next].isLocked) repository.getStreamUrl(channels[next].id)
+            if (!channels[prev].isLocked) repository.getStreamUrl(channels[prev].id)
+        }
+    }
+
+    private fun scheduleStreamRefresh() {
+        streamExpiryJob?.cancel()
+        val url = currentStreamUrl ?: return
+        val expiryMs = repository.extractExpiryFromUrl(url)
+        val currentTime = System.currentTimeMillis()
+        if (expiryMs > currentTime) {
+            val refreshDelay = (expiryMs - currentTime) - 60000L
+            if (refreshDelay > 0L) {
+                streamExpiryJob = lifecycleScope.launch {
+                    delay(refreshDelay)
+                    refreshStreamSeamlessly()
+                }
+            } else lifecycleScope.launch { refreshStreamSeamlessly() }
+        }
+    }
+
+    private suspend fun refreshStreamSeamlessly() {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        val newUrl = withContext(Dispatchers.IO) {
+            if (isLiveMode) repository.getStreamUrl(channel.id)
+            else repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+        }
+        if (!newUrl.isNullOrBlank() && newUrl != currentStreamUrl) {
+            currentStreamUrl = newUrl
+            player?.setMediaItem(MediaItem.fromUri(newUrl), false)
+            scheduleStreamRefresh()
+        }
+    }
+
+    private fun updateOverlayInfo() {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        val currentTs = getCurrentAbsoluteTime()
+
+        // Find current program
+        val currentProgram = channel.programs.find { currentTs in it.startTime until it.endTime }
+
+        // Update the HUD
+        controlOverlayManager.updateChannelInfo(
+            channel,
+            currentProgram,
+            if (isLiveMode && livePausedAt == null) null else currentTs,
+            isPlayerPlaying
+        )
+
+        // Refresh the Rewind Manager's knowledge of the archive limit
+        if (::timeRewindManager.isInitialized && isTimeRewindVisible) {
+            // This forces the picker to re-check the "Outside window" error
+        }
+    }
+
+    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
+        val targetIndex = channels.indexOfFirst { it.id == channelId }
+        if (targetIndex != -1) currentChannelIndex = targetIndex
+
+        // Ensure UI shows up during archive switch
+        isBrowsing = false
+        binding.videoPlaceholder.visibility = View.VISIBLE
+
+        val channel = channels[currentChannelIndex]
+        isLiveMode = false
+        livePausedAt = null
+
+        // 1. Fetch programs for this specific time
+        fetchProgramsForCurrentChannel()
+
+        if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
+            archiveBaseTimestamp = timestampMs
+            val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
+            player?.setMediaItem(MediaItem.fromUri(optimizedUrl))
+            player?.prepare(); player?.play()
+            updateOverlayInfo()
+        } else {
+            archiveBaseTimestamp = timestampMs
+            playingArchiveChannelId = channelId
+            loadStream {
+                // Fetch archive URL and its specific metadata
+                val resp = withContext(Dispatchers.IO) {
+                    ApiService.fetchArchiveUrl(channel.apiId, timestampMs / 1000, "tv-device", authToken)
+                }
+                if (resp != null && resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
+                lastArchiveUrlTemplate = resp?.url
+                resp?.url
+            }
+        }
+        showTopBarTemporarily()
+    }
+
+    private fun fetchProgramsForCurrentChannel() {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        pendingProgramJob?.cancel()
+        pendingProgramJob = lifecycleScope.launch {
+            val programs = withContext(Dispatchers.IO) {
+                runCatching { ApiService.fetchPrograms(channel.apiId) }.getOrDefault(emptyList())
+            }
+            channel.programs = programs
+
+            // KEY FIX: After programs are downloaded, update the HUD title immediately
+            updateOverlayInfo()
+        }
+    }
+
+    private fun getCurrentAbsoluteTime(): Long = if (isLiveMode) livePausedAt ?: System.currentTimeMillis() else archiveBaseTimestamp + (player?.currentPosition ?: 0L)
+    override fun onPause() { super.onPause(); player?.pause() }
+    override fun onResume() { super.onResume(); if (!userIntentionallyPaused) player?.play() }
+    override fun onDestroy() {
+        super.onDestroy()
+        pendingStreamJob?.cancel(); pendingProgramJob?.cancel()
+        zapHandler.removeCallbacksAndMessages(null)
+        pauseTickHandler.removeCallbacksAndMessages(null)
+        hideControlsHandler.removeCallbacksAndMessages(null)
+        player?.release(); player = null
+    }
+
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
                 val parts = instruction.split(":")
-                if (parts.size >= 4) {
-                    val chId = parts[1].toIntOrNull() ?: -1
-                    val ts = parts[3].toLongOrNull() ?: 0L
-                    playArchiveAt(chId, ts)
-                }
+                if (parts.size >= 4) playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
                 hideEpg()
             }
         )
-        val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also {
-            it.visibility = View.GONE; binding.root.addView(it)
-        }
+        val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
         timeRewindManager = TimeRewindOverlayManager(activity = this, overlayView = rewindOverlayView,
             channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
             onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
             onDismiss = { isTimeRewindVisible = false })
 
-        val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also {
-            it.visibility = View.GONE; binding.root.addView(it)
-        }
+        val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
         trackSelectionManager = TrackSelectionOverlayManager(this, trackOverlayView, { player })
         trackSelectionManager.init()
     }
@@ -246,204 +390,21 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
-
-            // Target the Layout Pill instead of ImageButton
-            findViewById<View>(R.id.btnQualityLayout)?.setOnClickListener {
-                hideControls()
-                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO)
-            }
-
-            findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener {
-                hideControls()
-                trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO)
-            }
+            findViewById<View>(R.id.btnQualityLayout)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO) }
+            findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO) }
         }
-    }
-
-    private fun playChannel(index: Int) {
-        if (index !in channels.indices || channels[index].isLocked) return
-
-        currentChannelIndex = index
-        val channel = channels[index]
-
-        isLiveMode = true
-        livePausedAt = null
-        archiveBaseTimestamp = 0
-        playingArchiveChannelId = -1
-        lastArchiveUrlTemplate = null
-
-        // Show placeholder to hide the transition
-        binding.videoPlaceholder.visibility = View.VISIBLE
-
-        updateOverlayInfo()
-        fetchProgramsForCurrentChannel()
-        showTopBarTemporarily()
-
-        loadStream { repository.getStreamUrl(channel.id) }
-    }
-
-    private fun fetchProgramsForCurrentChannel() {
-        val channel = channels.getOrNull(currentChannelIndex) ?: return
-        pendingProgramJob?.cancel()
-        pendingProgramJob = lifecycleScope.launch {
-            val programs = withContext(Dispatchers.IO) {
-                runCatching { ApiService.fetchPrograms(channel.apiId) }.getOrDefault(emptyList())
-            }
-            channel.programs = programs
-            updateOverlayInfo()
-        }
-    }
-
-
-
-    private fun loadStream(urlProvider: suspend () -> String?) {
-        binding.loadingIndicator.visibility = View.VISIBLE
-        pendingStreamJob?.cancel()
-        pendingStreamJob = lifecycleScope.launch {
-            val url = urlProvider()
-            if (url != null) {
-                currentStreamUrl = url
-
-                // 1. Play the stream
-                val mediaItem = MediaItem.fromUri(url)
-                player?.setMediaItem(mediaItem)
-                player?.prepare()
-                player?.play()
-
-                // 2. Schedule the seamless refresh
-                scheduleStreamRefresh()
-
-                updateOverlayInfo()
-                updateLiveIndicatorState()
-            }
-            binding.loadingIndicator.visibility = View.GONE
-        }
-    }
-
-    private fun scheduleStreamRefresh() {
-        // Cancel any existing refresh timer
-        streamExpiryJob?.cancel()
-
-        val url = currentStreamUrl ?: return
-
-        // Extract expiry from the URL parameter (the last epoch timestamp)
-        val expiryMs = repository.extractExpiryFromUrl(url)
-        if (expiryMs <= 0) return
-
-        val currentTime = System.currentTimeMillis()
-        // Calculate delay: Refresh 60 seconds BEFORE it expires
-        val refreshDelay = (expiryMs - currentTime) - 60000L
-
-        if (refreshDelay > 0) {
-            streamExpiryJob = lifecycleScope.launch(Dispatchers.Main) {
-                delay(refreshDelay)
-                refreshStreamSeamlessly()
-            }
-        }
-    }
-
-    private suspend fun refreshStreamSeamlessly() {
-        val channel = channels.getOrNull(currentChannelIndex) ?: return
-
-        val newUrl = withContext(Dispatchers.IO) {
-            if (isLiveMode) {
-                repository.getStreamUrl(channel.id)
-            } else {
-                repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
-            }
-        }
-
-        if (!newUrl.isNullOrBlank() && newUrl != currentStreamUrl) {
-            currentStreamUrl = newUrl
-            // CRITICAL: resetPosition = false ensures no gap in video
-            // We DO NOT touch the placeholder here so it stays seamless.
-            player?.setMediaItem(MediaItem.fromUri(newUrl), false)
-            scheduleStreamRefresh()
-        }
-    }
-
-    private fun updateOverlayInfo() {
-        val channel = channels.getOrNull(currentChannelIndex) ?: return
-        val currentTs = getCurrentAbsoluteTime()
-
-        // Find program based on the dynamic absolute time
-        val currentProgram = channel.programs.find { currentTs in it.startTime until it.endTime }
-
-        // Update the HUD
-        controlOverlayManager.updateChannelInfo(
-            channel,
-            currentProgram,
-            if (isLiveMode && livePausedAt == null) null else currentTs,
-            isPlayerPlaying
-        )
-    }
-
-    private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        val targetIndex = channels.indexOfFirst { it.id == channelId }
-        if (targetIndex != -1) {
-            currentChannelIndex = targetIndex
-        }
-
-        // Show placeholder to hide the transition
-        binding.videoPlaceholder.visibility = View.VISIBLE
-
-        val channel = channels[currentChannelIndex]
-        isLiveMode = false
-        livePausedAt = null
-
-        if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
-            archiveBaseTimestamp = timestampMs
-            val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
-            player?.setMediaItem(MediaItem.fromUri(optimizedUrl))
-            player?.prepare()
-            player?.play()
-            updateOverlayInfo()
-        } else {
-            archiveBaseTimestamp = timestampMs
-            playingArchiveChannelId = channelId
-            loadStream {
-                val url = repository.getArchiveUrl(channelId, timestampMs)
-                lastArchiveUrlTemplate = url
-                url
-            }
-        }
-
-        fetchProgramsForCurrentChannel()
-        updateOverlayInfo()
-    }
-
-    private fun playDirectUrl(url: String) {
-        player?.setMediaItem(MediaItem.fromUri(url))
-        player?.prepare()
-        player?.play()
-        updateOverlayInfo()
     }
 
     private fun returnToLive() = playChannel(currentChannelIndex)
-    private fun rewindSeconds(s: Int) {
-        val targetTs = getCurrentAbsoluteTime() - (s * 1000L)
-        playArchiveAt(channels[currentChannelIndex].id, targetTs)
-    }
+    private fun rewindSeconds(s: Int) = playArchiveAt(channels[currentChannelIndex].id, getCurrentAbsoluteTime() - (s * 1000L))
     private fun forwardSeconds(s: Int) {
         val targetTs = getCurrentAbsoluteTime() + (s * 1000L)
-        if (targetTs >= System.currentTimeMillis()) {
-            returnToLive()
-        } else {
-            playArchiveAt(channels[currentChannelIndex].id, targetTs)
-        }
+        if (targetTs >= System.currentTimeMillis()) returnToLive() else playArchiveAt(channels[currentChannelIndex].id, targetTs)
     }
     private fun togglePlayPause() {
         val isPlaying = player?.isPlaying == true
         userIntentionallyPaused = isPlaying
         if (isPlaying) player?.pause() else player?.play()
-    }
-
-    private fun changeChannel(direction: Int) {
-        var index = currentChannelIndex
-        repeat(channels.size) {
-            index = (index + direction + channels.size) % channels.size
-            if (!channels[index].isLocked) { playChannel(index); return }
-        }
     }
 
     private fun updateLiveIndicatorState() {
@@ -462,13 +423,9 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showTopBarTemporarily() {
-        // Show the main overlay container
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
-
-        // Specifically show the Top Bar but HIDE the Bottom Section
         binding.root.findViewById<View>(R.id.topBar)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.GONE
-
         updateOverlayInfo()
         rescheduleHideControls()
     }
@@ -476,12 +433,9 @@ class PlayerActivity : AppCompatActivity() {
     private fun showControls() {
         if (trackSelectionManager.isVisible) return
         isControlsVisible = true
-
-        // Show everything
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.topBar)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.bottomSection)?.visibility = View.VISIBLE
-
         updateOverlayInfo()
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.requestFocus()
         rescheduleHideControls()
@@ -502,10 +456,7 @@ class PlayerActivity : AppCompatActivity() {
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
         epgOverlayManager.refreshData(channels)
-
-        // FIX: Pass the ID of the channel currently playing
-        val currentId = channels.getOrNull(currentChannelIndex)?.id ?: -1
-        epgOverlayManager.requestFocus(currentId)
+        epgOverlayManager.requestFocus(channels.getOrNull(currentChannelIndex)?.id ?: -1)
     }
 
     private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }
@@ -515,11 +466,10 @@ class PlayerActivity : AppCompatActivity() {
         val token = authToken ?: return
         val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return
         val willBeFavorite = !channel.isFavorite
-        val externalId = channel.apiId
         repository.setFavoriteLocal(channel.id, willBeFavorite)
         controlOverlayManager.updateFavoriteButton(willBeFavorite)
         lifecycleScope.launch(Dispatchers.IO) {
-            val success = if (willBeFavorite) repository.addFavouriteRemote(token, externalId) else repository.removeFavouriteRemote(token, externalId)
+            val success = if (willBeFavorite) repository.addFavouriteRemote(token, channel.apiId) else repository.removeFavouriteRemote(token, channel.apiId)
             if (!success) withContext(Dispatchers.Main) {
                 repository.setFavoriteLocal(channel.id, !willBeFavorite)
                 controlOverlayManager.updateFavoriteButton(!willBeFavorite)
@@ -546,21 +496,5 @@ class PlayerActivity : AppCompatActivity() {
         return handled || super.onKeyDown(keyCode, event)
     }
 
-    @OptIn(UnstableApi::class) private fun updateQualityDisplay(height: Int) {
-        val exo = player ?: return
-
-        // Check if the manifest actually offers more than 1 choice
-        val videoGroup = exo.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
-        val hasMultipleOptions = (videoGroup?.length ?: 0) > 1
-
-        // Check if we are currently in "Auto" mode (no manual overrides)
-        val isAutoMode = exo.trackSelectionParameters.overrides.entries.none {
-            it.key.type == androidx.media3.common.C.TRACK_TYPE_VIDEO
-        }
-
-        // Only show the word "Auto" if there's actually something to auto-switch between
-        val shouldShowAutoLabel = isAutoMode && hasMultipleOptions
-
-        controlOverlayManager.updateQualityInfo(height)
-    }
+    @OptIn(UnstableApi::class) private fun updateQualityDisplay(height: Int) = controlOverlayManager.updateQualityInfo(height)
 }
