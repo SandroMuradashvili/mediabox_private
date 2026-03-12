@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 class PlayerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerBinding
@@ -38,7 +39,11 @@ class PlayerActivity : AppCompatActivity() {
     private var isTimeRewindVisible = false
     private var isLiveMode = true
     private var livePausedAt: Long? = null
-    private var currentPlayingTimestamp = 0L
+
+    private var streamExpiryJob: Job? = null
+
+    private var currentStreamUrl: String? = null
+
     private var isPlayerPlaying = true
     private var userIntentionallyPaused = false
 
@@ -69,6 +74,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -111,7 +117,6 @@ class PlayerActivity : AppCompatActivity() {
         player?.release(); player = null
     }
 
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun initializePlayer() {
         val rf = DefaultRenderersFactory(this).setEnableDecoderFallback(true)
         player = ExoPlayer.Builder(this, rf).build().also { exo ->
@@ -235,12 +240,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadArchive(channelId: Int, timestampMs: Long) {
-        isLiveMode = false; livePausedAt = null; userIntentionallyPaused = false
-        currentPlayingTimestamp = timestampMs
-        fetchProgramsForCurrentChannel()
-        loadStream { repository.getArchiveUrl(channelId, timestampMs) }
-    }
+
 
     private fun loadStream(urlProvider: suspend () -> String?) {
         binding.loadingIndicator.visibility = View.VISIBLE
@@ -248,11 +248,67 @@ class PlayerActivity : AppCompatActivity() {
         pendingStreamJob = lifecycleScope.launch {
             val url = urlProvider()
             if (url != null) {
-                player?.setMediaItem(MediaItem.fromUri(url))
-                player?.prepare(); player?.play()
-                updateOverlayInfo(); updateLiveIndicatorState()
+                currentStreamUrl = url
+
+                // 1. Play the stream
+                val mediaItem = MediaItem.fromUri(url)
+                player?.setMediaItem(mediaItem)
+                player?.prepare()
+                player?.play()
+
+                // 2. Schedule the seamless refresh
+                scheduleStreamRefresh()
+
+                updateOverlayInfo()
+                updateLiveIndicatorState()
             }
             binding.loadingIndicator.visibility = View.GONE
+        }
+    }
+
+    private fun scheduleStreamRefresh() {
+        // Cancel any existing refresh timer
+        streamExpiryJob?.cancel()
+
+        val url = currentStreamUrl ?: return
+
+        // Extract expiry from the URL parameter (the last epoch timestamp)
+        val expiryMs = repository.extractExpiryFromUrl(url)
+        if (expiryMs <= 0) return
+
+        val currentTime = System.currentTimeMillis()
+        // Calculate delay: Refresh 60 seconds BEFORE it expires
+        val refreshDelay = (expiryMs - currentTime) - 60000L
+
+        if (refreshDelay > 0) {
+            streamExpiryJob = lifecycleScope.launch(Dispatchers.Main) {
+                delay(refreshDelay)
+                refreshStreamSeamlessly()
+            }
+        }
+    }
+
+    private suspend fun refreshStreamSeamlessly() {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+
+        // Fetch new URL from API
+        val newUrl = if (isLiveMode) {
+            repository.getStreamUrl(channel.id)
+        } else {
+            // If in archive, use the current absolute playback time
+            repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+        }
+
+        if (newUrl != null && newUrl != currentStreamUrl) {
+            currentStreamUrl = newUrl
+
+            // This is the "Magic" part for Seamless update in Media3/ExoPlayer:
+            // By using setMediaItem with 'resetPosition = false',
+            // the player swaps the manifest/token but continues playing from current buffer.
+            player?.setMediaItem(MediaItem.fromUri(newUrl), false)
+
+            // Reschedule for the NEXT expiry
+            scheduleStreamRefresh()
         }
     }
 

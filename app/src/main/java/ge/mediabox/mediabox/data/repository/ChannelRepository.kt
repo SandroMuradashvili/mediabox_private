@@ -16,6 +16,8 @@ object ChannelRepository {
     private fun getLabelFavs(isKa: Boolean) = if (isKa) "ფავორიტები" else "Favorites"
     private fun getLabelLocked(isKa: Boolean) = if (isKa) "მიუწვდომელი" else "Unavailable"
 
+    fun extractExpiryFromUrl(url: String): Long = ApiService.extractExpiryFromUrl(url)
+
     suspend fun initialize(token: String?, isKa: Boolean) = withContext(Dispatchers.IO) {
         if (isInitialized) return@withContext
         cachedApiCategories = ApiService.fetchCategories(token)

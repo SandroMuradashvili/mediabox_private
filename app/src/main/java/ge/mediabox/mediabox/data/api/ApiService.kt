@@ -18,6 +18,19 @@ object ApiService {
     data class ChannelsResponse(val channels: List<ApiChannel>, val accessibleIds: List<String>)
     data class StreamResponse(val url: String, val expiresAt: Long, val serverTime: Long, val hoursBack: Int = 0)
 
+
+    // Inside ApiService.kt
+    fun extractExpiryFromUrl(url: String): Long {
+        return try {
+            // Your URL ends with "...-1773351835-1773337135"
+            // We split by "-" and take the last element
+            val parts = url.split("-")
+            val lastPart = parts.last() // This is "1773337135"
+            lastPart.toLong() * 1000L   // Convert to milliseconds
+        } catch (e: Exception) {
+            0L
+        }
+    }
     private fun openGet(path: String, token: String? = null): HttpURLConnection {
         val conn = URL(path).openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
