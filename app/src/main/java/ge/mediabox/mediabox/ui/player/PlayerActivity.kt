@@ -329,7 +329,6 @@ class PlayerActivity : AppCompatActivity() {
                 resp?.url
             }
         }
-        showTopBarTemporarily()
     }
 
     private fun fetchProgramsForCurrentChannel() {
