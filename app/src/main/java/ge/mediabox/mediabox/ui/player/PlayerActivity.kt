@@ -58,13 +58,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
-    private val pauseTickHandler = Handler(Looper.getMainLooper())
-    private val pauseTickRunnable = object : Runnable {
-        override fun run() {
-            if (isControlsVisible) updateRewindButtonAvailability()
-            pauseTickHandler.postDelayed(this, 1000)
-        }
-    }
+
 
     private lateinit var controlOverlayManager: ControlOverlayManager
     private lateinit var epgOverlayManager: EpgOverlayManager
@@ -153,13 +147,10 @@ class PlayerActivity : AppCompatActivity() {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
                 livePausedAt = System.currentTimeMillis()
-                pauseTickHandler.post(pauseTickRunnable)
             } else if (playing && livePausedAt != null) {
                 livePausedAt = null
-                pauseTickHandler.removeCallbacks(pauseTickRunnable)
             }
             updateLiveIndicatorState()
-            updateRewindButtonAvailability()
         }
     }
 
@@ -296,8 +287,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        // 1. Check if the requested time is in the future or basically "now"
-        // If so, just switch to Live mode and stop processing archive logic.
+        // 1. If user tries to rewind/forward into the future, just go Live
         if (timestampMs >= System.currentTimeMillis()) {
             returnToLive()
             return
@@ -306,7 +296,7 @@ class PlayerActivity : AppCompatActivity() {
         val targetIndex = channels.indexOfFirst { it.id == channelId }
         if (targetIndex != -1) currentChannelIndex = targetIndex
 
-        // Ensure UI shows up during archive switch
+        // UI state updates
         isBrowsing = false
         binding.videoPlaceholder.visibility = View.VISIBLE
 
@@ -314,11 +304,11 @@ class PlayerActivity : AppCompatActivity() {
         isLiveMode = false
         livePausedAt = null
 
-        // Fetch programs for this specific time
+        // Fetch programs for the new time context
         fetchProgramsForCurrentChannel()
 
-        // Optimization: If we are already watching an archive on this channel,
-        // just swap the timestamp in the URL instead of doing a full reload.
+        // 2. Decide: Can we just swap the timestamp in the URL, or do we need a new URL?
+        // We only optimize if we are ALREADY in archive mode for THIS channel.
         if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
             archiveBaseTimestamp = timestampMs
             val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
@@ -327,23 +317,27 @@ class PlayerActivity : AppCompatActivity() {
             player?.play()
             updateOverlayInfo()
         } else {
+            // This is the first time we are entering archive from Live
             archiveBaseTimestamp = timestampMs
             playingArchiveChannelId = channelId
+
             loadStream {
-                // Fetch archive URL and its specific metadata
+                // This API call returns both the URL and the 'length' (hoursBack)
                 val resp = withContext(Dispatchers.IO) {
                     ApiService.fetchArchiveUrl(channel.apiId, timestampMs / 1000, "tv-device", authToken)
                 }
-                if (resp != null && resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
-                lastArchiveUrlTemplate = resp?.url
-                resp?.url
+
+                if (resp != null) {
+                    if (resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
+                    lastArchiveUrlTemplate = resp.url
+                    resp.url
+                } else {
+                    null
+                }
             }
         }
 
-        // Manage UI visibility
-        if (isControlsVisible) {
-            rescheduleHideControls()
-        }
+        if (isControlsVisible) rescheduleHideControls()
     }
 
     private fun fetchProgramsForCurrentChannel() {
@@ -360,14 +354,21 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun getCurrentAbsoluteTime(): Long = if (isLiveMode) livePausedAt ?: System.currentTimeMillis() else archiveBaseTimestamp + (player?.currentPosition ?: 0L)
+    private fun getCurrentAbsoluteTime(): Long {
+        return if (isLiveMode) {
+            // If we are live, the "absolute" time is right now
+            System.currentTimeMillis()
+        } else {
+            // If we are in archive, it's the start time of the archive + current player position
+            archiveBaseTimestamp + (player?.currentPosition ?: 0L)
+        }
+    }
     override fun onPause() { super.onPause(); player?.pause() }
     override fun onResume() { super.onResume(); if (!userIntentionallyPaused) player?.play() }
     override fun onDestroy() {
         super.onDestroy()
         pendingStreamJob?.cancel(); pendingProgramJob?.cancel()
         zapHandler.removeCallbacksAndMessages(null)
-        pauseTickHandler.removeCallbacksAndMessages(null)
         hideControlsHandler.removeCallbacksAndMessages(null)
         player?.release(); player = null
     }
@@ -410,10 +411,25 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun returnToLive() = playChannel(currentChannelIndex)
-    private fun rewindSeconds(s: Int) = playArchiveAt(channels[currentChannelIndex].id, getCurrentAbsoluteTime() - (s * 1000L))
+    private fun rewindSeconds(s: Int) {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+
+        // Simply calculate the target and try to play it.
+        // The server (or the subsequent boundary check) will handle limits.
+        val targetTs = getCurrentAbsoluteTime() - (s * 1000L)
+
+        playArchiveAt(channel.id, targetTs)
+    }
+
     private fun forwardSeconds(s: Int) {
         val targetTs = getCurrentAbsoluteTime() + (s * 1000L)
-        if (targetTs >= System.currentTimeMillis()) returnToLive() else playArchiveAt(channels[currentChannelIndex].id, targetTs)
+
+        // If the jump goes into the future, go back to Live URL
+        if (targetTs >= System.currentTimeMillis()) {
+            returnToLive()
+        } else {
+            playArchiveAt(channels[currentChannelIndex].id, targetTs)
+        }
     }
     private fun togglePlayPause() {
         val isPlaying = player?.isPlaying == true
@@ -427,14 +443,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(if (isPlayerPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
 
-    private fun updateRewindButtonAvailability() {
-        val pausedSeconds = livePausedAt?.let { (System.currentTimeMillis() - it) / 1000L } ?: 0L
-        val buttons = listOf(Pair(R.id.layoutForward15s, 15L), Pair(R.id.layoutForward1m, 60L), Pair(R.id.layoutForward5m, 300L))
-        for (button in buttons) {
-            val enabled = !isLiveMode || pausedSeconds >= button.second
-            binding.root.findViewById<View>(button.first)?.apply { alpha = if (enabled) 1f else 0.3f; isEnabled = enabled }
-        }
-    }
+
 
     private fun showTopBarTemporarily() {
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE

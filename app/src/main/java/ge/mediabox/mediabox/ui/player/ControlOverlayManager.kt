@@ -41,20 +41,17 @@ class ControlOverlayManager(
             root.findViewById<TextView>(R.id.tvProgramTitle)?.text = currentProgram.title
             root.findViewById<TextView>(R.id.tvProgramTime)?.text = "${timeFormat.format(Date(currentProgram.startTime))} – ${timeFormat.format(Date(currentProgram.endTime))}"
 
-            // FIX: Use streamTimestamp (the archive time) if available, otherwise use real time
             val playbackTime = streamTimestamp ?: System.currentTimeMillis()
-
-            // Pass the playbackTime into getProgress so the bar reflects the archive position
             root.findViewById<ProgressBar>(R.id.programProgress)?.progress = (currentProgram.getProgress(playbackTime) * 100).toInt()
         }
 
         updateLiveIndicator(isLive, isPlaying)
 
-        // DIM forward buttons when in LIVE mode
-        val forwardAlpha = if (isLive) 0.3f else 1.0f
-        root.findViewById<View>(R.id.layoutForward15s)?.alpha = forwardAlpha
-        root.findViewById<View>(R.id.layoutForward1m)?.alpha = forwardAlpha
-        root.findViewById<View>(R.id.layoutForward5m)?.alpha = forwardAlpha
+        // FIX: Removed the code that set alpha (dimming) on forward buttons.
+        // Buttons will now always stay at 1.0f alpha.
+        root.findViewById<View>(R.id.layoutForward15s)?.alpha = 1.0f
+        root.findViewById<View>(R.id.layoutForward1m)?.alpha = 1.0f
+        root.findViewById<View>(R.id.layoutForward5m)?.alpha = 1.0f
 
         root.findViewById<ImageButton>(R.id.btnFavorite)?.setImageResource(
             if (channel.isFavorite) R.drawable.ic_star else R.drawable.ic_star_outline
