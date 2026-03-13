@@ -296,6 +296,13 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
+        // 1. Check if the requested time is in the future or basically "now"
+        // If so, just switch to Live mode and stop processing archive logic.
+        if (timestampMs >= System.currentTimeMillis()) {
+            returnToLive()
+            return
+        }
+
         val targetIndex = channels.indexOfFirst { it.id == channelId }
         if (targetIndex != -1) currentChannelIndex = targetIndex
 
@@ -307,14 +314,17 @@ class PlayerActivity : AppCompatActivity() {
         isLiveMode = false
         livePausedAt = null
 
-        // 1. Fetch programs for this specific time
+        // Fetch programs for this specific time
         fetchProgramsForCurrentChannel()
 
+        // Optimization: If we are already watching an archive on this channel,
+        // just swap the timestamp in the URL instead of doing a full reload.
         if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
             archiveBaseTimestamp = timestampMs
             val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
             player?.setMediaItem(MediaItem.fromUri(optimizedUrl))
-            player?.prepare(); player?.play()
+            player?.prepare()
+            player?.play()
             updateOverlayInfo()
         } else {
             archiveBaseTimestamp = timestampMs
@@ -328,6 +338,11 @@ class PlayerActivity : AppCompatActivity() {
                 lastArchiveUrlTemplate = resp?.url
                 resp?.url
             }
+        }
+
+        // Manage UI visibility
+        if (isControlsVisible) {
+            rescheduleHideControls()
         }
     }
 
@@ -459,8 +474,20 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }
-    private fun showTimeRewind() { hideControls(); isTimeRewindVisible = true; timeRewindManager.show() }
+    // Inside PlayerActivity.kt
+    private fun showTimeRewind() {
+        val channel = channels.getOrNull(currentChannelIndex) ?: return
+        hideControls()
 
+        lifecycleScope.launch {
+            // 1. Call dummy archive to get real length from server
+            val hoursBack = repository.refreshArchiveWindow(channel.id, authToken)
+
+            // 2. Open the manager with the retrieved length
+            isTimeRewindVisible = true
+            timeRewindManager.show(hoursBack)
+        }
+    }
     private fun toggleFavorite() {
         val token = authToken ?: return
         val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return

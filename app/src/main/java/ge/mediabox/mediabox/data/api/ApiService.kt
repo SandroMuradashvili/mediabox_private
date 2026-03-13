@@ -133,17 +133,24 @@ object ApiService {
         } else null
     } catch (e: Exception) { null }
 
+    // Inside ApiService.kt
     fun fetchArchiveUrl(channelId: String, ts: Long, deviceId: String, token: String? = null): StreamResponse? = try {
         val conn = openGet("$BASE_URL/channels/$channelId/archive?timestamp=$ts&device_id=$deviceId", token)
-        if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+        val text = conn.inputStream.bufferedReader().use { it.readText() }
+        val json = JSONObject(text)
+
+        // Check if archive is unavailable
+        if (json.optString("message") == "Archive unavailable") {
+            StreamResponse("", 0, 0, -1) // -1 signifies explicitly unsupported
+        } else {
             StreamResponse(
-                json.getString("url"),
-                json.optLong("expires_at", 0),
-                0,
-                json.optInt("hoursBack", 0) // Capture archive window
+                url = json.optString("url", ""),
+                expiresAt = json.optLong("expires_at", 0),
+                serverTime = 0,
+                // Use "length" as provided in your example, handle string or int
+                hoursBack = json.optString("length", "0").toIntOrNull() ?: json.optInt("length", 0)
             )
-        } else null
+        }
     } catch (e: Exception) { null }
 
     fun fetchPrograms(channelApiId: String): List<Program> = fetchProgramsFromUrl("$BASE_URL/channels/$channelApiId/programs")

@@ -41,6 +41,18 @@ object ChannelRepository {
         channels.forEach { it.category = categoryMap[it.categoryId] ?: "" }
     }
 
+    // Inside ChannelRepository.kt
+    suspend fun refreshArchiveWindow(id: Int, token: String?): Int = withContext(Dispatchers.IO) {
+        val ch = channels.find { it.id == id } ?: return@withContext 0
+        // We send a dummy timestamp (current time) just to get the 'length' metadata
+        val dummyTs = System.currentTimeMillis() / 1000
+        val resp = ApiService.fetchArchiveUrl(ch.apiId, dummyTs, "tv-device", token)
+
+        val window = resp?.hoursBack ?: 0
+        ch.hoursBack = window
+        window
+    }
+
     fun getCategories(isKa: Boolean) = mutableListOf<String>().apply {
         add(if (isKa) "ყველა" else "All")
         if (channels.any { it.isFavorite }) add(if (isKa) "ფავორიტები" else "Favorites")

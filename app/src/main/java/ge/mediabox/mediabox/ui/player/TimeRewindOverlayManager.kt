@@ -56,13 +56,40 @@ class TimeRewindOverlayManager(
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    fun show() {
-        buildDayList()
-        refreshAdapters()
+    fun show(length: Int) {
         overlayView.visibility = View.VISIBLE
-        focusCol = 0
-        rvDays.requestFocus()
-        updateDisplay()
+        val isKa = ge.mediabox.mediabox.ui.LangPrefs.isKa(activity)
+
+        if (length <= 0) {
+            // CASE: Archive is not supported or unavailable for this channel
+            tvSelectedTime.text = ""
+            tvArchiveRange.visibility = View.GONE
+            tvOutOfRange.visibility = View.VISIBLE
+            tvOutOfRange.text = if (isKa) "არქივი მიუწვდომელია" else "Archive not supported"
+            btnConfirm.visibility = View.GONE
+
+            // Visually disable the picker columns
+            rvDays.alpha = 0.2f
+            rvHours.alpha = 0.2f
+            rvMinutes.alpha = 0.2f
+
+            overlayView.requestFocus()
+        } else {
+            // CASE: Archive is supported, length is the number of hours back available
+            tvOutOfRange.visibility = View.GONE
+            btnConfirm.visibility = View.VISIBLE
+            rvDays.alpha = 1.0f
+            rvHours.alpha = 1.0f
+            rvMinutes.alpha = 1.0f
+
+            // Initialize the calendar based on the length returned by the dummy request
+            buildDayList(length)
+            refreshAdapters()
+
+            focusCol = 0
+            rvDays.requestFocus()
+            updateDisplay()
+        }
     }
 
     fun dismiss() {
@@ -85,25 +112,32 @@ class TimeRewindOverlayManager(
 
     // ── Day list ──────────────────────────────────────────────────────────────
 
-    private fun buildDayList() {
-        val channelId   = channelIdProvider()
-        val hoursBack   = ChannelRepository.getHoursBack(channelId)
-        val effectiveH  = if (hoursBack > 0) hoursBack else 7 * 24
+    private fun buildDayList(hoursBack: Int) {
+        val isKa = ge.mediabox.mediabox.ui.LangPrefs.isKa(activity)
 
-        tvArchiveRange.visibility = if (hoursBack > 0) {
-            val d = hoursBack / 24
-            val h = hoursBack % 24
-            tvArchiveRange.text = if (h == 0) "${d}d rewind" else "${d}d ${h}h rewind"
-            View.VISIBLE
-        } else View.GONE
+        // Display the range badge (e.g., "7d rewind")
+        tvArchiveRange.visibility = View.VISIBLE
+        val d = hoursBack / 24
+        val h = hoursBack % 24
+        tvArchiveRange.text = if (isKa) {
+            if (h == 0) "${d} დღიანი არქივი" else "${d}დ ${h}ს არქივი"
+        } else {
+            if (h == 0) "${d}d rewind" else "${d}d ${h}h rewind"
+        }
 
         val today = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }
-        val yesterday = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
-        val earliest  = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -effectiveH) }
 
+        val yesterday = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
+
+        // Calculate the earliest date allowed by the "length" field
+        val earliest = Calendar.getInstance().apply {
+            add(Calendar.HOUR_OF_DAY, -hoursBack)
+        }
+
+        // Start the cursor at the beginning of the earliest day
         val cursor = (earliest.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
@@ -113,18 +147,19 @@ class TimeRewindOverlayManager(
         while (!cursor.after(today)) {
             val snap = cursor.clone() as Calendar
             val label = when {
-                sameDay(snap, today)     -> "Today"
-                sameDay(snap, yesterday) -> "Yesterday"
-                else                     -> dayFmt.format(snap.time)
+                sameDay(snap, today) -> if (isKa) "დღეს" else "Today"
+                sameDay(snap, yesterday) -> if (isKa) "გუშინ" else "Yesterday"
+                else -> dayFmt.format(snap.time)
             }
             entries.add(DayEntry(label, snap))
             cursor.add(Calendar.DAY_OF_YEAR, 1)
         }
         dayEntries = entries
 
+        // Set default selection to current time
         val now = Calendar.getInstance()
-        selDay    = entries.size - 1
-        selHour   = now.get(Calendar.HOUR_OF_DAY)
+        selDay = entries.size - 1
+        selHour = now.get(Calendar.HOUR_OF_DAY)
         selMinute = now.get(Calendar.MINUTE)
     }
 
