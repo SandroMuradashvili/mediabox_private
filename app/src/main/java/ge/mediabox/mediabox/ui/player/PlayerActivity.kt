@@ -32,7 +32,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.media3.ui.AspectRatioFrameLayout
 import android.widget.TextView // Fixes "Unresolved reference TextView"
+import android.widget.Toast
 import androidx.core.content.edit // Fixes "Too many arguments for edit()" and "putInt"
+import androidx.media3.common.util.Log
 
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -64,6 +66,10 @@ class PlayerActivity : AppCompatActivity() {
     private val hideControlsHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { hideControls() }
 
+    private var numberInputBuffer = ""
+    private val numberInputHandler = Handler(Looper.getMainLooper())
+    private val numberInputRunnable = Runnable { executeNumberSwitch() }
+
 
     private lateinit var controlOverlayManager: ControlOverlayManager
     private lateinit var epgOverlayManager: EpgOverlayManager
@@ -91,17 +97,67 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // 1. On any key action (Down), reset the 3-hour watchdog
+        Log.d("PlayerActivityDebug", "Key event received! Action: ${event.action}, KeyCode: ${event.keyCode}")
         if (event.action == KeyEvent.ACTION_DOWN) {
             resetInactivityTimer()
 
-            // 2. If the popup is visible, CLOSE IT and stop the event from doing anything else
             if (isInactivityPopupShowing) {
                 dismissInactivityPopup()
-                return true // "True" means the button press stops here
+                return true
+            }
+
+            // --- NEW: CATCH NUMBER KEYS ---
+            if (event.keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
+                handleNumberInput(event.keyCode - KeyEvent.KEYCODE_0)
+                return true
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun handleNumberInput(digit: Int) {
+        // 1. Cancel any pending switch
+        numberInputHandler.removeCallbacks(numberInputRunnable)
+
+        // 2. Add digit to buffer (limit to 4 digits)
+        if (numberInputBuffer.length < 4) {
+            numberInputBuffer += digit
+        }
+
+        // 3. Update UI
+        binding.root.findViewById<View>(R.id.numberInputCard).visibility = View.VISIBLE
+        binding.root.findViewById<TextView>(R.id.tvNumberInputDisplay).text = numberInputBuffer
+
+        // 4. Wait 1.5 seconds. If no more keys, switch channel.
+        numberInputHandler.postDelayed(numberInputRunnable, 1500)
+    }
+
+    private fun executeNumberSwitch() {
+        val targetNumber = numberInputBuffer.toIntOrNull() ?: return
+
+        // Clear buffer and hide UI
+        numberInputBuffer = ""
+        binding.root.findViewById<View>(R.id.numberInputCard).visibility = View.GONE
+
+        // Find the channel index where the channel.number matches what was typed
+        val targetIndex = channels.indexOfFirst { it.number == targetNumber }
+
+        if (targetIndex != -1) {
+            if (channels[targetIndex].isLocked) {
+                val isKa = LangPrefs.isKa(this)
+                Toast.makeText(this,
+                    if (isKa) "არხი დაბლოკილია" else "Channel is locked",
+                    Toast.LENGTH_SHORT).show()
+            } else {
+                playChannel(targetIndex)
+            }
+        } else {
+            // Channel number not found
+            val isKa = LangPrefs.isKa(this)
+            Toast.makeText(this,
+                if (isKa) "არხი ვერ მოიძებნა" else "Channel not found",
+                Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun resetInactivityTimer() {
@@ -479,6 +535,7 @@ class PlayerActivity : AppCompatActivity() {
     }
     override fun onDestroy() {
         super.onDestroy()
+        numberInputHandler.removeCallbacks(numberInputRunnable)
         inactivityHandler.removeCallbacksAndMessages(null)
         countdownTimer?.cancel()
         pendingStreamJob?.cancel(); pendingProgramJob?.cancel()

@@ -51,6 +51,31 @@
         android:indeterminateTint="@color/primary"
         android:visibility="gone" />
 
+    <!-- Number Input Overlay (Top Right) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/numberInputCard"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="40dp"
+        app:cardBackgroundColor="#E61E293B"
+        app:cardCornerRadius="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvNumberInputDisplay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:textColor="#F1F5F9"
+            android:textSize="40sp"
+            android:textStyle="bold"
+            android:text="12"/>
+    </androidx.cardview.widget.CardView>
+
     <!-- Inactivity Countdown Overlay -->
     <FrameLayout
         android:id="@+id/inactivityOverlay"

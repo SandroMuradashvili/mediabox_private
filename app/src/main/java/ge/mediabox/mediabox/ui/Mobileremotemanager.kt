@@ -80,35 +80,61 @@ object MobileRemoteManager {
      * It works on ANY activity that is currently on top.
      */
     private fun injectKeyGlobally(action: String) {
+        val TAG = "MobileRemoteManager"
+        Log.d(TAG, "--- Remote Command Received: '$action' ---")
+
         val keyCode = when {
-            action.equals("up", true) || action.contains("DPAD_UP") -> KeyEvent.KEYCODE_DPAD_UP
-            action.equals("down", true) || action.contains("DPAD_DOWN") -> KeyEvent.KEYCODE_DPAD_DOWN
-            action.equals("left", true) || action.contains("DPAD_LEFT") -> KeyEvent.KEYCODE_DPAD_LEFT
-            action.equals("right", true) || action.contains("DPAD_RIGHT") -> KeyEvent.KEYCODE_DPAD_RIGHT
-            action.equals("ok", true) || action.contains("DPAD_CENTER") || action.contains("ENTER") -> KeyEvent.KEYCODE_DPAD_CENTER
-            action.equals("back", true) || action.contains("BACK") -> KeyEvent.KEYCODE_BACK
-            action.equals("play", true) || action.equals("play_pause", true) || action.contains("MEDIA_PLAY_PAUSE") -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
-            action.equals("rew", true) || action.contains("REWIND") -> KeyEvent.KEYCODE_MEDIA_REWIND
-            action.equals("fwd", true) || action.contains("FAST_FORWARD") -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
-            action.equals("vol+", true) || action.contains("VOLUME_UP") -> KeyEvent.KEYCODE_VOLUME_UP
-            action.equals("vol-", true) || action.contains("VOLUME_DOWN") -> KeyEvent.KEYCODE_VOLUME_DOWN
-            action.equals("ch+", true) || action.contains("CHANNEL_UP") -> KeyEvent.KEYCODE_CHANNEL_UP
-            action.equals("ch-", true) || action.contains("CHANNEL_DOWN") -> KeyEvent.KEYCODE_CHANNEL_DOWN
-            action.equals("home", true) || action.contains("HOME") -> KeyEvent.KEYCODE_HOME
-            action.startsWith("num") -> {
-                val n = action.replace("num", "").toIntOrNull()
-                if (n != null) KeyEvent.KEYCODE_0 + n else -1
+            // Navigation & General
+            action.contains("DPAD_UP", true) -> KeyEvent.KEYCODE_DPAD_UP
+            action.contains("DPAD_DOWN", true) -> KeyEvent.KEYCODE_DPAD_DOWN
+            action.contains("DPAD_LEFT", true) -> KeyEvent.KEYCODE_DPAD_LEFT
+            action.contains("DPAD_RIGHT", true) -> KeyEvent.KEYCODE_DPAD_RIGHT
+            action.contains("DPAD_CENTER", true) || action.contains("ENTER", true) -> KeyEvent.KEYCODE_DPAD_CENTER
+            action.contains("BACK", true) -> KeyEvent.KEYCODE_BACK
+
+            // Numbers Logic (Now supports "KEYCODE_1", "num1", "1", etc.)
+            action.startsWith("KEYCODE_", ignoreCase = true) ||
+                    action.startsWith("num", ignoreCase = true) ||
+                    action.toIntOrNull() != null -> {
+
+                // This extracts only the digits from the string: "KEYCODE_5" -> "5"
+                val cleanNum = action.filter { it.isDigit() }
+                val n = cleanNum.toIntOrNull()
+
+                if (n != null && n in 0..9) {
+                    val code = KeyEvent.KEYCODE_0 + n
+                    Log.d(TAG, "Successfully mapped '$action' to Number KeyCode: $code")
+                    code
+                } else {
+                    Log.w(TAG, "Action looks like a number but failed to parse digit: $action")
+                    -1
+                }
             }
-            else -> -1
+
+            // Media Controls
+            action.contains("PLAY_PAUSE", true) -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+            action.contains("REWIND", true) -> KeyEvent.KEYCODE_MEDIA_REWIND
+            action.contains("FAST_FORWARD", true) -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
+
+            // Volume & Home
+            action.contains("VOLUME_UP", true) -> KeyEvent.KEYCODE_VOLUME_UP
+            action.contains("VOLUME_DOWN", true) -> KeyEvent.KEYCODE_VOLUME_DOWN
+            action.contains("HOME", true) -> KeyEvent.KEYCODE_HOME
+
+            else -> {
+                Log.w(TAG, "No mapping found for action string: $action")
+                -1
+            }
         }
 
         if (keyCode != -1) {
-            // Instrumentation cannot run on the Main Thread
             thread {
                 try {
+                    Log.d(TAG, "Injecting KeyCode: $keyCode")
                     instrumentation.sendKeyDownUpSync(keyCode)
+                    Log.d(TAG, "Injection Successful")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Key injection failed", e)
+                    Log.e(TAG, "Injection Failed: ${e.message}")
                 }
             }
         }
