@@ -51,4 +51,74 @@
         android:indeterminateTint="@color/primary"
         android:visibility="gone" />
 
+    <!-- Inactivity Countdown Overlay -->
+    <FrameLayout
+        android:id="@+id/inactivityOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        android:focusableInTouchMode="true">
+
+    <androidx.cardview.widget.CardView
+            android:layout_width="450dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            app:cardBackgroundColor="#1E293B"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="32dp"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvInactivityTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Are you still watching?"
+                    android:textColor="#F1F5F9"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:id="@+id/tvInactivityMessage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="The app will close in 300 seconds"
+                    android:textColor="#94A3B8"
+                    android:textSize="16sp"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"/>
+
+                <View
+                    android:layout_width="60dp"
+                    android:layout_height="2dp"
+                    android:background="#6366F1"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="24dp"/>
+
+                <TextView
+                    android:id="@+id/tvInactivityHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Press any button to stay"
+                    android:textColor="#6366F1"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:lineSpacingExtra="4dp"
+                    android:letterSpacing="0.05"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </FrameLayout>
+
 </FrameLayout>

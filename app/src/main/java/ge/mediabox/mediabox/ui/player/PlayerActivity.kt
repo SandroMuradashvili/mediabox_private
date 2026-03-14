@@ -33,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import androidx.media3.ui.AspectRatioFrameLayout
 import android.widget.TextView // Fixes "Unresolved reference TextView"
 import androidx.core.content.edit // Fixes "Too many arguments for edit()" and "putInt"
+
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerBinding
@@ -75,8 +76,72 @@ class PlayerActivity : AppCompatActivity() {
 
     private val authToken: String? get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
+    // Time Constants
+    private val INACTIVITY_TIMEOUT_MS = 3 * 60 * 60 * 1000L // 3 Hours
+    private val COUNTDOWN_DURATION_MS = 300 * 1000L        // 300 Seconds
+
+    // Timer Management
+    private val inactivityHandler = Handler(Looper.getMainLooper())
+    private var countdownTimer: android.os.CountDownTimer? = null
+    private var isInactivityPopupShowing = false
+
+    // The task that triggers after 3 hours of no buttons being pressed
+    private val inactivityRunnable = Runnable {
+        showInactivityPopup()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // 1. On any key action (Down), reset the 3-hour watchdog
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            resetInactivityTimer()
+
+            // 2. If the popup is visible, CLOSE IT and stop the event from doing anything else
+            if (isInactivityPopupShowing) {
+                dismissInactivityPopup()
+                return true // "True" means the button press stops here
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun resetInactivityTimer() {
+        inactivityHandler.removeCallbacks(inactivityRunnable)
+        inactivityHandler.postDelayed(inactivityRunnable, INACTIVITY_TIMEOUT_MS)
+    }
+
+    private fun showInactivityPopup() {
+        isInactivityPopupShowing = true
+        val isKa = LangPrefs.isKa(this)
+
+        binding.inactivityOverlay.visibility = View.VISIBLE
+
+        binding.tvInactivityTitle.text = if (isKa) "კვლავ უყურებთ?" else "Are you still watching?"
+        binding.tvInactivityHint.text = if (isKa) "გასაგრძელებლად დააჭირეთ ნებისმიერ ღილაკს" else "Press any button to stay"
+
+        countdownTimer?.cancel()
+        countdownTimer = object : android.os.CountDownTimer(COUNTDOWN_DURATION_MS, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val seconds = millisUntilFinished / 1000
+                binding.tvInactivityMessage.text = if (isKa)
+                    "აპლიკაცია დაიხურება $seconds წამში"
+                else
+                    "The app will close in $seconds seconds"
+            }
+            override fun onFinish() {
+                if (isInactivityPopupShowing) finish()
+            }
+        }.start()
+    }
+
+    private fun dismissInactivityPopup() {
+        isInactivityPopupShowing = false
+        countdownTimer?.cancel()
+        binding.inactivityOverlay.visibility = View.GONE
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        resetInactivityTimer()
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.setBackgroundDrawableResource(android.R.color.black)
 
@@ -379,10 +444,43 @@ class PlayerActivity : AppCompatActivity() {
             archiveBaseTimestamp + (player?.currentPosition ?: 0L)
         }
     }
-    override fun onPause() { super.onPause(); player?.pause() }
-    override fun onResume() { super.onResume(); if (!userIntentionallyPaused) player?.play() }
+    override fun onPause() {
+        super.onPause()
+        // 1. Stop the audio immediately
+        player?.playWhenReady = false
+
+        // 2. Hide the inactivity popup so it doesn't look "frozen" when you return
+        if (isInactivityPopupShowing) {
+            dismissInactivityPopup()
+        }
+
+        // 3. Clean up timers
+        inactivityHandler.removeCallbacks(inactivityRunnable)
+        countdownTimer?.cancel()
+    }
+    override fun onResume() {
+        super.onResume()
+        // 1. Resume audio if the user didn't manually pause before leaving
+        if (!userIntentionallyPaused) {
+            player?.playWhenReady = true
+        }
+        resetInactivityTimer()
+
+        // Check if we were watching Live (regardless of whether it has archive support)
+        if (isLiveMode && !userIntentionallyPaused) {
+            // Force the app to reload the stream from the server.
+            // This ensures we aren't "stuck" on a paused frame from 10 minutes ago.
+            playChannel(currentChannelIndex)
+        } else if (!userIntentionallyPaused) {
+            // If they were watching an archive and it supports pausing, just resume.
+            player?.playWhenReady = true
+        }
+
+    }
     override fun onDestroy() {
         super.onDestroy()
+        inactivityHandler.removeCallbacksAndMessages(null)
+        countdownTimer?.cancel()
         pendingStreamJob?.cancel(); pendingProgramJob?.cancel()
         zapHandler.removeCallbacksAndMessages(null)
         hideControlsHandler.removeCallbacksAndMessages(null)
@@ -575,7 +673,18 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // 1. Reset the 3-hour timer on ANY button press
+        resetInactivityTimer()
+
+        // 2. THE SHIELD: If the popup is on screen, close it and STOP
+        if (isInactivityPopupShowing) {
+            dismissInactivityPopup()
+            return true // This PREVENTS the "Back" button from reaching the finish() block below
+        }
+
+        // 3. Normal logic starts ONLY if the popup is NOT showing
         if (!isInitialized) return true
+
         val handled = when {
             trackSelectionManager.isVisible -> trackSelectionManager.handleKeyEvent(keyCode)
             isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
@@ -586,7 +695,7 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }
                 KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { showControls(); true }
-                KeyEvent.KEYCODE_BACK -> { finish(); true }
+                KeyEvent.KEYCODE_BACK -> { finish(); true } // This is what was catching your Back button
                 else -> false
             }
         }
