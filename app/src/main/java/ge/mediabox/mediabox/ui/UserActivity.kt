@@ -61,6 +61,8 @@ class UserActivity : AppCompatActivity() {
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }
 
+        LogoManager.loadLogo(binding.ivUserLogo)
+
         setupPlansList()
         setupButtons()
         loadData()
@@ -278,7 +280,7 @@ class UserActivity : AppCompatActivity() {
         when (zone) {
             0 -> binding.btnBack.setBackgroundResource(R.drawable.menu_card_glass_selected)
             1 -> {
-                binding.btnLogout.alpha = 1.04f
+                binding.btnLogout.alpha = 1.0f
                 binding.btnLogout.scaleX = 1.04f
                 binding.btnLogout.scaleY = 1.04f
             }

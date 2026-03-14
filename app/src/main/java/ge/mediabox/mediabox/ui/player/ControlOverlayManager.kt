@@ -7,6 +7,7 @@ import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
+import ge.mediabox.mediabox.ui.LogoManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,6 +27,7 @@ class ControlOverlayManager(
         val root = binding.root
         val isLive = streamTimestamp == null
 
+        // Load Channel-Specific Logo (Left side) - This stays because it changes per channel
         val logo = root.findViewById<ImageView>(R.id.channelLogo)
         if (!channel.logoUrl.isNullOrEmpty() && logo != null) {
             Glide.with(root.context).load(channel.logoUrl).into(logo)
@@ -47,8 +49,6 @@ class ControlOverlayManager(
 
         updateLiveIndicator(isLive, isPlaying)
 
-        // FIX: Removed the code that set alpha (dimming) on forward buttons.
-        // Buttons will now always stay at 1.0f alpha.
         root.findViewById<View>(R.id.layoutForward15s)?.alpha = 1.0f
         root.findViewById<View>(R.id.layoutForward1m)?.alpha = 1.0f
         root.findViewById<View>(R.id.layoutForward5m)?.alpha = 1.0f

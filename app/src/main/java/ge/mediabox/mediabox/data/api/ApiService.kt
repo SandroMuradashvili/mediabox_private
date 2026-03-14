@@ -17,6 +17,34 @@ object ApiService {
     data class ChannelsResponse(val channels: List<ApiChannel>, val accessibleIds: List<String>)
     data class StreamResponse(val url: String, val expiresAt: Long, val serverTime: Long, val hoursBack: Int = 0)
 
+    // Full Data Class for Logo Response
+    data class LogoResponse(val logo_light: String, val logo_dark: String)
+
+    // Full Function to fetch logos with LOGO_TEST logs
+    fun fetchLogos(token: String? = null): LogoResponse? = try {
+        val url = "${BuildConfig.BASE_API_URL}/settings/logos"
+        android.util.Log.d("LOGO_TEST", "📡 Requesting logos from: $url")
+
+        val conn = openGet(url, token)
+        android.util.Log.d("LOGO_TEST", "📡 Server Response Code: ${conn.responseCode}")
+
+        if (conn.responseCode == 200) {
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            android.util.Log.d("LOGO_TEST", "📡 JSON Received: $text")
+
+            val obj = JSONObject(text)
+            LogoResponse(
+                obj.optString("logo_light", ""),
+                obj.optString("logo_dark", "")
+            )
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("LOGO_TEST", "❌ API Error: ${e.message}")
+        null
+    }
+
 
     fun extractExpiryFromUrl(url: String): Long {
         return try {

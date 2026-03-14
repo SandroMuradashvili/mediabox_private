@@ -42,6 +42,8 @@ class RadioActivity : AppCompatActivity() {
         binding = ActivityRadioBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        LogoManager.loadLogo(binding.ivRadioBrandingLogo)
+
         initPlayer()
         setupStationList()
         setupControlButtons()

@@ -57,6 +57,7 @@
 
             <!-- Logo centered -->
             <ImageView
+                android:id="@+id/ivUserLogo"
                 android:layout_width="0dp"
                 android:layout_height="22dp"
                 android:layout_weight="1"

@@ -13,6 +13,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import ge.mediabox.mediabox.R
+import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.databinding.ActivityMainBinding
 import ge.mediabox.mediabox.ui.player.PlayerActivity
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +59,17 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Auto-connect mobile remote if enabled in settings
+        // 1. Load Current Logo
+        LogoManager.loadLogo(binding.ivLogo)
+
+        // 2. Request Update from Server
+        lifecycleScope.launch {
+            LogoManager.updateLogoFromServer(this@MainActivity, token) {
+                LogoManager.loadLogo(binding.ivLogo)
+            }
+        }
+
+        // 3. Auto-connect mobile remote
         val isRemoteEnabled = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
             .getBoolean("mobile_remote_enabled", false)
 
@@ -212,6 +223,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMenuImmediate() {
         updateCardLabels()
+        LogoManager.loadLogo(binding.ivLogo)
         cards.forEach { applyCardState(it, false) }
 
         // Short delay to ensure layout is ready before requesting focus

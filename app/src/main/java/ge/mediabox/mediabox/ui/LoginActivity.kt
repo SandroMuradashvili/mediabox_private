@@ -41,6 +41,7 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 1. Token Check
         val existingToken = getPrefs().getString("auth_token", null)
         if (!existingToken.isNullOrBlank()) {
             goToMain()
@@ -49,10 +50,25 @@ class LoginActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_login_qr)
 
+        // 2. Find Views
         ivQrCode      = findViewById(R.id.ivQrCode)
         tvPairingCode = findViewById(R.id.tvPairingCode)
         tvStatus      = findViewById(R.id.tvStatus)
         btnRefresh    = findViewById(R.id.btnRefresh)
+
+        // IMPORTANT: Make sure your activity_login_qr.xml has android:id="@+id/ivLogoLeft"
+        // on the Mediabox ImageView!
+        val ivLogoLeft = findViewById<ImageView>(R.id.ivLogoLeft)
+
+        // 3. Load Current Logo
+        LogoManager.loadLogo(ivLogoLeft)
+
+        // 4. Request Update from Server
+        lifecycleScope.launch {
+            LogoManager.updateLogoFromServer(this@LoginActivity, null) {
+                LogoManager.loadLogo(ivLogoLeft)
+            }
+        }
 
         deviceId = DeviceIdHelper.getDeviceId(this)
         getPrefs().edit().putString("device_id", deviceId).apply()

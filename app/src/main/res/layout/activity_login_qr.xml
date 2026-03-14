@@ -39,6 +39,7 @@
 
             <!-- Real SVG logo -->
             <ImageView
+                android:id="@+id/ivLogoLeft"
                 android:layout_width="180dp"
                 android:layout_height="37dp"
                 android:src="@drawable/ic_mediabox_logo"

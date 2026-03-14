@@ -8,6 +8,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.widget.ImageButton
+import android.widget.ImageView
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -23,6 +24,7 @@ import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
 import ge.mediabox.mediabox.ui.LangPrefs
+import ge.mediabox.mediabox.ui.LogoManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -366,6 +368,13 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
+
+        // --- LOAD BRANDING LOGO ONCE HERE ---
+        val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)
+        if (topLogo != null) {
+            LogoManager.loadLogo(topLogo)
+        }
+
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
