@@ -20,7 +20,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import ge.mediabox.mediabox.R
-import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
 import ge.mediabox.mediabox.ui.LangPrefs
@@ -31,7 +30,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-
+import androidx.media3.ui.AspectRatioFrameLayout
+import android.widget.TextView // Fixes "Unresolved reference TextView"
+import androidx.core.content.edit // Fixes "Too many arguments for edit()" and "putInt"
+@OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerBinding
     private var player: ExoPlayer? = null
@@ -68,6 +70,8 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var trackSelectionManager: TrackSelectionOverlayManager
     private var pendingStreamJob: Job? = null
     private var pendingProgramJob: Job? = null
+
+    private var currentResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
     private val authToken: String? get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
@@ -109,6 +113,8 @@ class PlayerActivity : AppCompatActivity() {
             isInitialized = true
         }
     }
+
+
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun initializePlayer() {
@@ -292,6 +298,8 @@ class PlayerActivity : AppCompatActivity() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         val currentTs = getCurrentAbsoluteTime()
 
+        applyAspectRatio(currentResizeMode)
+
         // --- LOG FOR MATCHING ---
         android.util.Log.d("BACKEND_HELP", "Checking Match for Device Time: $currentTs")
         if (channel.programs.isEmpty()) {
@@ -422,7 +430,46 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
             findViewById<View>(R.id.btnQualityLayout)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO) }
             findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO) }
+            findViewById<View>(R.id.btnAspectRatio)?.setOnClickListener { toggleAspectRatio() }
         }
+        loadSavedAspectRatio()
+    }
+
+    private fun toggleAspectRatio() {
+        currentResizeMode = when (currentResizeMode) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            AspectRatioFrameLayout.RESIZE_MODE_FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+        applyAspectRatio(currentResizeMode)
+    }
+
+    private fun applyAspectRatio(mode: Int) {
+        binding.playerView.resizeMode = mode
+
+        // Update UI Text
+        val isKa = LangPrefs.isKa(this)
+        val label = when (mode) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT -> if (isKa) "ორიგინალი" else "Fit"
+            AspectRatioFrameLayout.RESIZE_MODE_FILL -> if (isKa) "შევსება" else "Stretch"
+            AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> if (isKa) "ზუმი" else "Zoom"
+            else -> "Fit"
+        }
+        binding.root.findViewById<TextView>(R.id.tvCurrentAspectRatio)?.text = label
+
+        // Save "Auto Sizer" preference forever
+        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit {
+            putInt("video_resize_mode", mode)
+        }
+
+        rescheduleHideControls()
+    }
+
+    private fun loadSavedAspectRatio() {
+        val savedMode = getSharedPreferences("AppPrefs", MODE_PRIVATE)
+            .getInt("video_resize_mode", AspectRatioFrameLayout.RESIZE_MODE_FIT)
+        currentResizeMode = savedMode
+        applyAspectRatio(savedMode)
     }
 
     private fun returnToLive() = playChannel(currentChannelIndex)

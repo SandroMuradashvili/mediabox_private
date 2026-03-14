@@ -349,6 +349,38 @@
                     android:nextFocusUp="@+id/btnPlayPause"
                     android:nextFocusLeft="@+id/btnQuality"/>
 
+                <!-- Inside the bottomBar LinearLayout, near the Quality button -->
+                <LinearLayout
+                    android:id="@+id/btnAspectRatio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:background="@drawable/control_button_background"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:layout_marginStart="10dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_cast"
+                        android:duplicateParentState="true" />
+
+                    <TextView
+                        android:id="@+id/tvCurrentAspectRatio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Fit"
+                        android:textColor="#F1F5F9"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="6dp"
+                        android:duplicateParentState="true" />
+                </LinearLayout>
+
             </LinearLayout>
 
             <!-- Progress bar -->
