@@ -16,5 +16,7 @@ data class Channel(
     var isFavorite: Boolean = false,
     var isLocked: Boolean = false,
     var lastServerTime: Long = 0L,
-    var hoursBack: Int = 0
+    var hoursBack: Int = 0,
+    var archiveStreamUrl: String = "",      // CACHE: Stores the archive URL template
+    var archiveStreamExpiry: Long = 0L      // CACHE: Stores the archive URL expiration
 )

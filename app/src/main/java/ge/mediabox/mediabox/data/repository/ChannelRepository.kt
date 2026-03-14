@@ -15,6 +15,8 @@ object ChannelRepository {
     private const val EPG_CACHE_DURATION = 2 * 60 * 60 * 1000L // 2 Hours
     private const val STREAM_EXPIRY_BUFFER = 5 * 60 * 1000L    // 5 Minutes
 
+    private const val ARCHIVE_EXPIRY_BUFFER = 5 * 60 * 1000L // 5 Minutes safety buffer
+
     suspend fun initialize(token: String?, isKa: Boolean) = withContext(Dispatchers.IO) {
         if (isInitialized) return@withContext
         cachedApiCategories = ApiService.fetchCategories(token)
@@ -73,7 +75,6 @@ object ChannelRepository {
 
         // 1. Check if we have a valid cached URL (within the 5-minute buffer)
         if (ch.streamUrl.isNotEmpty() && now < (ch.streamExpiry - STREAM_EXPIRY_BUFFER)) {
-            android.util.Log.d("CACHE_LOG", "Using cached URL for ${ch.name}")
             return@withContext ch.streamUrl
         }
 
@@ -114,13 +115,30 @@ object ChannelRepository {
         ch.programs
     }
 
-    suspend fun getArchiveUrl(id: Int, ts: Long) = withContext(Dispatchers.IO) {
+    suspend fun getArchiveUrl(id: Int, ts: Long, token: String?) = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == id } ?: return@withContext null
-        val resp = ApiService.fetchArchiveUrl(ch.apiId, ts / 1000, "tv-device", null)
-        if (resp != null) {
+        val now = System.currentTimeMillis()
+
+        // 1. Check cache
+        if (ch.archiveStreamUrl.isNotEmpty() && now < (ch.archiveStreamExpiry - ARCHIVE_EXPIRY_BUFFER)) {
+            return@withContext getOptimizedArchiveUrl(ch.archiveStreamUrl, ts)
+        }
+
+        // 2. Fetch fresh
+        val resp = ApiService.fetchArchiveUrl(ch.apiId, ts / 1000, "tv-device", token)
+
+        if (resp != null && resp.url.isNotEmpty()) {
+            ch.archiveStreamUrl = resp.url
+
+            // ApiService already returns Milliseconds, so just use it directly!
+            val expiryMs = ApiService.extractExpiryFromUrl(resp.url)
+            ch.archiveStreamExpiry = expiryMs
+
+
             if (resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
-            resp.url
-        } else null
+            return@withContext resp.url
+        }
+        null
     }
 
     suspend fun refreshArchiveWindow(id: Int, token: String?): Int = withContext(Dispatchers.IO) {
@@ -143,8 +161,7 @@ object ChannelRepository {
 
     fun getAllChannels() = channels
     fun setFavoriteLocal(id: Int, fav: Boolean) { channels.find { it.id == id }?.isFavorite = fav }
-    suspend fun addFavouriteRemote(token: String, apiId: String) = ApiService.addFavourite(token, apiId)
-    suspend fun removeFavouriteRemote(token: String, apiId: String) = ApiService.removeFavourite(token, apiId)
+    fun addFavouriteRemote(token: String, apiId: String) = ApiService.addFavourite(token, apiId)
+    fun removeFavouriteRemote(token: String, apiId: String) = ApiService.removeFavourite(token, apiId)
     fun getArchiveStartMs(id: Int): Long? = channels.find { it.id == id }?.hoursBack?.let { System.currentTimeMillis() - it * 3600000L }
-    fun getHoursBack(id: Int) = channels.find { it.id == id }?.hoursBack ?: 0
 }

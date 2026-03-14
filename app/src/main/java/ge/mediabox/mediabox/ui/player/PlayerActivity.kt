@@ -258,10 +258,10 @@ class PlayerActivity : AppCompatActivity() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         val newUrl = withContext(Dispatchers.IO) {
             if (isLiveMode) {
-                // Uses the token correctly to get/refresh the URL
                 repository.getStreamUrl(channel.id, authToken)
             } else {
-                repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+                // FIX: Pass the current playback time and the authToken
+                repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime(), authToken)
             }
         }
         if (!newUrl.isNullOrBlank() && newUrl != currentStreamUrl) {
@@ -298,8 +298,10 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // Inside PlayerActivity.kt
+
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        // 1. If user tries to rewind/forward into the future, just go Live
+        // 1. Boundary check: if user seeks into the future, go live
         if (timestampMs >= System.currentTimeMillis()) {
             returnToLive()
             return
@@ -308,45 +310,21 @@ class PlayerActivity : AppCompatActivity() {
         val targetIndex = channels.indexOfFirst { it.id == channelId }
         if (targetIndex != -1) currentChannelIndex = targetIndex
 
-        // UI state updates
+        // UI and State updates
         isBrowsing = false
         binding.videoPlaceholder.visibility = View.VISIBLE
-
         val channel = channels[currentChannelIndex]
         isLiveMode = false
         livePausedAt = null
+        archiveBaseTimestamp = timestampMs
+        playingArchiveChannelId = channelId
 
-        // Fetch programs for the new time context
+        // Refresh EPG for this context
         fetchProgramsForCurrentChannel()
 
-        // 2. Decide: Can we just swap the timestamp in the URL, or do we need a new URL?
-        // We only optimize if we are ALREADY in archive mode for THIS channel.
-        if (playingArchiveChannelId == channelId && lastArchiveUrlTemplate != null) {
-            archiveBaseTimestamp = timestampMs
-            val optimizedUrl = repository.getOptimizedArchiveUrl(lastArchiveUrlTemplate!!, timestampMs)
-            player?.setMediaItem(MediaItem.fromUri(optimizedUrl))
-            player?.prepare()
-            player?.play()
-            updateOverlayInfo()
-        } else {
-            // This is the first time we are entering archive from Live
-            archiveBaseTimestamp = timestampMs
-            playingArchiveChannelId = channelId
-
-            loadStream {
-                // This API call returns both the URL and the 'length' (hoursBack)
-                val resp = withContext(Dispatchers.IO) {
-                    ApiService.fetchArchiveUrl(channel.apiId, timestampMs / 1000, "tv-device", authToken)
-                }
-
-                if (resp != null) {
-                    if (resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
-                    lastArchiveUrlTemplate = resp.url
-                    resp.url
-                } else {
-                    null
-                }
-            }
+        loadStream {
+            // The Repository now internally handles the 5-minute expiry check
+            repository.getArchiveUrl(channel.id, timestampMs, authToken)
         }
 
         if (isControlsVisible) rescheduleHideControls()

@@ -20,11 +20,22 @@ object ApiService {
 
     fun extractExpiryFromUrl(url: String): Long {
         return try {
-            // Your URL ends with "...-1773351835-1773337135"
-            // We split by "-" and take the last element
+            // Example: ...-1773496988-1773500000
             val parts = url.split("-")
-            val lastPart = parts.last() // This is "1773337135"
-            lastPart.toLong() * 1000L   // Convert to milliseconds
+            if (parts.size >= 2) {
+                // Get the last two parts
+                val p1 = parts[parts.size - 1].toLongOrNull() ?: 0L
+                val p2 = parts[parts.size - 2].toLongOrNull() ?: 0L
+
+                // Pick the larger number (that's the expiry)
+                val expirySeconds = p1.coerceAtLeast(p2)
+
+
+
+                expirySeconds * 1000L
+            } else {
+                0L
+            }
         } catch (e: Exception) {
             0L
         }
@@ -119,7 +130,6 @@ object ApiService {
     } catch (e: Exception) { false }
 
     fun fetchStreamUrl(channelId: String, deviceId: String, token: String? = null): StreamResponse? = try {
-        print(token + "    Sandro")
         val conn = openGet("$BASE_URL/channels/$channelId/stream?device_id=$deviceId", token)
         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
@@ -152,7 +162,6 @@ object ApiService {
         }
     } catch (e: Exception) { null }
 
-    fun fetchPrograms(channelApiId: String): List<Program> = fetchProgramsFromUrl("$BASE_URL/channels/$channelApiId/programs")
     fun fetchAllPrograms(channelApiId: String): List<Program> = fetchProgramsFromUrl("$BASE_URL/channels/$channelApiId/programs/all")
 
     private fun fetchProgramsFromUrl(url: String): List<Program> {
@@ -178,7 +187,7 @@ object ApiService {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("ApiService", "Error parsing programs: ${e.message}")
+            Log.e("ApiService", "Error parsing programs: ${e.message}")
         }
         return programs
     }
