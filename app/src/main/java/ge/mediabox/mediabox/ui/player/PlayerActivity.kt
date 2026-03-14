@@ -180,6 +180,7 @@ class PlayerActivity : AppCompatActivity() {
         if (index !in channels.indices || channels[index].isLocked) return
         currentChannelIndex = index
         val channel = channels[index]
+
         isLiveMode = true
         livePausedAt = null
         archiveBaseTimestamp = 0
@@ -189,35 +190,29 @@ class PlayerActivity : AppCompatActivity() {
         if (!isBrowsing) binding.videoPlaceholder.visibility = View.VISIBLE
 
         updateOverlayInfo()
-        fetchProgramsForCurrentChannel()
+        fetchProgramsForCurrentChannel() // Uses cache
         prefetchNeighbors(index)
-        loadStream { repository.getStreamUrl(channel.id, useCache = true) }
+
+        // Fix: Passing authToken to the cached getStreamUrl method
+        loadStream { repository.getStreamUrl(channel.id, authToken) }
     }
 
     private fun loadStream(urlProvider: suspend () -> String?) {
         pendingStreamJob?.cancel()
         pendingStreamJob = lifecycleScope.launch {
-            val channel = channels.getOrNull(currentChannelIndex)
-
-            // We fetch the full response so we can get the 'hoursBack' metadata
-            val resp = withContext(Dispatchers.IO) {
-                if (isLiveMode) {
-                    channel?.let { ApiService.fetchStreamUrl(it.apiId, "tv-device", authToken) }
-                } else null
-            }
-
-            val url = resp?.url ?: urlProvider()
-
-            // Update the archive window limit in the channel object
-            if (resp != null && channel != null) {
-                if (resp.hoursBack > 0) channel.hoursBack = resp.hoursBack
-            }
+            // 1. We call the provider (which is repository.getStreamUrl)
+            // This will check the 55-minute cache before hitting your server.
+            val url = urlProvider()
 
             if (url != null) {
                 currentStreamUrl = url
                 player?.setMediaItem(MediaItem.fromUri(url))
                 player?.prepare()
                 player?.play()
+
+                // 2. Clear the placeholder to show video
+                binding.videoPlaceholder.visibility = View.GONE
+
                 scheduleStreamRefresh()
                 updateOverlayInfo()
                 updateLiveIndicatorState()
@@ -231,8 +226,15 @@ class PlayerActivity : AppCompatActivity() {
             delay(2000)
             val next = (currentIndex + 1) % channels.size
             val prev = (currentIndex - 1 + channels.size) % channels.size
-            if (!channels[next].isLocked) repository.getStreamUrl(channels[next].id)
-            if (!channels[prev].isLocked) repository.getStreamUrl(channels[prev].id)
+
+            // Fix: Pass 'authToken' to the repository method
+            if (!channels[next].isLocked) {
+                repository.getStreamUrl(channels[next].id, authToken)
+            }
+
+            if (!channels[prev].isLocked) {
+                repository.getStreamUrl(channels[prev].id, authToken)
+            }
         }
     }
 
@@ -255,8 +257,12 @@ class PlayerActivity : AppCompatActivity() {
     private suspend fun refreshStreamSeamlessly() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         val newUrl = withContext(Dispatchers.IO) {
-            if (isLiveMode) repository.getStreamUrl(channel.id)
-            else repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+            if (isLiveMode) {
+                // Uses the token correctly to get/refresh the URL
+                repository.getStreamUrl(channel.id, authToken)
+            } else {
+                repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime())
+            }
         }
         if (!newUrl.isNullOrBlank() && newUrl != currentStreamUrl) {
             currentStreamUrl = newUrl
@@ -268,6 +274,12 @@ class PlayerActivity : AppCompatActivity() {
     private fun updateOverlayInfo() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         val currentTs = getCurrentAbsoluteTime()
+
+        // --- LOG FOR MATCHING ---
+        android.util.Log.d("BACKEND_HELP", "Checking Match for Device Time: $currentTs")
+        if (channel.programs.isEmpty()) {
+            android.util.Log.w("BACKEND_HELP", "No programs loaded in memory for ${channel.name}")
+        }
 
         // Find current program
         val currentProgram = channel.programs.find { currentTs in it.startTime until it.endTime }
@@ -342,15 +354,16 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun fetchProgramsForCurrentChannel() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
+
         pendingProgramJob?.cancel()
         pendingProgramJob = lifecycleScope.launch {
-            val programs = withContext(Dispatchers.IO) {
-                runCatching { ApiService.fetchPrograms(channel.apiId) }.getOrDefault(emptyList())
-            }
-            channel.programs = programs
+            // Correctly calls the repository with caching
+            val programs = repository.getProgramsForChannel(channel.id)
 
-            // KEY FIX: After programs are downloaded, update the HUD title immediately
-            updateOverlayInfo()
+            channel.programs = programs
+            withContext(Dispatchers.Main) {
+                updateOverlayInfo()
+            }
         }
     }
 

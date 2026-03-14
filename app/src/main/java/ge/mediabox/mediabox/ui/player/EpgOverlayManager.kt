@@ -207,15 +207,13 @@ class EpgOverlayManager(
         tvHoveredDate?.visibility = View.GONE
 
         scope.launch {
-            val allPrograms = withContext(Dispatchers.IO) {
-                runCatching { ApiService.fetchAllPrograms(channel.apiId).sortedBy { it.startTime } }
-                    .getOrDefault(emptyList())
-            }
+            // FIX: Call ChannelRepository instead of ApiService directly.
+            // This hits the 2-hour cache.
+            val allPrograms = ChannelRepository.getProgramsForChannel(channel.id)
 
             val items = buildProgramItemList(allPrograms)
             currentProgramItems = items
 
-            // Scroll to current program, skipping any leading divider
             var targetPos = findCurrentProgramPosition(allPrograms, items)
             while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
             selectedProgramIndex = targetPos

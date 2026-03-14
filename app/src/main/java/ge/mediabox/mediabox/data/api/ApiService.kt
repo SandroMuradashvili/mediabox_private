@@ -1,5 +1,4 @@
 package ge.mediabox.mediabox.data.api
-
 import android.util.Log
 import ge.mediabox.mediabox.BuildConfig
 import ge.mediabox.mediabox.data.model.Program
@@ -161,17 +160,26 @@ object ApiService {
         try {
             val conn = openGet(url)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONArray(conn.inputStream.bufferedReader().use { it.readText() })
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONArray(text)
                 for (i in 0 until json.length()) {
                     val obj = json.getJSONObject(i)
+
+                    // Use optLong/optString with fallbacks for both lowercase and uppercase keys
                     val uid = obj.optInt("id", obj.optInt("UID", 0))
                     val start = obj.optLong("start", obj.optLong("START_TIME", 0))
                     val end = obj.optLong("end", obj.optLong("END_TIME", 0))
                     val title = obj.optString("title", obj.optString("TITLE", "No Title"))
-                    if (uid != 0 && start != 0L) programs.add(Program(uid, title, "", start * 1000L, end * 1000L, 0))
+
+                    if (uid != 0 && start != 0L) {
+                        // Convert seconds to milliseconds
+                        programs.add(Program(uid, title, "", start * 1000L, end * 1000L, 0))
+                    }
                 }
             }
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Error parsing programs: ${e.message}")
+        }
         return programs
     }
 }

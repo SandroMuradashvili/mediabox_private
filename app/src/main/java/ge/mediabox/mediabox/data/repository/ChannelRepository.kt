@@ -2,6 +2,7 @@ package ge.mediabox.mediabox.data.repository
 
 import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.model.Channel
+import ge.mediabox.mediabox.data.model.Program
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -9,7 +10,10 @@ object ChannelRepository {
     private val channels = mutableListOf<Channel>()
     private var cachedApiCategories = listOf<ApiService.ApiCategory>()
     private var isInitialized = false
-    private val urlCache = mutableMapOf<Int, String>()
+
+    // CACHE SETTINGS
+    private const val EPG_CACHE_DURATION = 2 * 60 * 60 * 1000L // 2 Hours
+    private const val STREAM_EXPIRY_BUFFER = 5 * 60 * 1000L    // 5 Minutes
 
     suspend fun initialize(token: String?, isKa: Boolean) = withContext(Dispatchers.IO) {
         if (isInitialized) return@withContext
@@ -23,7 +27,6 @@ object ChannelRepository {
                 id = channels.size + 1,
                 apiId = apiCh.id,
                 name = apiCh.name,
-                streamUrl = "",
                 logoUrl = apiCh.logo,
                 categoryId = apiCh.categoryId,
                 category = "",
@@ -39,18 +42,6 @@ object ChannelRepository {
     fun refreshLocalization(isKa: Boolean) {
         val categoryMap = cachedApiCategories.associate { it.id to (if (isKa) it.nameKa else it.nameEn) }
         channels.forEach { it.category = categoryMap[it.categoryId] ?: "" }
-    }
-
-    // Inside ChannelRepository.kt
-    suspend fun refreshArchiveWindow(id: Int, token: String?): Int = withContext(Dispatchers.IO) {
-        val ch = channels.find { it.id == id } ?: return@withContext 0
-        // We send a dummy timestamp (current time) just to get the 'length' metadata
-        val dummyTs = System.currentTimeMillis() / 1000
-        val resp = ApiService.fetchArchiveUrl(ch.apiId, dummyTs, "tv-device", token)
-
-        val window = resp?.hoursBack ?: 0
-        ch.hoursBack = window
-        window
     }
 
     fun getCategories(isKa: Boolean) = mutableListOf<String>().apply {
@@ -72,12 +63,55 @@ object ChannelRepository {
         }
     }
 
-    suspend fun getStreamUrl(id: Int, useCache: Boolean = true): String? = withContext(Dispatchers.IO) {
-        if (useCache && urlCache.containsKey(id)) return@withContext urlCache[id]
+    /**
+     * CACHED STREAM FETCH:
+     * Returns cached URL if not expired, otherwise calls API.
+     */
+    suspend fun getStreamUrl(id: Int, token: String?): String? = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == id } ?: return@withContext null
-        val url = ApiService.fetchStreamUrl(ch.apiId, "tv-device", null)?.url
-        if (url != null) urlCache[id] = url
-        url
+        val now = System.currentTimeMillis()
+
+        // 1. Check if we have a valid cached URL (within the 5-minute buffer)
+        if (ch.streamUrl.isNotEmpty() && now < (ch.streamExpiry - STREAM_EXPIRY_BUFFER)) {
+            android.util.Log.d("CACHE_LOG", "Using cached URL for ${ch.name}")
+            return@withContext ch.streamUrl
+        }
+
+        // 2. Fetch fresh
+        val resp = ApiService.fetchStreamUrl(ch.apiId, "tv-device", token)
+        if (resp != null) {
+            ch.streamUrl = resp.url
+            ch.streamExpiry = resp.expiresAt * 1000L
+
+            // CRITICAL: Update hoursBack so Rewinder works even if URL is cached
+            if (resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
+
+            return@withContext ch.streamUrl
+        }
+        null
+    }
+
+    /**
+     * CACHED EPG FETCH:
+     * Returns cached programs if fetched within last 2 hours.
+     */
+    suspend fun getProgramsForChannel(id: Int): List<Program> = withContext(Dispatchers.IO) {
+        val ch = channels.find { it.id == id } ?: return@withContext emptyList()
+        val now = System.currentTimeMillis()
+
+        if (ch.programs.isNotEmpty() && (now - ch.lastEpgFetchTime) < EPG_CACHE_DURATION) {
+            return@withContext ch.programs
+        }
+
+        val freshPrograms = runCatching { ApiService.fetchAllPrograms(ch.apiId) }
+            .getOrDefault(emptyList())
+            .sortedBy { it.startTime }
+
+        if (freshPrograms.isNotEmpty()) {
+            ch.programs = freshPrograms
+            ch.lastEpgFetchTime = now
+        }
+        ch.programs
     }
 
     suspend fun getArchiveUrl(id: Int, ts: Long) = withContext(Dispatchers.IO) {
@@ -87,6 +121,15 @@ object ChannelRepository {
             if (resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
             resp.url
         } else null
+    }
+
+    suspend fun refreshArchiveWindow(id: Int, token: String?): Int = withContext(Dispatchers.IO) {
+        val ch = channels.find { it.id == id } ?: return@withContext 0
+        val dummyTs = (System.currentTimeMillis() / 1000) - 3600
+        val resp = ApiService.fetchArchiveUrl(ch.apiId, dummyTs, "tv-device", token)
+        val window = resp?.hoursBack ?: 0
+        ch.hoursBack = window
+        window
     }
 
     fun extractExpiryFromUrl(url: String): Long = ApiService.extractExpiryFromUrl(url)
