@@ -1,6 +1,6 @@
 package ge.mediabox.mediabox.ui
 
-import android.content.Context
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
@@ -28,6 +28,7 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import androidx.core.content.edit
 
 class UserActivity : AppCompatActivity() {
 
@@ -48,8 +49,13 @@ class UserActivity : AppCompatActivity() {
     private lateinit var planAdapter: ActivePlanAdapter
 
     private var isMobileRemoteEnabled: Boolean
-        get() = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getBoolean("mobile_remote_enabled", false)
-        set(value) = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).edit().putBoolean("mobile_remote_enabled", value).apply()
+        get() = getSharedPreferences("AppPrefs", MODE_PRIVATE).getBoolean("mobile_remote_enabled", false)
+        set(value) = getSharedPreferences("AppPrefs", MODE_PRIVATE).edit {
+            putBoolean(
+                "mobile_remote_enabled",
+                value
+            )
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -122,6 +128,7 @@ class UserActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun bindUserData(user: ge.mediabox.mediabox.data.remote.User, myPlans: List<MyPlan>) {
         val isKa = LangPrefs.isKa(this)
 
@@ -362,10 +369,21 @@ class UserActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("UseKtx")
     private fun doLogout() {
         MobileRemoteManager.disconnect()
-        getSharedPreferences("AuthPrefs", MODE_PRIVATE).edit().clear().apply()
-        startActivity(Intent(this, LoginActivity::class.java)); finish()
+
+        // 1. Clear the Auth Token (Session)
+        getSharedPreferences("AuthPrefs", MODE_PRIVATE).edit { clear() }
+
+        // 2. Clear the last viewed channel so the next user starts fresh
+        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit {
+            remove("last_viewed_channel_id")
+        }
+
+        // 3. Go to Login
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 
     private fun getSavedToken() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
@@ -389,9 +407,11 @@ class UserActivity : AppCompatActivity() {
 
         fun getPlan(index: Int) = plans[index]
         fun setFocused(pos: Int) { val old = focusedPos; focusedPos = pos; notifyItemChanged(old); notifyItemChanged(pos) }
+        @SuppressLint("NotifyDataSetChanged")
         fun updateData(new: List<MyPlan>, ka: Boolean) { plans = new; isKa = ka; notifyDataSetChanged() }
 
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(LayoutInflater.from(p.context).inflate(R.layout.item_active_plan, p, false))
+        @SuppressLint("SetTextI18n")
         override fun onBindViewHolder(h: VH, p: Int) {
             val plan = plans[p]
             h.tvName.text = if (isKa) plan.name_ka else plan.name_en

@@ -88,12 +88,22 @@ class PlayerActivity : AppCompatActivity() {
             setupOverlays()
             setupControlButtons()
 
-            val firstUnlocked = channels.indexOfFirst { !it.isLocked }
-            if (firstUnlocked >= 0) {
-                currentChannelIndex = firstUnlocked
-                // Use a short delay so the Top Bar isn't "blocked" by the activity loading
+            // --- MODIFY THIS LOGIC ---
+            val savedChannelId = getSharedPreferences("AppPrefs", MODE_PRIVATE)
+                .getInt("last_viewed_channel_id", -1)
+
+            // Try to find the index of the saved channel, ensuring it's not locked
+            var startIndex = channels.indexOfFirst { it.id == savedChannelId && !it.isLocked }
+
+            // If no saved channel or it's now locked, fall back to the first unlocked channel
+            if (startIndex == -1) {
+                startIndex = channels.indexOfFirst { !it.isLocked }
+            }
+
+            if (startIndex >= 0) {
+                currentChannelIndex = startIndex
                 zapHandler.postDelayed({
-                    playChannel(firstUnlocked)
+                    playChannel(startIndex)
                 }, 300)
             }
             isInitialized = true
@@ -182,6 +192,11 @@ class PlayerActivity : AppCompatActivity() {
         if (index !in channels.indices || channels[index].isLocked) return
         currentChannelIndex = index
         val channel = channels[index]
+
+        // --- ADD THIS: Save the channel ID to persist "Continue Watching" ---
+        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit()
+            .putInt("last_viewed_channel_id", channel.id)
+            .apply()
 
         isLiveMode = true
         livePausedAt = null
