@@ -69,17 +69,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 3. Auto-connect mobile remote
-        val isRemoteEnabled = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            .getBoolean("mobile_remote_enabled", false)
-
-        if (isRemoteEnabled && !MobileRemoteManager.isConnected()) {
-            val deviceId = DeviceIdHelper.getDeviceId(this)
-            lifecycleScope.launch {
-                val response = withContext(Dispatchers.IO) { callRemoteReadyEndpoint(deviceId, token) }
-                response?.optString("socket_token")?.let { MobileRemoteManager.connect(it) }
-            }
-        }
 
         setupCards()
         showMenuImmediate()
@@ -243,21 +232,5 @@ class MainActivity : AppCompatActivity() {
     private fun getSavedToken(): String? =
         getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).getString("auth_token", null)
 
-    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
-        val conn = URL("https://tv-api.telecomm1.com/api/tv/remote/ready").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.connectTimeout = 8000
-        conn.readTimeout = 8000
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.setRequestProperty("Authorization", "Bearer $token")
 
-        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("device_id", deviceId).toString()) }
-
-        if (conn.responseCode in 200..299) {
-            JSONObject(conn.inputStream.bufferedReader().readText())
-        } else null
-    } catch (e: Exception) {
-        null
-    }
 }

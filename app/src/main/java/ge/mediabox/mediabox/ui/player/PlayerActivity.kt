@@ -516,22 +516,17 @@ class PlayerActivity : AppCompatActivity() {
     }
     override fun onResume() {
         super.onResume()
-        // 1. Resume audio if the user didn't manually pause before leaving
-        if (!userIntentionallyPaused) {
-            player?.playWhenReady = true
-        }
         resetInactivityTimer()
 
-        // Check if we were watching Live (regardless of whether it has archive support)
-        if (isLiveMode && !userIntentionallyPaused) {
-            // Force the app to reload the stream from the server.
-            // This ensures we aren't "stuck" on a paused frame from 10 minutes ago.
-            playChannel(currentChannelIndex)
-        } else if (!userIntentionallyPaused) {
-            // If they were watching an archive and it supports pausing, just resume.
-            player?.playWhenReady = true
-        }
+        if (!isInitialized) return
 
+        if (!userIntentionallyPaused) {
+            if (isLiveMode) {
+                playChannel(currentChannelIndex)
+            } else {
+                player?.playWhenReady = true
+            }
+        }
     }
     override fun onDestroy() {
         super.onDestroy()
