@@ -132,6 +132,13 @@ class EpgOverlayManager(
 
     private fun setupCategories() {
         val container = binding.root.findViewById<LinearLayout>(R.id.categoryButtons)
+        val scrollView = binding.root.findViewById<HorizontalScrollView>(R.id.categoryScrollView)
+
+        // Prevent ScrollView from ever stealing DPAD events
+        scrollView?.isFocusable = false
+        scrollView?.isFocusableInTouchMode = false
+        scrollView?.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
         container?.removeAllViews()
         categoryButtons.clear()
 
@@ -190,9 +197,13 @@ class EpgOverlayManager(
             btn.isSelected = isSelected
             btn.alpha = when {
                 isFocused  -> 1f
-                isSelected -> 0.85f
-                else       -> 0.55f
+                isSelected -> 0.60f
+                else       -> 0.45f
             }
+        }
+        categoryButtons.getOrNull(selectedCategoryIndex)?.let { btn ->
+            binding.root.findViewById<HorizontalScrollView>(R.id.categoryScrollView)
+                ?.smoothScrollTo(btn.left - 40, 0)
         }
     }
 
