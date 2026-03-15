@@ -5,6 +5,7 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -13,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import ge.mediabox.mediabox.R
+import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import ge.mediabox.mediabox.data.repository.ChannelRepository
@@ -21,6 +23,7 @@ import ge.mediabox.mediabox.ui.LangPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -75,6 +78,22 @@ class EpgOverlayManager(
     private lateinit var programAdapter: ProgramAdapter
 
     init { setupEpg() }
+
+    private fun scrollCategoryIntoView(index: Int) {
+        val scrollView = binding.root.findViewById<HorizontalScrollView>(R.id.categoryScrollView) ?: return
+        val btn = categoryButtons.getOrNull(index) ?: return
+        // post so layout is measured before we scroll
+        scrollView.post {
+            val btnLeft = btn.left
+            val btnRight = btn.right
+            val scrollX = scrollView.scrollX
+            val width = scrollView.width
+            when {
+                btnLeft < scrollX -> scrollView.smoothScrollTo(btnLeft - 20, 0)
+                btnRight > scrollX + width -> scrollView.smoothScrollTo(btnRight - width + 20, 0)
+            }
+        }
+    }
 
     // ── Setup ─────────────────────────────────────────────────────────────────
 
@@ -340,6 +359,7 @@ class EpgOverlayManager(
                 selectedCategoryIndex--
                 selectCategory(categoryButtons[selectedCategoryIndex].text.toString())
                 highlightCategory()
+                scrollCategoryIntoView(selectedCategoryIndex)
             }
             true
         }
@@ -348,6 +368,7 @@ class EpgOverlayManager(
                 selectedCategoryIndex++
                 selectCategory(categoryButtons[selectedCategoryIndex].text.toString())
                 highlightCategory()
+                scrollCategoryIntoView(selectedCategoryIndex)
             }
             true
         }
