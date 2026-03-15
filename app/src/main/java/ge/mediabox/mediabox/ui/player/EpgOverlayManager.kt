@@ -109,7 +109,7 @@ class EpgOverlayManager(
             isFocusable = false
             isFocusableInTouchMode = false
             setHasFixedSize(true)
-            setItemViewCacheSize(20)
+            setItemViewCacheSize(40)
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
         }
 
@@ -120,7 +120,10 @@ class EpgOverlayManager(
             isFocusable = false
             isFocusableInTouchMode = false
             setHasFixedSize(false)
-            setItemViewCacheSize(30)
+            setItemViewCacheSize(40)
+            itemAnimator = null
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
         }
 
         setupCategories()
