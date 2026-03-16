@@ -183,7 +183,7 @@
                     android:id="@+id/tvUsername"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@username"
+                    android:text="\@username"
                     android:textColor="#2894A3B8"
                     android:textSize="12sp"
                     android:layout_marginTop="2dp"/>
@@ -319,6 +319,8 @@
             </LinearLayout>
         </FrameLayout>
 
+
+
         <!-- ══ ACTIVE PLANS SECTION ══════════════════════════════════ -->
         <TextView
             android:id="@+id/tvActivePlansHeader"
@@ -361,6 +363,19 @@
             android:scrollbars="none"
             android:visibility="gone"
             app:layout_constraintTop_toBottomOf="@id/tvActivePlansHeader"
+            app:layout_constraintBottom_toTopOf="@id/hintBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <TextView
+            android:id="@+id/tvDeviceId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Device ID: —"
+            android:textColor="#22FFFFFF"
+            android:textSize="9sp"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="4dp"
             app:layout_constraintBottom_toTopOf="@id/hintBar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>

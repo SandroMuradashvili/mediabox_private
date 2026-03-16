@@ -163,7 +163,12 @@ class UserActivity : AppCompatActivity() {
         // 6. Set Balance
         binding.tvBalance.text = "₾ ${user.account?.balance ?: "0.00"}"
 
-        // 7. Translations for UI labels
+        // 7.1 NEW: Set Device ID at the bottom
+        val deviceId = DeviceIdHelper.getDeviceId(this)
+        val idLabel = if (isKa) "მოწყობილობის ID" else "Device ID"
+        binding.tvDeviceId.text = "$idLabel: $deviceId"
+
+        // 7.2 Translations for UI labels
         binding.tvBackLabel.text = if (isKa) "← უკან" else "← Back"
         binding.tvLogoutLabel.text = if (isKa) "გამოსვლა" else "Sign Out"
         binding.tvLogoutSub.text = if (isKa) "სისტემიდან" else "from system"
