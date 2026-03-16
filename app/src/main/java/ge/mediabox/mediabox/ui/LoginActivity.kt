@@ -33,10 +33,13 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnRefresh: Button
 
     private lateinit var deviceId: String
+
+    private lateinit var tvManualUrl: TextView
     private var mSocket: Socket? = null
 
     private val BASE_URL = "https://tv-api.telecomm1.com/api"
     private val SOCKET_URL = "https://tv-api.telecomm1.com"
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +58,7 @@ class LoginActivity : AppCompatActivity() {
         tvPairingCode = findViewById(R.id.tvPairingCode)
         tvStatus      = findViewById(R.id.tvStatus)
         btnRefresh    = findViewById(R.id.btnRefresh)
+        tvManualUrl = findViewById(R.id.tvManualUrl)
 
         // IMPORTANT: Make sure your activity_login_qr.xml has android:id="@+id/ivLogoLeft"
         // on the Mediabox ImageView!
@@ -92,7 +96,11 @@ class LoginActivity : AppCompatActivity() {
                     val pCode = result.first
                     val sToken = result.second
 
-                    val qrUrl = "https://tv-api.telecomm1.com/tv-register?code=$pCode"
+                    val displayUrl = "tv-api.telecomm1.com/tv-register?code=$pCode"
+                    val qrUrl = "https://$displayUrl"
+
+                    tvManualUrl.text = displayUrl
+
                     val bitmap = BarcodeEncoder().encodeBitmap(qrUrl, BarcodeFormat.QR_CODE, 400, 400)
 
                     ivQrCode.setImageBitmap(bitmap)
