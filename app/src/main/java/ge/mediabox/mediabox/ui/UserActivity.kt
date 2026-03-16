@@ -131,18 +131,39 @@ class UserActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     private fun bindUserData(user: ge.mediabox.mediabox.data.remote.User, myPlans: List<MyPlan>) {
         val isKa = LangPrefs.isKa(this)
+        val defaultUserLabel = if (isKa) "მომხმარებელი" else "User"
 
-        // Update all text fields with new localized strings
-        val displayName = user.full_name?.takeIf { it.isNotBlank() } ?: user.username
-        binding.tvAvatarInitial.text = displayName.take(1).uppercase()
+        // 1. Hide the Role fields as requested
+        binding.tvRoleLabel.visibility = View.GONE
+        binding.tvRole.visibility = View.GONE
+
+        // 2. Determine Display Name (Priority: Full Name > Username > Email > Phone > Default)
+        // This chain ensures displayName is NEVER null, so .take(1) won't crash.
+        val displayName: String = user.full_name?.takeIf { it.isNotBlank() }
+            ?: user.username?.takeIf { it.isNotBlank() }
+            ?: user.email?.takeIf { it.isNotBlank() }
+            ?: user.phone?.takeIf { it.isNotBlank() }
+            ?: defaultUserLabel
+
+        // 3. Set Avatar Initial and Large Display Name
+        binding.tvAvatarInitial.text = if (displayName.isNotEmpty()) displayName.trim().take(1).uppercase() else "U"
         binding.tvDisplayName.text = displayName
-        binding.tvUsername.text = "@${user.username}"
-        binding.tvEmail.text = user.email ?: "—"
-        binding.tvPhone.text = user.phone ?: "—"
-        binding.tvRole.text = user.role.uppercase()
+
+        // 4. Set Username Slot (Handle the '@' prefix properly)
+        binding.tvUsername.text = if (!user.username.isNullOrBlank()) {
+            "@${user.username}"
+        } else {
+            defaultUserLabel
+        }
+
+        // 5. Fill Email and Phone (Use fallback dash if empty)
+        binding.tvEmail.text = user.email?.takeIf { it.isNotBlank() } ?: "—"
+        binding.tvPhone.text = user.phone?.takeIf { it.isNotBlank() } ?: "—"
+
+        // 6. Set Balance
         binding.tvBalance.text = "₾ ${user.account?.balance ?: "0.00"}"
 
-        // Translation for UI labels that aren't in the XML
+        // 7. Translations for UI labels
         binding.tvBackLabel.text = if (isKa) "← უკან" else "← Back"
         binding.tvLogoutLabel.text = if (isKa) "გამოსვლა" else "Sign Out"
         binding.tvLogoutSub.text = if (isKa) "სისტემიდან" else "from system"
@@ -152,6 +173,7 @@ class UserActivity : AppCompatActivity() {
 
         updateRemoteToggleUI()
 
+        // 8. Plans list logic
         if (myPlans.isEmpty()) {
             binding.tvNoPlans.visibility = View.VISIBLE
             binding.rvActivePlans.visibility = View.GONE
@@ -164,7 +186,7 @@ class UserActivity : AppCompatActivity() {
             planCount = myPlans.size
         }
 
-        // Final visibility sync
+        // 9. Final visibility sync
         binding.loadingIndicator.visibility = View.GONE
         binding.contentRoot.visibility = View.VISIBLE
     }

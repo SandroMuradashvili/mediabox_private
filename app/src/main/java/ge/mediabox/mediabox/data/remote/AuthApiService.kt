@@ -13,19 +13,6 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-data class Plan(
-    val id: String,
-    val name_ka: String,
-    val name_en: String,
-    val description_ka: String,
-    val description_en: String,
-    val price: String,
-    val duration_days: Int,
-    val is_active: Boolean,
-    val created_at: String,
-    val updated_at: String
-)
-
 data class MyPlan(
     val plan_id: String,
     val name_en: String,
@@ -45,7 +32,7 @@ data class Account(
 
 data class User(
     val id: String,
-    val username: String,
+    val username: String?,
     val full_name: String?,
     val email: String?,
     val phone: String?,
@@ -72,13 +59,8 @@ data class PlanChannelsResponse(
     val channels: List<PlanChannel>
 )
 
-data class PurchaseRequest(val plan_id: String)
-data class PurchaseResponse(val message: String?, val success: Boolean = true)
 
 interface AuthApiService {
-    @Headers("Accept: application/json")
-    @GET("api/plans")
-    suspend fun getPlans(): List<Plan>
 
     @Headers("Accept: application/json")
     @GET("api/plans/my")
@@ -88,9 +70,6 @@ interface AuthApiService {
     @GET("api/user")
     suspend fun getUser(): User
 
-    @Headers("Accept: application/json", "Content-Type: application/json")
-    @POST("api/plans/purchase")
-    suspend fun purchasePlan(@Body request: PurchaseRequest): PurchaseResponse
 
     @Headers("Accept: application/json")
     @GET("api/plans/{planId}/channels")
