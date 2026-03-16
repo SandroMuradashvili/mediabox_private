@@ -1,57 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
-
-    <!-- Radio body -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M6,18 Q6,15 9,15 L39,15 Q42,15 42,18 L42,38 Q42,41 39,41 L9,41 Q6,41 6,38 Z"/>
-
-    <!-- Antenna -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.2"
-        android:strokeLineCap="round"
-        android:pathData="M15,15 L22,7"/>
-
-    <!-- Speaker grille lines -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.6"
-        android:strokeLineCap="round"
-        android:pathData="M10,23 L10,35"/>
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.6"
-        android:strokeLineCap="round"
-        android:pathData="M14,21 L14,37"/>
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.6"
-        android:strokeLineCap="round"
-        android:pathData="M18,20 L18,38"/>
-
-    <!-- Tuner knob circle -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.0"
-        android:pathData="M33,29 A6,6 0 1,1 33,28.99 Z"/>
-
-    <!-- Knob center dot -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M33,27 A2,2 0 1,1 33,26.99 Z"/>
-
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <path
+      android:pathData="M160,880q-33,0 -56.5,-23.5T80,800v-480q0,-25 13.5,-45t36.5,-29l506,-206 26,66 -330,134h468q33,0 56.5,23.5T880,320v480q0,33 -23.5,56.5T800,880L160,880ZM160,800h640v-280L160,520v280ZM391,731q29,-29 29,-71t-29,-71q-29,-29 -71,-29t-71,29q-29,29 -29,71t29,71q29,29 71,29t71,-29ZM160,440h480v-80h80v80h80v-120L160,320v120ZM160,800v-280,280Z"
+      android:fillColor="#e3e3e3"/>
 </vector>
