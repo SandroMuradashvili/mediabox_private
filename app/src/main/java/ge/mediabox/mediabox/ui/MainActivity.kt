@@ -13,16 +13,9 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import ge.mediabox.mediabox.R
-import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.databinding.ActivityMainBinding
 import ge.mediabox.mediabox.ui.player.PlayerActivity
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -140,7 +133,9 @@ class MainActivity : AppCompatActivity() {
         val duration = 220L
         val interp   = AccelerateDecelerateInterpolator()
 
-        card.setBackgroundResource(if (selected) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass)
+        card.setBackgroundResource(
+            if (selected) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass
+        )
 
         card.animate()
             .scaleX(if (selected) 1.04f else 1.0f)
@@ -150,10 +145,23 @@ class MainActivity : AppCompatActivity() {
             .setInterpolator(interp)
             .start()
 
-        card.findViewWithTag<ImageView>("icon")?.animate()?.alpha(if (selected) 1.0f else 0.75f)?.setDuration(duration)?.start()
-        card.findViewWithTag<View>("labelAccent")?.animate()?.alpha(if (selected) 1f else 0f)?.setDuration(duration)?.start()
-        card.findViewWithTag<TextView>("label")?.animate()?.alpha(if (selected) 1.0f else 0.85f)?.setDuration(duration)?.start()
-        card.findViewWithTag<TextView>("sublabel")?.animate()?.alpha(if (selected) 0.65f else 0f)?.setDuration(if (selected) 280L else 150L)?.start()
+        card.findViewWithTag<ImageView>("icon")
+            ?.animate()?.alpha(if (selected) 1.0f else 0.55f)?.setDuration(duration)?.start()
+
+        card.findViewWithTag<View>("iconBg")
+            ?.animate()?.alpha(if (selected) 1.0f else 0.55f)?.setDuration(duration)?.start()
+
+        card.findViewWithTag<View>("labelAccent")
+            ?.animate()?.alpha(if (selected) 1f else 0f)?.setDuration(duration)?.start()
+
+        card.findViewWithTag<TextView>("label")
+            ?.animate()?.alpha(if (selected) 1.0f else 0.7f)?.setDuration(duration)?.start()
+
+        card.findViewWithTag<TextView>("sublabel")
+            ?.animate()
+            ?.alpha(if (selected) 0.65f else 0f)
+            ?.setDuration(if (selected) 300L else 150L)
+            ?.start()
     }
 
     private fun launchTv() {

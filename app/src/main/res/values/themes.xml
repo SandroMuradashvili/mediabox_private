@@ -5,10 +5,15 @@
          Base application theme
          ================================================================ -->
     <style name="Theme.Mediabox" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
-        <item name="android:windowBackground">@color/background</item>
+        <item name="colorPrimary">#0A1628</item>
+        <item name="colorPrimaryDark">#04080F</item>
+        <item name="colorAccent">#4A7FD4</item>
+        <item name="android:windowBackground">#04080F</item>
+        <item name="android:colorBackground">#04080F</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:statusBarColor">#04080F</item>
+        <item name="android:navigationBarColor">#04080F</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
     </style>

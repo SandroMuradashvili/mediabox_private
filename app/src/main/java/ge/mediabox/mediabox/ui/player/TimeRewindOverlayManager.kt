@@ -269,7 +269,8 @@ class TimeRewindOverlayManager(
         val outOfRange   = archiveStart != null && tsMs < archiveStart
 
         tvOutOfRange.visibility = if (outOfRange) View.VISIBLE else View.GONE
-        tvSelectedTime.setTextColor(if (outOfRange) 0xFFF87171.toInt() else 0xFF818CF8.toInt())
+        tvSelectedTime.setTextColor(if (outOfRange) 0xFFF87171.toInt() else 0xFF4A7FD4.toInt())
+
         btnConfirm.isEnabled = !outOfRange
         btnConfirm.alpha     = if (outOfRange) 0.4f else 1f
     }
@@ -332,12 +333,12 @@ class TimeRewindOverlayManager(
                 alpha    = when (dist) { 0 -> 1f; 1 -> 0.55f; 2 -> 0.28f; else -> 0.12f }
                 setTextColor(when {
                     isCenter && focused -> 0xFFFFFFFF.toInt()
-                    isCenter           -> 0xFF818CF8.toInt()
+                    isCenter           -> 0xFF4A7FD4.toInt()
                     else               -> 0xFF94A3B8.toInt()
                 })
                 setBackgroundColor(when {
-                    isCenter && focused -> 0x336366F1.toInt()
-                    isCenter           -> 0x196366F1.toInt()
+                    isCenter && focused -> 0x334A7FD4.toInt()
+                    isCenter           -> 0x194A7FD4.toInt()
                     else               -> 0x00000000
                 })
                 typeface = if (isCenter) android.graphics.Typeface.DEFAULT_BOLD

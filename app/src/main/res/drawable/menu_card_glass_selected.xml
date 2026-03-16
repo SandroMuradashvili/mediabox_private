@@ -1,62 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    menu_card_glass_selected.xml
-    Glow strategy: inner approach — the card fill is slightly brighter,
-    and we use a bold colored stroke that bleeds outward via negative insets.
-    Parent LinearLayout must have clipChildren="false" and clipToPadding="false"
-    to allow the outer glow layers to render outside card bounds.
+    menu_card_glass_selected.xml — focused state
+    Single smooth red glow via one large negative-inset stroke.
+    No stepped rings — just one soft halo + crisp border.
+    Parent needs clipChildren="false" + clipToPadding="false".
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Outermost soft bloom — large, very transparent -->
-    <item
-        android:left="-12dp"
-        android:top="-12dp"
-        android:right="-12dp"
-        android:bottom="-12dp">
-        <shape android:shape="rectangle">
-            <stroke android:width="12dp" android:color="#12DC2626"/>
-            <corners android:radius="30dp"/>
-        </shape>
-    </item>
 
-    <!-- Mid bloom -->
-    <item
-        android:left="-6dp"
-        android:top="-6dp"
-        android:right="-6dp"
-        android:bottom="-6dp">
-        <shape android:shape="rectangle">
-            <stroke android:width="6dp" android:color="#22E8191A"/>
-            <corners android:radius="24dp"/>
-        </shape>
-    </item>
 
-    <!-- Near glow -->
-    <item
-        android:left="-2dp"
-        android:top="-2dp"
-        android:right="-2dp"
-        android:bottom="-2dp">
+    <!-- Glass fill: slightly brighter navy than unselected -->
+    <item>
         <shape android:shape="rectangle">
-            <stroke android:width="3dp" android:color="#44E8191A"/>
+            <solid android:color="#AA060F22"/>
             <corners android:radius="20dp"/>
         </shape>
     </item>
 
-    <!-- Card fill — matches login_card_glass_selected base -->
+    <!-- Top sheen: stronger on selected -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#121D30"/>
-            <corners android:radius="18dp"/>
+            <gradient
+                android:type="linear"
+                android:angle="270"
+                android:startColor="#20FFFFFF"
+                android:endColor="#00000000"/>
+            <corners android:radius="20dp"/>
         </shape>
     </item>
 
-    <!-- Crisp 1.5dp red border -->
+    <!-- Crisp red border — defines the focused edge cleanly -->
     <item>
         <shape android:shape="rectangle">
-            <stroke android:width="1.5dp" android:color="#E8191A"/>
-            <corners android:radius="18dp"/>
+            <stroke android:width="2dp" android:color="#BBE8191A"/>
+            <corners android:radius="20dp"/>
         </shape>
     </item>
 

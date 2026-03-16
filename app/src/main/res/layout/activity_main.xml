@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0D1117"
+    android:background="@drawable/main_bg"
     android:clipChildren="false"
     android:clipToPadding="false">
 
@@ -14,33 +14,34 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <!-- Logo top-left -->
-        <ImageView
-            android:id="@+id/ivLogo"
-            android:layout_width="140dp"
-            android:layout_height="29dp"
-            android:src="@drawable/ic_mediabox_logo"
-            android:scaleType="fitStart"
-            android:contentDescription="Mediabox"
-            android:layout_marginStart="48dp"
-            android:layout_marginTop="28dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"/>
-
-        <!-- Top-right: Lang toggle + Clock -->
+        <!-- ══ HEADER ═══════════════════════════════════════════════ -->
         <LinearLayout
-            android:id="@+id/topRightGroup"
-            android:layout_width="wrap_content"
+            android:id="@+id/headerBar"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginEnd="48dp"
-            android:layout_marginTop="18dp"
+            android:paddingStart="52dp"
+            android:paddingEnd="52dp"
+            android:paddingTop="28dp"
+            android:paddingBottom="18dp"
             app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
+            <ImageView
+                android:id="@+id/ivLogo"
+                android:layout_width="136dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_mediabox_logo"
+                android:scaleType="fitStart"
+                android:contentDescription="Mediabox"/>
 
-            <!-- Clock -->
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"/>
+
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -52,10 +53,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="00:00"
-                    android:textColor="#D0F1F5F9"
-                    android:textSize="26sp"
+                    android:textColor="#E2E8F0"
+                    android:textSize="28sp"
                     android:textStyle="bold"
-                    android:letterSpacing="-0.04"
+                    android:letterSpacing="-0.03"
                     android:fontFamily="sans-serif-light"/>
 
                 <TextView
@@ -63,29 +64,28 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Mon, 1 Jan"
-                    android:textColor="#40FFFFFF"
+                    android:textColor="#3894A3B8"
                     android:textSize="10sp"
                     android:gravity="end"
-                    android:letterSpacing="0.06"
-                    android:layout_marginTop="2dp"/>
+                    android:letterSpacing="0.08"
+                    android:layout_marginTop="3dp"/>
 
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Subtle horizontal rule -->
+        <!-- Hairline rule -->
         <View
             android:id="@+id/dividerTop"
             android:layout_width="0dp"
             android:layout_height="1dp"
-            android:background="#12FFFFFF"
-            android:layout_marginStart="48dp"
-            android:layout_marginEnd="48dp"
-            android:layout_marginTop="12dp"
-            app:layout_constraintTop_toBottomOf="@id/topRightGroup"
+            android:background="#08FFFFFF"
+            android:layout_marginStart="52dp"
+            android:layout_marginEnd="52dp"
+            app:layout_constraintTop_toBottomOf="@id/headerBar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- Cards row — Updated to 3 cards -->
+        <!-- ══ CARDS ══════════════════════════════════════════════════ -->
         <LinearLayout
             android:id="@+id/cardsRow"
             android:layout_width="wrap_content"
@@ -95,44 +95,63 @@
             android:clipChildren="false"
             android:clipToPadding="false"
             app:layout_constraintTop_toBottomOf="@id/dividerTop"
-            app:layout_constraintBottom_toTopOf="@+id/hintBar"
+            app:layout_constraintBottom_toTopOf="@id/hintBar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- ═══════════════ WATCH TV ═══════════════ -->
+            <!-- ─── WATCH TV ─── -->
             <FrameLayout
                 android:id="@+id/cardWatchTv"
-                android:layout_width="220dp"
-                android:layout_height="220dp"
-                android:layout_margin="16dp"
+                android:layout_width="215dp"
+                android:layout_height="258dp"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
-                android:clickable="true">
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="20dp">
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:paddingTop="36dp"
+                    android:paddingBottom="30dp">
 
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
-                        android:src="@drawable/ic_menu_watch"
-                        android:alpha="0.75"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Watch TV"/>
+                    <FrameLayout
+                        android:layout_width="76dp"
+                        android:layout_height="76dp">
+
+                        <View
+                            android:tag="iconBg"
+                            android:layout_width="76dp"
+                            android:layout_height="76dp"
+                            android:background="@drawable/card_icon_bg"/>
+
+                        <!-- src points to original working icon drawable -->
+                        <ImageView
+                            android:tag="icon"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_menu_watch"
+                            android:alpha="0.55"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="Watch TV"/>
+                    </FrameLayout>
 
                     <View
                         android:tag="labelAccent"
-                        android:layout_width="24dp"
+                        android:layout_width="32dp"
                         android:layout_height="2dp"
                         android:background="#E8191A"
-                        android:layout_marginTop="14dp"
-                        android:layout_marginBottom="8dp"
+                        android:layout_marginTop="22dp"
+                        android:layout_marginBottom="10dp"
                         android:alpha="0"/>
 
                     <TextView
@@ -140,59 +159,81 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ტელევიზია"
-                        android:textColor="#F1F5F9"
-                        android:textSize="18sp"
+                        android:textColor="#CBD5E1"
+                        android:textSize="17sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:alpha="0.85"/>
+                        android:letterSpacing="-0.01"
+                        android:alpha="0.7"/>
 
                     <TextView
                         android:tag="sublabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="პირდაპირი · არქივი · HD"
-                        android:textColor="#55FFFFFF"
+                        android:textColor="#3E94A3B8"
                         android:textSize="11sp"
                         android:gravity="center"
-                        android:layout_marginTop="4dp"
+                        android:letterSpacing="0.01"
+                        android:layout_marginTop="7dp"
                         android:alpha="0"/>
+
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- ═══════════════ RADIO / CAST ═══════════════ -->
+            <!-- ─── RADIO ─── -->
             <FrameLayout
                 android:id="@+id/cardRadio"
-                android:layout_width="220dp"
-                android:layout_height="220dp"
-                android:layout_margin="16dp"
+                android:layout_width="215dp"
+                android:layout_height="258dp"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
-                android:clickable="true">
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="20dp">
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:paddingTop="36dp"
+                    android:paddingBottom="30dp">
 
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
-                        android:src="@drawable/ic_radio"
-                        android:alpha="0.75"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Radio"/>
+                    <FrameLayout
+                        android:layout_width="76dp"
+                        android:layout_height="76dp">
+
+                        <View
+                            android:tag="iconBg"
+                            android:layout_width="76dp"
+                            android:layout_height="76dp"
+                            android:background="@drawable/card_icon_bg"/>
+
+                        <!-- ic_radio is the original working radio drawable -->
+                        <ImageView
+                            android:tag="icon"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_radio"
+                            android:alpha="0.55"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="Radio"/>
+                    </FrameLayout>
 
                     <View
                         android:tag="labelAccent"
-                        android:layout_width="24dp"
+                        android:layout_width="32dp"
                         android:layout_height="2dp"
                         android:background="#E8191A"
-                        android:layout_marginTop="14dp"
-                        android:layout_marginBottom="8dp"
+                        android:layout_marginTop="22dp"
+                        android:layout_marginBottom="10dp"
                         android:alpha="0"/>
 
                     <TextView
@@ -200,59 +241,81 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="რადიო"
-                        android:textColor="#F1F5F9"
-                        android:textSize="18sp"
+                        android:textColor="#CBD5E1"
+                        android:textSize="17sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:alpha="0.85"/>
+                        android:letterSpacing="-0.01"
+                        android:alpha="0.7"/>
 
                     <TextView
                         android:tag="sublabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="სადგურები · მუსიკა"
-                        android:textColor="#55FFFFFF"
+                        android:textColor="#3E94A3B8"
                         android:textSize="11sp"
                         android:gravity="center"
-                        android:layout_marginTop="4dp"
+                        android:letterSpacing="0.01"
+                        android:layout_marginTop="7dp"
                         android:alpha="0"/>
+
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- ═══════════════ PROFILE ═══════════════ -->
+            <!-- ─── PROFILE ─── -->
             <FrameLayout
                 android:id="@+id/cardProfile"
-                android:layout_width="220dp"
-                android:layout_height="220dp"
-                android:layout_margin="16dp"
+                android:layout_width="215dp"
+                android:layout_height="258dp"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
                 android:background="@drawable/menu_card_glass"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
-                android:clickable="true">
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="20dp">
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:paddingTop="36dp"
+                    android:paddingBottom="30dp">
 
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
-                        android:src="@drawable/ic_menu_profile"
-                        android:alpha="0.75"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Profile"/>
+                    <FrameLayout
+                        android:layout_width="76dp"
+                        android:layout_height="76dp">
+
+                        <View
+                            android:tag="iconBg"
+                            android:layout_width="76dp"
+                            android:layout_height="76dp"
+                            android:background="@drawable/card_icon_bg"/>
+
+                        <!-- ic_menu_profile is the original working profile drawable -->
+                        <ImageView
+                            android:tag="icon"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_menu_profile"
+                            android:alpha="0.55"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="Profile"/>
+                    </FrameLayout>
 
                     <View
                         android:tag="labelAccent"
-                        android:layout_width="24dp"
+                        android:layout_width="32dp"
                         android:layout_height="2dp"
                         android:background="#E8191A"
-                        android:layout_marginTop="14dp"
-                        android:layout_marginBottom="8dp"
+                        android:layout_marginTop="22dp"
+                        android:layout_marginBottom="10dp"
                         android:alpha="0"/>
 
                     <TextView
@@ -260,35 +323,38 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="პროფილი"
-                        android:textColor="#F1F5F9"
-                        android:textSize="18sp"
+                        android:textColor="#CBD5E1"
+                        android:textSize="17sp"
                         android:textStyle="bold"
                         android:gravity="center"
-                        android:alpha="0.85"/>
+                        android:letterSpacing="-0.01"
+                        android:alpha="0.7"/>
 
                     <TextView
                         android:tag="sublabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ანგარიში · გამოწერა"
-                        android:textColor="#55FFFFFF"
+                        android:textColor="#3E94A3B8"
                         android:textSize="11sp"
                         android:gravity="center"
-                        android:layout_marginTop="4dp"
+                        android:letterSpacing="0.01"
+                        android:layout_marginTop="7dp"
                         android:alpha="0"/>
+
                 </LinearLayout>
             </FrameLayout>
 
         </LinearLayout>
 
-        <!-- Selection hint -->
+        <!-- ══ HINT BAR ═══════════════════════════════════════════════ -->
         <LinearLayout
             android:id="@+id/hintBar"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingBottom="20dp"
+            android:paddingBottom="22dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
@@ -298,19 +364,19 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
-                android:textColor="#28FFFFFF"
+                android:textColor="#20FFFFFF"
                 android:textSize="12sp"
-                android:letterSpacing="0.02"
+                android:letterSpacing="0.01"
                 android:gravity="center"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="◀  ▶  ნავიგაცია     ▲  ენა     OK  არჩევა"
-                android:textColor="#12FFFFFF"
+                android:text="◀  ▶  ნავიგაცია     OK  არჩევა"
+                android:textColor="#0CFFFFFF"
                 android:textSize="9sp"
-                android:letterSpacing="0.06"
-                android:layout_marginTop="4dp"/>
+                android:letterSpacing="0.07"
+                android:layout_marginTop="5dp"/>
 
         </LinearLayout>
 

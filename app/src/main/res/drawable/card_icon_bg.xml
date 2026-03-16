@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    card_icon_bg.xml — circular glass backdrop behind card icons
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shape="oval">
+            <solid android:color="#66071020" />
+        </shape>
+    </item>
+
+    <item>
+        <shape android:shape="oval">
+            <stroke android:width="1dp" android:color="#18FFFFFF"/>
+        </shape>
+    </item>
+
+</layer-list>

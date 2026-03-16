@@ -216,7 +216,7 @@ class EpgOverlayManager(
         tvPlaceholderTitle?.text = if (LangPrefs.isKa(activity)) "აირჩიეთ არხი" else "Select a channel"
         tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
         tvPlaceholderSubtitle?.text = if (LangPrefs.isKa(activity)) "დააჭირეთ → პროგრამების სანახავად" else "Press → to browse programs"
-        tvPlaceholderSubtitle?.setTextColor(0x60B0B3F5.toInt())
+        tvPlaceholderSubtitle?.setTextColor(0x605A9EC8.toInt())
     }
 
     private fun showLockedChannelInfo(channel: Channel) {
@@ -354,10 +354,6 @@ class EpgOverlayManager(
         }
     }
 
-    // Ensure the title updates when the archive starts
-    fun updateSelectedChannelUI(channel: Channel) {
-        binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
-    }
 
     // ── Key handling ──────────────────────────────────────────────────────────
 
@@ -547,7 +543,7 @@ class EpgOverlayManager(
                 } else {
                     favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
                     name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
-                    number.setTextColor(if (isHighlighted) 0xFFB0B3F5.toInt() else 0xBBB0B3F5.toInt())
+                    number.setTextColor(if (isHighlighted) 0xFF7AAEE8.toInt() else 0xBB5A9EC8.toInt())
                     itemView.alpha = if (isHighlighted) 1f else 0.85f
                 }
             }
@@ -616,9 +612,9 @@ class EpgOverlayManager(
 
                 // 1. Text Color Logic
                 time.setTextColor(when {
-                    isHighlighted || isPlaying -> 0xFFB0B3F5.toInt() // Bright primary
-                    isPast -> 0xC46366F1.toInt()                    // Muted primary
-                    else -> 0x446366F1.toInt()                      // Very dim primary for future
+                    isHighlighted || isPlaying -> 0xFF7AAEE8.toInt()  // bright steel blue
+                    isPast ->                     0xC44A7FD4.toInt()  // muted steel blue
+                    else ->                       0x444A7FD4.toInt()  // dim steel blue
                 })
 
                 title.setTextColor(when {
@@ -628,9 +624,9 @@ class EpgOverlayManager(
                 })
 
                 dateCol?.setTextColor(when {
-                    isHighlighted -> 0xAAB0B3F5.toInt()
-                    isFuture -> 0x2294A3B8.toInt()                  // Barely visible date
-                    else -> 0x8094A3B8.toInt()
+                    isHighlighted -> 0xAA7AAEE8.toInt()  // bright blue
+                    isFuture ->      0x2294A3B8.toInt()  // unchanged slate
+                    else ->          0x8094A3B8.toInt()  // unchanged slate
                 })
 
                 // 2. Alpha (Dimming) Logic
