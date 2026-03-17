@@ -1,36 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    menu_card_glass.xml — unselected
-    Colors pushed darker than Studio preview to compensate for TV panel
-    brightness/contrast differences. Semi-transparent so background bleeds through.
--->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Glass fill: dark navy, ~60% opaque -->
+    <!-- Flat fill: deep navy surface -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#99050D1A"/>
-            <corners android:radius="20dp"/>
+            <solid android:color="#0C1526"/>
+            <corners android:radius="16dp"/>
         </shape>
     </item>
 
-    <!-- Top-to-bottom gradient sheen — simulates light on glass surface -->
+    <!-- Single thin border -->
     <item>
         <shape android:shape="rectangle">
-            <gradient
-                android:type="linear"
-                android:angle="70"
-                android:startColor="#16FFFFFF"
-                android:endColor="#00000000"/>
-            <corners android:radius="20dp"/>
-        </shape>
-    </item>
-
-    <!-- Single crisp border -->
-    <item>
-        <shape android:shape="rectangle">
-            <stroke android:width="1dp" android:color="#22FFFFFF"/>
-            <corners android:radius="20dp"/>
+            <stroke android:width="1dp" android:color="#1C2E4A"/>
+            <corners android:radius="16dp"/>
         </shape>
     </item>
 

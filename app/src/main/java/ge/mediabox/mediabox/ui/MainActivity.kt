@@ -52,16 +52,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 1. Load Current Logo
         LogoManager.loadLogo(binding.ivLogo)
 
-        // 2. Request Update from Server
         lifecycleScope.launch {
             LogoManager.updateLogoFromServer(this@MainActivity, token) {
                 LogoManager.loadLogo(binding.ivLogo)
             }
         }
-
 
         setupCards()
         showMenuImmediate()
@@ -75,7 +72,6 @@ class MainActivity : AppCompatActivity() {
             redirectToLogin()
             return
         }
-        // Refresh labels in case language was changed in the Profile activity
         updateCardLabels()
         updateSelection()
     }
@@ -103,13 +99,13 @@ class MainActivity : AppCompatActivity() {
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
 
-        binding.cardWatchTv.findViewWithTag<TextView>("label")?.text = if (isKa) "ტელევიზია" else "Watch TV"
+        binding.cardWatchTv.findViewWithTag<TextView>("label")?.text   = if (isKa) "ტელევიზია" else "Watch TV"
         binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
 
-        binding.cardRadio.findViewWithTag<TextView>("label")?.text = if (isKa) "რადიო" else "Radio"
-        binding.cardRadio.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "სადგურები · მუსიკა" else "Stations · Music"
+        binding.cardRadio.findViewWithTag<TextView>("label")?.text     = if (isKa) "რადიო" else "Radio"
+        binding.cardRadio.findViewWithTag<TextView>("sublabel")?.text  = if (isKa) "სადგურები · მუსიკა" else "Stations · Music"
 
-        binding.cardProfile.findViewWithTag<TextView>("label")?.text = if (isKa) "პროფილი" else "Profile"
+        binding.cardProfile.findViewWithTag<TextView>("label")?.text   = if (isKa) "პროფილი" else "Profile"
         binding.cardProfile.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "ანგარიში · გამოწერა" else "Account · Subscription"
     }
 
@@ -130,37 +126,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyCardState(card: View, selected: Boolean) {
-        val duration = 220L
+        val duration = 200L
         val interp   = AccelerateDecelerateInterpolator()
 
         card.setBackgroundResource(
             if (selected) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass
         )
 
+        // Subtle scale — just enough to feel responsive, no pop
         card.animate()
-            .scaleX(if (selected) 1.04f else 1.0f)
-            .scaleY(if (selected) 1.04f else 1.0f)
-            .translationZ(if (selected) 10f else 0f)
+            .scaleX(if (selected) 1.02f else 1.0f)
+            .scaleY(if (selected) 1.02f else 1.0f)
+            .translationZ(if (selected) 6f else 0f)
             .setDuration(duration)
             .setInterpolator(interp)
             .start()
 
+        // Icon brightens on select
         card.findViewWithTag<ImageView>("icon")
-            ?.animate()?.alpha(if (selected) 1.0f else 0.55f)?.setDuration(duration)?.start()
+            ?.animate()?.alpha(if (selected) 1.0f else 0.45f)?.setDuration(duration)?.start()
 
-        card.findViewWithTag<View>("iconBg")
-            ?.animate()?.alpha(if (selected) 1.0f else 0.55f)?.setDuration(duration)?.start()
-
+        // Accent line appears under icon
         card.findViewWithTag<View>("labelAccent")
             ?.animate()?.alpha(if (selected) 1f else 0f)?.setDuration(duration)?.start()
 
+        // Label brightens
         card.findViewWithTag<TextView>("label")
-            ?.animate()?.alpha(if (selected) 1.0f else 0.7f)?.setDuration(duration)?.start()
+            ?.animate()?.alpha(if (selected) 1.0f else 0.6f)?.setDuration(duration)?.start()
 
+        // Sublabel fades in on select
         card.findViewWithTag<TextView>("sublabel")
             ?.animate()
-            ?.alpha(if (selected) 0.65f else 0f)
-            ?.setDuration(if (selected) 300L else 150L)
+            ?.alpha(if (selected) 0.5f else 0f)
+            ?.setDuration(if (selected) 250L else 120L)
             ?.start()
     }
 
@@ -204,10 +202,7 @@ class MainActivity : AppCompatActivity() {
                 cards[selectedIndex].performClick()
                 true
             }
-            KeyEvent.KEYCODE_BACK -> {
-                // Prevent exiting app with back button from main menu usually
-                true
-            }
+            KeyEvent.KEYCODE_BACK -> true
             else -> super.onKeyDown(keyCode, event)
         }
     }
@@ -223,7 +218,6 @@ class MainActivity : AppCompatActivity() {
         LogoManager.loadLogo(binding.ivLogo)
         cards.forEach { applyCardState(it, false) }
 
-        // Short delay to ensure layout is ready before requesting focus
         Handler(Looper.getMainLooper()).postDelayed({
             cards[0].requestFocus()
             isReady = true
@@ -239,6 +233,4 @@ class MainActivity : AppCompatActivity() {
 
     private fun getSavedToken(): String? =
         getSharedPreferences("AuthPrefs", Context.MODE_PRIVATE).getString("auth_token", null)
-
-
 }
