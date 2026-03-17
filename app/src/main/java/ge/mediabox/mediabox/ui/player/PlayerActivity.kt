@@ -31,10 +31,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.media3.ui.AspectRatioFrameLayout
-import android.widget.TextView // Fixes "Unresolved reference TextView"
+import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.edit // Fixes "Too many arguments for edit()" and "putInt"
+import androidx.core.content.edit
 import androidx.media3.common.util.Log
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -55,7 +57,6 @@ class PlayerActivity : AppCompatActivity() {
     private var archiveBaseTimestamp: Long = 0L
     private var lastArchiveUrlTemplate: String? = null
 
-    // Zap & Cache Logic
     private val zapHandler = Handler(Looper.getMainLooper())
     private var zapRunnable: Runnable? = null
     private var isBrowsing = false
@@ -82,22 +83,18 @@ class PlayerActivity : AppCompatActivity() {
 
     private val authToken: String? get() = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
-    // Time Constants
-    private val INACTIVITY_TIMEOUT_MS = 3 * 60 * 60 * 1000L // 3 Hours
-    private val COUNTDOWN_DURATION_MS = 300 * 1000L        // 300 Seconds
+    private val INACTIVITY_TIMEOUT_MS = 3 * 60 * 60 * 1000L
+    private val COUNTDOWN_DURATION_MS = 300 * 1000L
 
-    // Timer Management
     private val inactivityHandler = Handler(Looper.getMainLooper())
     private var countdownTimer: android.os.CountDownTimer? = null
     private var isInactivityPopupShowing = false
 
-    // The task that triggers after 3 hours of no buttons being pressed
     private val inactivityRunnable = Runnable {
         showInactivityPopup()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        Log.d("PlayerActivityDebug", "Key event received! Action: ${event.action}, KeyCode: ${event.keyCode}")
         if (event.action == KeyEvent.ACTION_DOWN) {
             resetInactivityTimer()
 
@@ -106,7 +103,6 @@ class PlayerActivity : AppCompatActivity() {
                 return true
             }
 
-            // --- NEW: CATCH NUMBER KEYS ---
             if (event.keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
                 handleNumberInput(event.keyCode - KeyEvent.KEYCODE_0)
                 return true
@@ -116,47 +112,31 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun handleNumberInput(digit: Int) {
-        // 1. Cancel any pending switch
         numberInputHandler.removeCallbacks(numberInputRunnable)
-
-        // 2. Add digit to buffer (limit to 4 digits)
         if (numberInputBuffer.length < 4) {
             numberInputBuffer += digit
         }
-
-        // 3. Update UI
         binding.root.findViewById<View>(R.id.numberInputCard).visibility = View.VISIBLE
         binding.root.findViewById<TextView>(R.id.tvNumberInputDisplay).text = numberInputBuffer
-
-        // 4. Wait 1.5 seconds. If no more keys, switch channel.
         numberInputHandler.postDelayed(numberInputRunnable, 1500)
     }
 
     private fun executeNumberSwitch() {
         val targetNumber = numberInputBuffer.toIntOrNull() ?: return
-
-        // Clear buffer and hide UI
         numberInputBuffer = ""
         binding.root.findViewById<View>(R.id.numberInputCard).visibility = View.GONE
-
-        // Find the channel index where the channel.number matches what was typed
         val targetIndex = channels.indexOfFirst { it.number == targetNumber }
 
         if (targetIndex != -1) {
             if (channels[targetIndex].isLocked) {
                 val isKa = LangPrefs.isKa(this)
-                Toast.makeText(this,
-                    if (isKa) "არხი დაბლოკილია" else "Channel is locked",
-                    Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, if (isKa) "არხი დაბლოკილია" else "Channel is locked", Toast.LENGTH_SHORT).show()
             } else {
                 playChannel(targetIndex)
             }
         } else {
-            // Channel number not found
             val isKa = LangPrefs.isKa(this)
-            Toast.makeText(this,
-                if (isKa) "არხი ვერ მოიძებნა" else "Channel not found",
-                Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (isKa) "არხი ვერ მოიძებნა" else "Channel not found", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -168,9 +148,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun showInactivityPopup() {
         isInactivityPopupShowing = true
         val isKa = LangPrefs.isKa(this)
-
         binding.inactivityOverlay.visibility = View.VISIBLE
-
         binding.tvInactivityTitle.text = if (isKa) "კვლავ უყურებთ?" else "Are you still watching?"
         binding.tvInactivityHint.text = if (isKa) "გასაგრძელებლად დააჭირეთ ნებისმიერ ღილაკს" else "Press any button to stay"
 
@@ -178,10 +156,7 @@ class PlayerActivity : AppCompatActivity() {
         countdownTimer = object : android.os.CountDownTimer(COUNTDOWN_DURATION_MS, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 val seconds = millisUntilFinished / 1000
-                binding.tvInactivityMessage.text = if (isKa)
-                    "აპლიკაცია დაიხურება $seconds წამში"
-                else
-                    "The app will close in $seconds seconds"
+                binding.tvInactivityMessage.text = if (isKa) "აპლიკაცია დაიხურება $seconds წამში" else "The app will close in $seconds seconds"
             }
             override fun onFinish() {
                 if (isInactivityPopupShowing) finish()
@@ -213,29 +188,17 @@ class PlayerActivity : AppCompatActivity() {
             setupOverlays()
             setupControlButtons()
 
-            // --- MODIFY THIS LOGIC ---
-            val savedChannelId = getSharedPreferences("AppPrefs", MODE_PRIVATE)
-                .getInt("last_viewed_channel_id", -1)
-
-            // Try to find the index of the saved channel, ensuring it's not locked
+            val savedChannelId = getSharedPreferences("AppPrefs", MODE_PRIVATE).getInt("last_viewed_channel_id", -1)
             var startIndex = channels.indexOfFirst { it.id == savedChannelId && !it.isLocked }
-
-            // If no saved channel or it's now locked, fall back to the first unlocked channel
-            if (startIndex == -1) {
-                startIndex = channels.indexOfFirst { !it.isLocked }
-            }
+            if (startIndex == -1) startIndex = channels.indexOfFirst { !it.isLocked }
 
             if (startIndex >= 0) {
                 currentChannelIndex = startIndex
-                zapHandler.postDelayed({
-                    playChannel(startIndex)
-                }, 300)
+                zapHandler.postDelayed({ playChannel(startIndex) }, 300)
             }
             isInitialized = true
         }
     }
-
-
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun initializePlayer() {
@@ -243,22 +206,44 @@ class PlayerActivity : AppCompatActivity() {
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
+        // 1. Aim for HD immediately
         val bandwidthMeter = DefaultBandwidthMeter.Builder(this)
-            .setInitialBitrateEstimate(25_000_000L)
+            .setInitialBitrateEstimate(25_000_000L) // 25 Mbps
             .build()
 
+        // 2. Extra heavy buffering to smooth out quality changes
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(15_000, 50_000, 800, 1500)
+            .setBufferDurationsMs(
+                45_000,  // Min buffer (45s)
+                90_000,  // Max buffer (90s)
+                4_000,   // Playback start (4s)
+                10_000   // Re-buffer cushion (10s)
+            )
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
+        // 3. Strictest possible "Rate Limiter" for quality switches (Wait 120s before switching back)
+        val adaptiveTrackSelectionFactory = AdaptiveTrackSelection.Factory(
+            120_000, // Wait 2 minutes of stable internet before increasing quality
+            60_000,  // Wait 1 minute before decreasing quality
+            AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
+            0.60f    // Bandwidth fraction: Only use 60% of estimated speed (Very safe cushion)
+        )
+
+        val trackSelector = DefaultTrackSelector(this, adaptiveTrackSelectionFactory).apply {
+            parameters = buildUponParameters()
+                .setAllowVideoNonSeamlessAdaptiveness(false) // LOCK: Disable jarring "snaps"
+                .build()
+        }
+
         val hlsFactory = androidx.media3.exoplayer.hls.HlsMediaSource.Factory(
             androidx.media3.datasource.DefaultDataSource.Factory(this)
-        ).setAllowChunklessPreparation(true)
+        ).setAllowChunklessPreparation(false)
 
         player = ExoPlayer.Builder(this, renderersFactory)
             .setBandwidthMeter(bandwidthMeter)
             .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
             .setMediaSourceFactory(hlsFactory)
             .build().also { exo ->
                 binding.playerView.player = exo
@@ -281,7 +266,13 @@ class PlayerActivity : AppCompatActivity() {
             if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) returnToLive()
         }
         override fun onTracksChanged(tracks: Tracks) { if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks) }
-        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) { updateQualityDisplay(videoSize.height) }
+        
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) { 
+            // HARD LOCK: Re-apply user resize preference whenever video resolution changes to stop "tweaking"
+            binding.playerView.resizeMode = currentResizeMode
+            updateQualityDisplay(videoSize.height) 
+        }
+        
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -296,7 +287,6 @@ class PlayerActivity : AppCompatActivity() {
     private fun changeChannel(direction: Int) {
         isBrowsing = true
         zapRunnable?.let { zapHandler.removeCallbacks(it) }
-
         var index = currentChannelIndex
         repeat(channels.size) {
             index = (index + direction + channels.size) % channels.size
@@ -319,11 +309,7 @@ class PlayerActivity : AppCompatActivity() {
         if (index !in channels.indices || channels[index].isLocked) return
         currentChannelIndex = index
         val channel = channels[index]
-
-        // --- ADD THIS: Save the channel ID to persist "Continue Watching" ---
-        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit()
-            .putInt("last_viewed_channel_id", channel.id)
-            .apply()
+        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit().putInt("last_viewed_channel_id", channel.id).apply()
 
         isLiveMode = true
         livePausedAt = null
@@ -332,31 +318,22 @@ class PlayerActivity : AppCompatActivity() {
         lastArchiveUrlTemplate = null
 
         if (!isBrowsing) binding.videoPlaceholder.visibility = View.VISIBLE
-
         updateOverlayInfo()
-        fetchProgramsForCurrentChannel() // Uses cache
+        fetchProgramsForCurrentChannel()
         prefetchNeighbors(index)
-
-        // Fix: Passing authToken to the cached getStreamUrl method
         loadStream { repository.getStreamUrl(channel.id, authToken) }
     }
 
     private fun loadStream(urlProvider: suspend () -> String?) {
         pendingStreamJob?.cancel()
         pendingStreamJob = lifecycleScope.launch {
-            // 1. We call the provider (which is repository.getStreamUrl)
-            // This will check the 55-minute cache before hitting your server.
             val url = urlProvider()
-
             if (url != null) {
                 currentStreamUrl = url
                 player?.setMediaItem(MediaItem.fromUri(url))
                 player?.prepare()
                 player?.play()
-
-                // 2. Clear the placeholder to show video
                 binding.videoPlaceholder.visibility = View.GONE
-
                 scheduleStreamRefresh()
                 updateOverlayInfo()
                 updateLiveIndicatorState()
@@ -370,15 +347,8 @@ class PlayerActivity : AppCompatActivity() {
             delay(2000)
             val next = (currentIndex + 1) % channels.size
             val prev = (currentIndex - 1 + channels.size) % channels.size
-
-            // Fix: Pass 'authToken' to the repository method
-            if (!channels[next].isLocked) {
-                repository.getStreamUrl(channels[next].id, authToken)
-            }
-
-            if (!channels[prev].isLocked) {
-                repository.getStreamUrl(channels[prev].id, authToken)
-            }
+            if (!channels[next].isLocked) repository.getStreamUrl(channels[next].id, authToken)
+            if (!channels[prev].isLocked) repository.getStreamUrl(channels[prev].id, authToken)
         }
     }
 
@@ -401,12 +371,8 @@ class PlayerActivity : AppCompatActivity() {
     private suspend fun refreshStreamSeamlessly() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         val newUrl = withContext(Dispatchers.IO) {
-            if (isLiveMode) {
-                repository.getStreamUrl(channel.id, authToken)
-            } else {
-                // FIX: Pass the current playback time and the authToken
-                repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime(), authToken)
-            }
+            if (isLiveMode) repository.getStreamUrl(channel.id, authToken)
+            else repository.getArchiveUrl(channel.id, getCurrentAbsoluteTime(), authToken)
         }
         if (!newUrl.isNullOrBlank() && newUrl != currentStreamUrl) {
             currentStreamUrl = newUrl
@@ -418,45 +384,19 @@ class PlayerActivity : AppCompatActivity() {
     private fun updateOverlayInfo() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         val currentTs = getCurrentAbsoluteTime()
-
-        applyAspectRatio(currentResizeMode)
-
-        // --- LOG FOR MATCHING ---
-        android.util.Log.d("BACKEND_HELP", "Checking Match for Device Time: $currentTs")
-        if (channel.programs.isEmpty()) {
-            android.util.Log.w("BACKEND_HELP", "No programs loaded in memory for ${channel.name}")
-        }
-
-        // Find current program
+        binding.playerView.resizeMode = currentResizeMode
         val currentProgram = channel.programs.find { currentTs in it.startTime until it.endTime }
-
-        // Update the HUD
-        controlOverlayManager.updateChannelInfo(
-            channel,
-            currentProgram,
-            if (isLiveMode && livePausedAt == null) null else currentTs,
-            isPlayerPlaying
-        )
-
-        // Refresh the Rewind Manager's knowledge of the archive limit
-        if (::timeRewindManager.isInitialized && isTimeRewindVisible) {
-            // This forces the picker to re-check the "Outside window" error
-        }
+        controlOverlayManager.updateChannelInfo(channel, currentProgram, if (isLiveMode && livePausedAt == null) null else currentTs, isPlayerPlaying)
     }
 
-    // Inside PlayerActivity.kt
-
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        // 1. Boundary check: if user seeks into the future, go live
         if (timestampMs >= System.currentTimeMillis()) {
             returnToLive()
             return
         }
-
         val targetIndex = channels.indexOfFirst { it.id == channelId }
         if (targetIndex != -1) currentChannelIndex = targetIndex
 
-        // UI and State updates
         isBrowsing = false
         binding.videoPlaceholder.visibility = View.VISIBLE
         val channel = channels[currentChannelIndex]
@@ -465,69 +405,44 @@ class PlayerActivity : AppCompatActivity() {
         archiveBaseTimestamp = timestampMs
         playingArchiveChannelId = channelId
 
-        // Refresh EPG for this context
         fetchProgramsForCurrentChannel()
-
-        loadStream {
-            // The Repository now internally handles the 5-minute expiry check
-            repository.getArchiveUrl(channel.id, timestampMs, authToken)
-        }
-
+        loadStream { repository.getArchiveUrl(channel.id, timestampMs, authToken) }
         if (isControlsVisible) rescheduleHideControls()
     }
 
     private fun fetchProgramsForCurrentChannel() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
-
         pendingProgramJob?.cancel()
         pendingProgramJob = lifecycleScope.launch {
-            // Correctly calls the repository with caching
             val programs = repository.getProgramsForChannel(channel.id)
-
             channel.programs = programs
-            withContext(Dispatchers.Main) {
-                updateOverlayInfo()
-            }
+            withContext(Dispatchers.Main) { updateOverlayInfo() }
         }
     }
 
     private fun getCurrentAbsoluteTime(): Long {
-        return if (isLiveMode) {
-            // If we are live, the "absolute" time is right now
-            System.currentTimeMillis()
-        } else {
-            // If we are in archive, it's the start time of the archive + current player position
-            archiveBaseTimestamp + (player?.currentPosition ?: 0L)
-        }
+        return if (isLiveMode) System.currentTimeMillis()
+        else archiveBaseTimestamp + (player?.currentPosition ?: 0L)
     }
+
     override fun onPause() {
         super.onPause()
-        // 1. Stop the audio immediately
         player?.playWhenReady = false
-
-        // 2. Hide the inactivity popup so it doesn't look "frozen" when you return
-        if (isInactivityPopupShowing) {
-            dismissInactivityPopup()
-        }
-
-        // 3. Clean up timers
+        if (isInactivityPopupShowing) dismissInactivityPopup()
         inactivityHandler.removeCallbacks(inactivityRunnable)
         countdownTimer?.cancel()
     }
+
     override fun onResume() {
         super.onResume()
         resetInactivityTimer()
-
         if (!isInitialized) return
-
         if (!userIntentionallyPaused) {
-            if (isLiveMode) {
-                playChannel(currentChannelIndex)
-            } else {
-                player?.playWhenReady = true
-            }
+            if (isLiveMode) playChannel(currentChannelIndex)
+            else player?.playWhenReady = true
         }
     }
+
     override fun onDestroy() {
         super.onDestroy()
         numberInputHandler.removeCallbacks(numberInputRunnable)
@@ -541,12 +456,8 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
-
-        // --- LOAD BRANDING LOGO ONCE HERE ---
         val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)
-        if (topLogo != null) {
-            LogoManager.loadLogo(topLogo)
-        }
+        if (topLogo != null) LogoManager.loadLogo(topLogo)
 
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
@@ -596,8 +507,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun applyAspectRatio(mode: Int) {
         binding.playerView.resizeMode = mode
-
-        // Update UI Text
         val isKa = LangPrefs.isKa(this)
         val label = when (mode) {
             AspectRatioFrameLayout.RESIZE_MODE_FIT -> if (isKa) "ორიგინალი" else "Fit"
@@ -606,18 +515,12 @@ class PlayerActivity : AppCompatActivity() {
             else -> "Fit"
         }
         binding.root.findViewById<TextView>(R.id.tvCurrentAspectRatio)?.text = label
-
-        // Save "Auto Sizer" preference forever
-        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit {
-            putInt("video_resize_mode", mode)
-        }
-
+        getSharedPreferences("AppPrefs", MODE_PRIVATE).edit { putInt("video_resize_mode", mode) }
         rescheduleHideControls()
     }
 
     private fun loadSavedAspectRatio() {
-        val savedMode = getSharedPreferences("AppPrefs", MODE_PRIVATE)
-            .getInt("video_resize_mode", AspectRatioFrameLayout.RESIZE_MODE_FIT)
+        val savedMode = getSharedPreferences("AppPrefs", MODE_PRIVATE).getInt("video_resize_mode", AspectRatioFrameLayout.RESIZE_MODE_FIT)
         currentResizeMode = savedMode
         applyAspectRatio(savedMode)
     }
@@ -625,24 +528,16 @@ class PlayerActivity : AppCompatActivity() {
     private fun returnToLive() = playChannel(currentChannelIndex)
     private fun rewindSeconds(s: Int) {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
-
-        // Simply calculate the target and try to play it.
-        // The server (or the subsequent boundary check) will handle limits.
         val targetTs = getCurrentAbsoluteTime() - (s * 1000L)
-
         playArchiveAt(channel.id, targetTs)
     }
 
     private fun forwardSeconds(s: Int) {
         val targetTs = getCurrentAbsoluteTime() + (s * 1000L)
-
-        // If the jump goes into the future, go back to Live URL
-        if (targetTs >= System.currentTimeMillis()) {
-            returnToLive()
-        } else {
-            playArchiveAt(channels[currentChannelIndex].id, targetTs)
-        }
+        if (targetTs >= System.currentTimeMillis()) returnToLive()
+        else playArchiveAt(channels[currentChannelIndex].id, targetTs)
     }
+
     private fun togglePlayPause() {
         val isPlaying = player?.isPlaying == true
         userIntentionallyPaused = isPlaying
@@ -654,8 +549,6 @@ class PlayerActivity : AppCompatActivity() {
         controlOverlayManager.updateLiveIndicator(trulyLive, isPlayerPlaying)
         binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(if (isPlayerPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
-
-
 
     private fun showTopBarTemporarily() {
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
@@ -695,20 +588,17 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }
-    // Inside PlayerActivity.kt
+
     private fun showTimeRewind() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         hideControls()
-
         lifecycleScope.launch {
-            // 1. Call dummy archive to get real length from server
             val hoursBack = repository.refreshArchiveWindow(channel.id, authToken)
-
-            // 2. Open the manager with the retrieved length
             isTimeRewindVisible = true
             timeRewindManager.show(hoursBack)
         }
     }
+
     private fun toggleFavorite() {
         val token = authToken ?: return
         val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return
@@ -725,18 +615,12 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // 1. Reset the 3-hour timer on ANY button press
         resetInactivityTimer()
-
-        // 2. THE SHIELD: If the popup is on screen, close it and STOP
         if (isInactivityPopupShowing) {
             dismissInactivityPopup()
-            return true // This PREVENTS the "Back" button from reaching the finish() block below
+            return true
         }
-
-        // 3. Normal logic starts ONLY if the popup is NOT showing
         if (!isInitialized) return true
-
         val handled = when {
             trackSelectionManager.isVisible -> trackSelectionManager.handleKeyEvent(keyCode)
             isTimeRewindVisible -> timeRewindManager.handleKeyEvent(keyCode)
@@ -747,7 +631,7 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }
                 KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { showControls(); true }
-                KeyEvent.KEYCODE_BACK -> { finish(); true } // This is what was catching your Back button
+                KeyEvent.KEYCODE_BACK -> { finish(); true }
                 else -> false
             }
         }
