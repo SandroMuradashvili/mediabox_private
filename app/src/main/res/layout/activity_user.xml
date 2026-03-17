@@ -2,8 +2,7 @@
 <!--
     PROFILE SCREEN — Redesigned
     Left 32%  : Identity panel (avatar, name, contact, balance, device ID)
-    Right 68% : Action rows + Plans slide-in panel
-    Navigation: Up/Down through action rows, Right on Plans row opens panel
+    Right 68% : Action rows + Horizontal Plans list
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -245,7 +244,7 @@
                         android:layout_width="84dp"
                         android:layout_height="36dp"
                         android:background="@drawable/menu_card_glass"
-                        android:focusable="true"
+                        android:focusable="false"
                         android:clickable="true">
                         <TextView
                             android:id="@+id/tvBackLabel"
@@ -272,7 +271,7 @@
                         android:background="@drawable/menu_card_glass"
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp"
-                        android:focusable="true"
+                        android:focusable="false"
                         android:clickable="true">
                         <TextView
                             android:id="@+id/tvUserLangLabel"
@@ -299,93 +298,21 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="ACCOUNT"
+                    android:text="SETTINGS"
                     android:textColor="#1C3050"
                     android:textSize="9sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.16"
                     android:layout_marginBottom="10dp"/>
 
-                <!-- ── ACTION ROW: Active Plans ── -->
-                <LinearLayout
-                    android:id="@+id/rowPlans"
-                    android:layout_width="match_parent"
-                    android:layout_height="64dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:layout_marginBottom="6dp"
-                    android:background="@drawable/profile_action_row"
-                    android:focusable="true"
-                    android:clickable="true">
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_profile_plans"
-                        android:scaleType="fitCenter"
-                        android:layout_marginEnd="16dp"
-                        android:contentDescription="Plans"/>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:id="@+id/tvActivePlansHeader"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Active Plans"
-                            android:textColor="#F1F5F9"
-                            android:textSize="14sp"
-                            android:textStyle="bold"/>
-                        <TextView
-                            android:id="@+id/tvNoPlans"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="No active plans"
-                            android:textColor="#3D5A7A"
-                            android:textSize="11sp"
-                            android:layout_marginTop="2dp"
-                            android:visibility="gone"/>
-                    </LinearLayout>
-
-                    <!-- Plan count badge -->
-                    <TextView
-                        android:id="@+id/tvPlanCountBadge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textColor="#4A7FD4"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:background="@drawable/badge_archive_range"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="4dp"
-                        android:visibility="gone"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="›"
-                        android:textColor="#1C3050"
-                        android:textSize="22sp"
-                        android:layout_marginStart="12dp"/>
-
-                </LinearLayout>
-
                 <!-- ── ACTION ROW: Mobile Remote ── -->
                 <FrameLayout
                     android:id="@+id/btnMobileRemote"
                     android:layout_width="match_parent"
                     android:layout_height="64dp"
-                    android:layout_marginBottom="6dp"
+                    android:layout_marginBottom="24dp"
                     android:background="@drawable/profile_action_row"
-                    android:focusable="true"
+                    android:focusable="false"
                     android:clickable="true">
 
                     <LinearLayout
@@ -444,11 +371,48 @@
                     </LinearLayout>
                 </FrameLayout>
 
-                <!-- ── ACTION ROW: Language ── -->
-                <!-- Language is handled via btnUserLang in the top bar;
-                     this hidden placeholder keeps focusZone=4 wiring intact -->
+                <!-- ── Section label: Active Plans ── -->
+                <TextView
+                    android:id="@+id/tvActivePlansHeader"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ACTIVE PLANS"
+                    android:textColor="#1C3050"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.16"
+                    android:layout_marginBottom="10dp"/>
 
-                <!-- ── Spacer ── -->
+                <!-- ── Horizontal Plans List ── -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvActivePlans"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:clipToPadding="false"
+                        android:focusable="false"
+                        android:focusableInTouchMode="false"
+                        android:scrollbars="none"/>
+
+                    <TextView
+                        android:id="@+id/tvNoPlans"
+                        android:layout_width="match_parent"
+                        android:layout_height="64dp"
+                        android:text="No active plans"
+                        android:textColor="#3D5A7A"
+                        android:textSize="13sp"
+                        android:gravity="center"
+                        android:background="@drawable/profile_action_row"
+                        android:visibility="gone"/>
+
+                </FrameLayout>
+
+                <!-- Spacer -->
                 <View
                     android:layout_width="0dp"
                     android:layout_height="0dp"
@@ -476,7 +440,7 @@
                     android:paddingEnd="20dp"
                     android:layout_marginBottom="16dp"
                     android:background="@drawable/profile_danger_row"
-                    android:focusable="true"
+                    android:focusable="false"
                     android:clickable="true">
 
                     <ImageView
@@ -517,17 +481,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center_horizontal"
-                    android:text="▲▼ Navigate     OK Select     ← Back"
+                    android:text="▲▼ Navigate     ◀▶ Scroll Plans     OK Select     ← Back"
                     android:textColor="#0F1E30"
                     android:textSize="9sp"
                     android:letterSpacing="0.06"/>
 
-                <!-- Hidden rvActivePlans — kept for code compat, not visible -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvActivePlans"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:visibility="gone"/>
+                <!-- Hidden rowPlans kept for code compat -->
+                <View android:id="@+id/rowPlans" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+                <TextView android:id="@+id/tvPlanCountBadge" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
 
             </LinearLayout>
 
@@ -633,8 +594,6 @@
     </LinearLayout>
 
     <!-- ══ PLAN SELECTION OVERLAY (full-screen, for individual plan details) ══ -->
-    <!-- This is the existing planDetailsOverlay, kept for Kotlin code compat
-         but now only the rvPlanChannels panel above is the primary UX -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/planDetailsOverlay"
         android:layout_width="match_parent"

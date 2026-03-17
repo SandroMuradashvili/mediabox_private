@@ -21,37 +21,41 @@
         android:maxLines="2"
         android:ellipsize="end"/>
 
-    <!-- Price -->
+    <!-- Price - Money Green -->
     <TextView
         android:id="@+id/tvActivePlanPrice"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="₾ 0.00"
-        android:textColor="#6366F1"
+        android:textColor="#10B981"
         android:textSize="20sp"
         android:textStyle="bold"
         android:letterSpacing="-0.02"
         android:layout_marginTop="4dp"/>
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
 
     <!-- Expiry date -->
     <TextView
         android:id="@+id/tvActivePlanExpiry"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Expires 1 Jan 2026"
-        android:textColor="#3394A3B8"
-        android:textSize="11sp"
-        android:layout_marginTop="10dp"/>
+        android:text="Expires —"
+        android:textColor="#3D5A7A"
+        android:textSize="11sp"/>
 
     <!-- Days left -->
     <TextView
         android:id="@+id/tvActivePlanDays"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="30 days left"
+        android:text="— days left"
         android:textColor="#10B981"
         android:textSize="12sp"
         android:textStyle="bold"
-        android:layout_marginTop="4dp"/>
+        android:layout_marginTop="2dp"/>
 
 </LinearLayout>
