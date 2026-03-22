@@ -1,120 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FIX 11: Removed cancel button -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#D0000000">
+    android:background="@drawable/epg_scrim_background">
 
     <androidx.cardview.widget.CardView
         android:id="@+id/rewindCard"
-        android:layout_width="680dp"
+        android:layout_width="640dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        app:cardBackgroundColor="#F01E293B"
+        android:layout_margin="24dp"
+        app:cardBackgroundColor="#00000000"
         app:cardCornerRadius="16dp"
-        app:cardElevation="24dp">
+        app:cardElevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="36dp">
+            android:background="@drawable/epg_glass_panel"
+            android:padding="32dp">
 
-            <!-- Header row: title + archive range badge -->
+            <!-- Header row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="6dp">
+                android:layout_marginBottom="24dp">
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_time"
+                    app:tint="#F1F5F9"
+                    android:layout_marginEnd="12dp"/>
 
                 <TextView
+                    android:id="@+id/tvTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Jump to time"
+                    android:text="Jump to Time"
                     android:textColor="#F1F5F9"
-                    android:textSize="24sp"
-                    android:textStyle="bold"/>
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.02"/>
 
                 <TextView
                     android:id="@+id/tvArchiveRange"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="168h available"
-                    android:textColor="#818CF8"
-                    android:textSize="13sp"
-                    android:background="@drawable/badge_archive_range"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="5dp"
-                    android:visibility="gone"/>
+                    android:text=""
+                    android:textColor="#94A3B8"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:alpha="0.8"/>
 
             </LinearLayout>
 
-            <!-- Selected time big display -->
-            <TextView
-                android:id="@+id/tvSelectedTime"
+            <!-- Selection Visualizer -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Today  00:00"
-                android:textColor="#818CF8"
-                android:textSize="36sp"
-                android:textStyle="bold"
+                android:orientation="vertical"
                 android:gravity="center"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="4dp"/>
+                android:background="@drawable/epg_header_bar"
+                android:paddingTop="20dp"
+                android:paddingBottom="20dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
 
-            <!-- Out of range warning -->
-            <TextView
-                android:id="@+id/tvOutOfRange"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Outside archive window for this channel"
-                android:textColor="#F87171"
-                android:textSize="13sp"
-                android:gravity="center"
-                android:visibility="gone"
-                android:layout_marginBottom="4dp"/>
+                <TextView
+                    android:id="@+id/tvSelectedTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Today  00:00"
+                    android:textColor="#F1F5F9"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.01"/>
+
+                <TextView
+                    android:id="@+id/tvOutOfRange"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Outside archive window"
+                    android:textColor="#EF4444"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="6dp"
+                    android:visibility="gone"/>
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#26FFFFFF"
-                android:layout_marginVertical="18dp"/>
+                android:background="@drawable/epg_divider_line"
+                android:layout_marginVertical="20dp"/>
 
-            <!-- Column headers -->
+            <!-- Picker Section -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="220dp"
                 android:orientation="horizontal"
-                android:layout_marginBottom="8dp">
-
-                <TextView style="@style/PickerColumnHeader" android:text="DAY"    android:layout_width="0dp" android:layout_weight="2"/>
-                <TextView style="@style/PickerColumnHeader" android:text="HOUR"   android:layout_width="0dp" android:layout_weight="1"/>
-                <TextView style="@style/PickerColumnHeader" android:text="MINUTE" android:layout_width="0dp" android:layout_weight="1"/>
-
-            </LinearLayout>
-
-            <!-- The three scroll columns -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="216dp"
-                android:orientation="horizontal">
+                android:gravity="center">
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rvDays"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
-                    android:layout_weight="2"
+                    android:layout_weight="2.2"
                     android:clipToPadding="false"
-                    android:paddingTop="72dp"
-                    android:paddingBottom="72dp"
+                    android:paddingTop="74dp"
+                    android:paddingBottom="74dp"
                     android:scrollbars="none"
                     android:focusable="true"/>
 
-                <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1AFFFFFF"/>
+                <View android:layout_width="1dp" android:layout_height="match_parent" 
+                    android:background="@drawable/epg_divider_line" android:layout_marginHorizontal="12dp"/>
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rvHours"
@@ -122,12 +128,20 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:clipToPadding="false"
-                    android:paddingTop="72dp"
-                    android:paddingBottom="72dp"
+                    android:paddingTop="74dp"
+                    android:paddingBottom="74dp"
                     android:scrollbars="none"
                     android:focusable="true"/>
 
-                <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1AFFFFFF"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=":"
+                    android:textColor="#F1F5F9"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:paddingBottom="4dp"
+                    android:layout_marginHorizontal="4dp"/>
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rvMinutes"
@@ -135,8 +149,8 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:clipToPadding="false"
-                    android:paddingTop="72dp"
-                    android:paddingBottom="72dp"
+                    android:paddingTop="74dp"
+                    android:paddingBottom="74dp"
                     android:scrollbars="none"
                     android:focusable="true"/>
 
@@ -145,19 +159,21 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#26FFFFFF"
-                android:layout_marginVertical="18dp"/>
+                android:background="@drawable/epg_divider_line"
+                android:layout_marginVertical="20dp"/>
 
-            <!-- FIX 11: Single confirm button (cancel removed) -->
             <Button
                 android:id="@+id/btnRewindConfirm"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="Go to time"
+                android:layout_height="56dp"
+                android:text="WATCH FROM THIS TIME"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#6366F1"
+                android:backgroundTint="#E52121"
+                android:textSize="14sp"
                 android:textStyle="bold"
-                android:focusable="true"/>
+                android:letterSpacing="0.08"
+                android:focusable="true"
+                app:cornerRadius="12dp"/>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

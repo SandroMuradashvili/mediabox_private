@@ -63,6 +63,8 @@ class TrackSelectionOverlayManager(
         adapter = TrackAdapter(emptyList()) { pos -> applySelection(pos) }
         rvTracks.layoutManager = LinearLayoutManager(activity)
         rvTracks.adapter = adapter
+        // DISABLE FADE ANIMATION: Set item animator to null for instant selection changes
+        rvTracks.itemAnimator = null
         overlayView.visibility = View.GONE
     }
 
@@ -139,7 +141,7 @@ class TrackSelectionOverlayManager(
                 if (selectedIndex > 0) {
                     selectedIndex--
                     adapter.setHighlight(selectedIndex)
-                    rvTracks.smoothScrollToPosition(selectedIndex)
+                    rvTracks.scrollToPosition(selectedIndex)
                 }
                 true
             }
@@ -147,7 +149,7 @@ class TrackSelectionOverlayManager(
                 if (selectedIndex < entries.size - 1) {
                     selectedIndex++
                     adapter.setHighlight(selectedIndex)
-                    rvTracks.smoothScrollToPosition(selectedIndex)
+                    rvTracks.scrollToPosition(selectedIndex)
                 }
                 true
             }
@@ -214,7 +216,7 @@ class TrackSelectionOverlayManager(
         "ar" -> "العربية"
         "uk" -> "Українська"
         "az" -> "Azərbaycanca"
-        "hy" -> "Հայერენ"
+        "hy" -> "Հაერენ"
         else -> code.uppercase()
     }
 

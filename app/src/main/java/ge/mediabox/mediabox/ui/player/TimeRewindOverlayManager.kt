@@ -54,35 +54,29 @@ class TimeRewindOverlayManager(
         setupButtons()
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
-
     fun show(length: Int) {
         overlayView.visibility = View.VISIBLE
         val isKa = ge.mediabox.mediabox.ui.LangPrefs.isKa(activity)
 
         if (length <= 0) {
-            // CASE: Archive is not supported or unavailable for this channel
             tvSelectedTime.text = ""
             tvArchiveRange.visibility = View.GONE
             tvOutOfRange.visibility = View.VISIBLE
             tvOutOfRange.text = if (isKa) "არქივი მიუწვდომელია" else "Archive not supported"
             btnConfirm.visibility = View.GONE
 
-            // Visually disable the picker columns
             rvDays.alpha = 0.2f
             rvHours.alpha = 0.2f
             rvMinutes.alpha = 0.2f
 
             overlayView.requestFocus()
         } else {
-            // CASE: Archive is supported, length is the number of hours back available
             tvOutOfRange.visibility = View.GONE
             btnConfirm.visibility = View.VISIBLE
             rvDays.alpha = 1.0f
             rvHours.alpha = 1.0f
             rvMinutes.alpha = 1.0f
 
-            // Initialize the calendar based on the length returned by the dummy request
             buildDayList(length)
             refreshAdapters()
 
@@ -103,26 +97,27 @@ class TimeRewindOverlayManager(
         KeyEvent.KEYCODE_DPAD_LEFT  -> { moveFocusLeft();  true }
         KeyEvent.KEYCODE_DPAD_RIGHT -> { moveFocusRight(); true }
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-            if (focusCol == 3) btnConfirm.performClick()
+            if (focusCol == 3) {
+                btnConfirm.performClick()
+            } else {
+                moveFocusRight()
+            }
             true
         }
         KeyEvent.KEYCODE_BACK -> { dismiss(); true }
         else -> false
     }
 
-    // ── Day list ──────────────────────────────────────────────────────────────
-
     private fun buildDayList(hoursBack: Int) {
         val isKa = ge.mediabox.mediabox.ui.LangPrefs.isKa(activity)
 
-        // Display the range badge (e.g., "7d rewind")
         tvArchiveRange.visibility = View.VISIBLE
         val d = hoursBack / 24
         val h = hoursBack % 24
         tvArchiveRange.text = if (isKa) {
             if (h == 0) "${d} დღიანი არქივი" else "${d}დ ${h}ს არქივი"
         } else {
-            if (h == 0) "${d}d rewind" else "${d}d ${h}h rewind"
+            if (h == 0) "${d}d archive" else "${d}d ${h}h archive"
         }
 
         val today = Calendar.getInstance().apply {
@@ -131,13 +126,7 @@ class TimeRewindOverlayManager(
         }
 
         val yesterday = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
-
-        // Calculate the earliest date allowed by the "length" field
-        val earliest = Calendar.getInstance().apply {
-            add(Calendar.HOUR_OF_DAY, -hoursBack)
-        }
-
-        // Start the cursor at the beginning of the earliest day
+        val earliest = Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -hoursBack) }
         val cursor = (earliest.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
@@ -156,7 +145,6 @@ class TimeRewindOverlayManager(
         }
         dayEntries = entries
 
-        // Set default selection to current time
         val now = Calendar.getInstance()
         selDay = entries.size - 1
         selHour = now.get(Calendar.HOUR_OF_DAY)
@@ -166,8 +154,6 @@ class TimeRewindOverlayManager(
     private fun sameDay(a: Calendar, b: Calendar) =
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
                 a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-
-    // ── Column setup ──────────────────────────────────────────────────────────
 
     private fun setupColumns() {
         dayAdapter    = PickerAdapter()
@@ -182,6 +168,8 @@ class TimeRewindOverlayManager(
     private fun setupColumn(rv: RecyclerView, adapter: PickerAdapter, colIndex: Int) {
         rv.layoutManager = LinearLayoutManager(activity)
         rv.adapter = adapter
+        // DISABLE FADE ANIMATION
+        rv.itemAnimator = null
         LinearSnapHelper().attachToRecyclerView(rv)
 
         rv.setOnFocusChangeListener { _, hasFocus ->
@@ -224,8 +212,6 @@ class TimeRewindOverlayManager(
         (rv.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(pos, 0)
     }
 
-    // ── Navigation ────────────────────────────────────────────────────────────
-
     private fun nudge(delta: Int) {
         when (focusCol) {
             0 -> moveColumn(rvDays,    dayAdapter,    delta, dayEntries.size - 1) { selDay    = it }
@@ -239,7 +225,8 @@ class TimeRewindOverlayManager(
         if (next == adapter.center) return
         adapter.center = next
         onSet(next)
-        (rv.layoutManager as LinearLayoutManager).smoothScrollToPosition(rv, RecyclerView.State(), next)
+        // Set to scroll instantly (no smooth scroll)
+        (rv.layoutManager as LinearLayoutManager).scrollToPosition(next)
         updateDisplay()
     }
 
@@ -259,8 +246,6 @@ class TimeRewindOverlayManager(
         }
     }
 
-    // ── Display update ────────────────────────────────────────────────────────
-
     private fun updateDisplay() {
         val tsMs = buildTimestamp()
         tvSelectedTime.text = displayFmt.format(Calendar.getInstance().apply { timeInMillis = tsMs }.time)
@@ -269,7 +254,7 @@ class TimeRewindOverlayManager(
         val outOfRange   = archiveStart != null && tsMs < archiveStart
 
         tvOutOfRange.visibility = if (outOfRange) View.VISIBLE else View.GONE
-        tvSelectedTime.setTextColor(if (outOfRange) 0xFFF87171.toInt() else 0xFF4A7FD4.toInt())
+        tvSelectedTime.setTextColor(if (outOfRange) 0xFFEF4444.toInt() else 0xFFF1F5F9.toInt())
 
         btnConfirm.isEnabled = !outOfRange
         btnConfirm.alpha     = if (outOfRange) 0.4f else 1f
@@ -292,13 +277,14 @@ class TimeRewindOverlayManager(
             onTimeSelected(ts)
         }
         btnConfirm.setOnFocusChangeListener { v, hasFocus ->
-            v.scaleX = if (hasFocus) 1.06f else 1f
-            v.scaleY = if (hasFocus) 1.06f else 1f
-            if (hasFocus) focusCol = 3
+            if (hasFocus) {
+                focusCol = 3
+                v.alpha = 1.0f
+            } else {
+                v.alpha = 0.9f
+            }
         }
     }
-
-    // ── Picker Adapter ────────────────────────────────────────────────────────
 
     inner class PickerAdapter : RecyclerView.Adapter<PickerAdapter.VH>() {
         private var items = listOf<String>()
@@ -333,12 +319,12 @@ class TimeRewindOverlayManager(
                 alpha    = when (dist) { 0 -> 1f; 1 -> 0.55f; 2 -> 0.28f; else -> 0.12f }
                 setTextColor(when {
                     isCenter && focused -> 0xFFFFFFFF.toInt()
-                    isCenter           -> 0xFF4A7FD4.toInt()
-                    else               -> 0xFF94A3B8.toInt()
+                    isCenter           -> 0xFFF1F5F9.toInt()
+                    else               -> 0x99F1F5F9.toInt()
                 })
                 setBackgroundColor(when {
-                    isCenter && focused -> 0x334A7FD4.toInt()
-                    isCenter           -> 0x194A7FD4.toInt()
+                    isCenter && focused -> 0x33FFFFFF.toInt()
+                    isCenter           -> 0x11FFFFFF.toInt()
                     else               -> 0x00000000
                 })
                 typeface = if (isCenter) android.graphics.Typeface.DEFAULT_BOLD
