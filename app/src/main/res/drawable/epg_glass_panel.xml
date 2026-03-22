@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Deeper Black with increased transparency (75% opaque) -->
+    <!-- Match Radio Background Color with transparency -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#BF020202"/>
+            <solid android:color="#BF0D1117"/>
             <corners android:radius="16dp"/>
         </shape>
     </item>
-    <!-- Dark subtle neutral border -->
+    <!-- Subtle neutral border -->
     <item>
         <shape android:shape="rectangle">
             <stroke android:width="1dp" android:color="#1AFFFFFF"/>

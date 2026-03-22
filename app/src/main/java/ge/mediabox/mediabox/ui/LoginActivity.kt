@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -30,7 +30,10 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var ivQrCode: ImageView
     private lateinit var tvPairingCode: TextView
     private lateinit var tvStatus: TextView
-    private lateinit var btnRefresh: Button
+    private lateinit var btnRefresh: FrameLayout
+    private lateinit var btnLoginLang: FrameLayout
+    private lateinit var tvSignInTitle: TextView
+    private lateinit var tvSignInSub: TextView
 
     private lateinit var deviceId: String
 
@@ -40,11 +43,12 @@ class LoginActivity : AppCompatActivity() {
     private val BASE_URL = "https://tv-api.telecomm1.com/api"
     private val SOCKET_URL = "https://tv-api.telecomm1.com"
 
+    private enum class PairingStatus { INITIALIZING, SCAN_READY, INIT_FAILED, NETWORK_ERROR, CONNECTED, CLAIM_FAILED }
+    private var currentStatus = PairingStatus.INITIALIZING
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Token Check
         val existingToken = getPrefs().getString("auth_token", null)
         if (!existingToken.isNullOrBlank()) {
             goToMain()
@@ -53,21 +57,18 @@ class LoginActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_login_qr)
 
-        // 2. Find Views
         ivQrCode      = findViewById(R.id.ivQrCode)
         tvPairingCode = findViewById(R.id.tvPairingCode)
         tvStatus      = findViewById(R.id.tvStatus)
         btnRefresh    = findViewById(R.id.btnRefresh)
-        tvManualUrl = findViewById(R.id.tvManualUrl)
+        tvManualUrl   = findViewById(R.id.tvManualUrl)
+        btnLoginLang  = findViewById(R.id.btnLoginLang)
+        tvSignInTitle = findViewById(R.id.tvSignInTitle)
+        tvSignInSub   = findViewById(R.id.tvSignInSub)
 
-        // IMPORTANT: Make sure your activity_login_qr.xml has android:id="@+id/ivLogoLeft"
-        // on the Mediabox ImageView!
         val ivLogoLeft = findViewById<ImageView>(R.id.ivLogoLeft)
-
-        // 3. Load Current Logo
         LogoManager.loadLogo(ivLogoLeft)
 
-        // 4. Request Update from Server
         lifecycleScope.launch {
             LogoManager.updateLogoFromServer(this@LoginActivity, null) {
                 LogoManager.loadLogo(ivLogoLeft)
@@ -78,13 +79,46 @@ class LoginActivity : AppCompatActivity() {
         getPrefs().edit().putString("device_id", deviceId).apply()
 
         btnRefresh.setOnClickListener { startPairing() }
+        btnLoginLang.setOnClickListener { toggleLanguage() }
+        
+        updateTexts()
         startPairing()
+    }
+
+    private fun updateTexts() {
+        val isKa = LangPrefs.isKa(this)
+        tvSignInTitle.text = if (isKa) "ავტორიზაცია" else "Sign In"
+        tvSignInSub.text   = if (isKa) "დაასკანერეთ კოდი მოწყობილობის დასარეგისტრირებლად" else "Scan the code to register this device"
+        
+        findViewById<TextView>(R.id.tvRefreshLabel)?.let {
+            it.text = if (isKa) "განახლება" else "REFRESH"
+        }
+        updateStatusText()
+    }
+
+    private fun updateStatusText() {
+        val isKa = LangPrefs.isKa(this)
+        tvStatus.text = when (currentStatus) {
+            PairingStatus.INITIALIZING  -> if (isKa) "პარამეტრების ინიციალიზაცია..." else "Initializing pairing..."
+            PairingStatus.SCAN_READY    -> if (isKa) "დაასკანერეთ კოდი ტელეფონით" else "Scan QR with your phone to log in"
+            PairingStatus.INIT_FAILED   -> if (isKa) "ვერ მოხერხდა. სცადეთ თავიდან" else "Failed to initialize. Tap Refresh."
+            PairingStatus.NETWORK_ERROR -> if (isKa) "ქსელის შეცდომა. სცადეთ თავიდან" else "Network error. Tap Refresh."
+            PairingStatus.CONNECTED     -> if (isKa) "დაკავშირებულია. ველოდებით ტელეფონს..." else "Connected. Waiting for phone..."
+            PairingStatus.CLAIM_FAILED  -> if (isKa) "სეანსის დადასტურება ვერ მოხერხდა" else "Session claim failed. Tap Refresh."
+        }
+    }
+
+    private fun toggleLanguage() {
+        LangPrefs.toggle(this)
+        updateTexts()
+        // REMOVED startPairing() call to prevent QR code refresh on language change
     }
 
     private fun startPairing() {
         disconnectSocket()
         btnRefresh.visibility = View.GONE
-        tvStatus.text = "Initializing pairing..."
+        currentStatus = PairingStatus.INITIALIZING
+        updateStatusText()
         ivQrCode.setImageBitmap(null)
         tvPairingCode.text = ""
 
@@ -105,16 +139,20 @@ class LoginActivity : AppCompatActivity() {
 
                     ivQrCode.setImageBitmap(bitmap)
                     tvPairingCode.text = pCode
-                    tvStatus.text = "Scan QR with your phone to log in"
+                    
+                    currentStatus = PairingStatus.SCAN_READY
+                    updateStatusText()
 
                     connectToSocket(sToken)
                 } else {
-                    tvStatus.text = "Failed to initialize. Tap Refresh."
+                    currentStatus = PairingStatus.INIT_FAILED
+                    updateStatusText()
                     btnRefresh.visibility = View.VISIBLE
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "startPairing error: ${e.message}")
-                tvStatus.text = "Network error. Tap Refresh."
+                currentStatus = PairingStatus.NETWORK_ERROR
+                updateStatusText()
                 btnRefresh.visibility = View.VISIBLE
             }
         }
@@ -148,7 +186,6 @@ class LoginActivity : AppCompatActivity() {
 
     private fun connectToSocket(socketToken: String) {
         try {
-            // Note: If using Socket.io 2.1.0, you may need options.query if auth fails
             val options = IO.Options.builder()
                 .setAuth(mapOf("token" to socketToken))
                 .setTransports(arrayOf("websocket"))
@@ -157,7 +194,10 @@ class LoginActivity : AppCompatActivity() {
             mSocket = IO.socket(SOCKET_URL, options)
 
             mSocket?.on(Socket.EVENT_CONNECT) {
-                runOnUiThread { tvStatus.text = "Connected. Waiting for phone..." }
+                runOnUiThread { 
+                    currentStatus = PairingStatus.CONNECTED
+                    updateStatusText()
+                }
             }
 
             mSocket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
@@ -218,7 +258,8 @@ class LoginActivity : AppCompatActivity() {
             goToMain()
         } else {
             runOnUiThread {
-                tvStatus.text = "Session claim failed. Tap Refresh."
+                currentStatus = PairingStatus.CLAIM_FAILED
+                updateStatusText()
                 btnRefresh.visibility = View.VISIBLE
             }
         }

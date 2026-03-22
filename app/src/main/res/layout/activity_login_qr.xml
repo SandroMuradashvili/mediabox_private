@@ -1,52 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    LOGIN SCREEN — QR PAIRING  v2
-    ─────────────────────────────────────────────────────────────
-    • Real ic_mediabox_logo left panel
-    • NO ProgressBar / loading spinner
-    • Clean frosted glass QR card right panel
-    • Red corner bracket accents around QR frame
-    • Thin separator line between panels
--->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:background="#070B14">
+    android:background="#070B14"
+    android:focusable="false"
+    android:clickable="false">
 
     <!-- ══ LEFT: Brand identity (42%) ══════════════════════════════ -->
     <FrameLayout
         android:layout_width="0dp"
         android:layout_weight="0.42"
         android:layout_height="match_parent"
-        android:background="@drawable/login_left_bg">
+        android:background="@drawable/login_left_bg"
+        android:focusable="false"
+        android:clickable="false">
 
-        <!-- Right-edge separator -->
         <View
             android:layout_width="1dp"
             android:layout_height="match_parent"
             android:layout_gravity="end"
             android:background="#07FFFFFF"/>
 
-        <!-- Centered logo + tagline -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:orientation="vertical"
-            android:gravity="start">
+            android:gravity="start"
+            android:focusable="false"
+            android:clickable="false">
 
-            <!-- Real SVG logo -->
             <ImageView
                 android:id="@+id/ivLogoLeft"
                 android:layout_width="180dp"
                 android:layout_height="37dp"
                 android:src="@drawable/ic_mediabox_logo"
                 android:scaleType="fitStart"
-                android:contentDescription="Mediabox"/>
+                android:contentDescription="Mediabox"
+                android:focusable="false"
+                android:clickable="false"/>
 
-            <!-- Thin divider -->
             <View
                 android:layout_width="100dp"
                 android:layout_height="1dp"
@@ -54,7 +50,6 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="20dp"/>
 
-            <!-- Tagline -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -62,7 +57,9 @@
                 android:textColor="#22FFFFFF"
                 android:textSize="9sp"
                 android:letterSpacing="0.22"
-                android:textStyle="bold"/>
+                android:textStyle="bold"
+                android:focusable="false"
+                android:clickable="false"/>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -70,160 +67,173 @@
                 android:text="Live TV  ·  Archive  ·  HD"
                 android:textColor="#12FFFFFF"
                 android:textSize="12sp"
-                android:layout_marginTop="6dp"/>
-
+                android:layout_marginTop="6dp"
+                android:focusable="false"
+                android:clickable="false"/>
         </LinearLayout>
-
-        <!-- Version watermark -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|start"
-            android:text="v2.0"
-            android:textColor="#0EFFFFFF"
-            android:textSize="9sp"
-            android:layout_margin="18dp"/>
-
     </FrameLayout>
 
     <!-- ══ RIGHT: QR Card (58%) ═════════════════════════════════════ -->
     <FrameLayout
         android:layout_width="0dp"
         android:layout_weight="0.58"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:focusable="false"
+        android:clickable="false">
 
-        <!-- Frosted glass card -->
         <LinearLayout
-            android:layout_width="400dp"
+            android:layout_width="450dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:orientation="vertical"
             android:gravity="center_horizontal"
             android:background="@drawable/login_card_glass"
-            android:padding="44dp">
+            android:padding="40dp"
+            android:focusable="false"
+            android:clickable="false">
 
-            <!-- Header -->
+            <!-- Card Header: CENTERED Title + TOP-RIGHT Lang Toggle -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:focusable="false"
+                android:clickable="false">
+
+                <TextView
+                    android:id="@+id/tvSignInTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="Sign In"
+                    android:textColor="#F1F5F9"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:focusable="false"
+                    android:clickable="false"/>
+
+                <!-- Language Toggle Button -->
+                <FrameLayout
+                    android:id="@+id/btnLoginLang"
+                    android:layout_width="48dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="@drawable/login_button_selector"
+                    android:focusable="true"
+                    android:clickable="true">
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_profile_language"
+                        app:tint="#F1F5F9"/>
+                </FrameLayout>
+            </RelativeLayout>
+
             <TextView
+                android:id="@+id/tvSignInSub"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sign In"
-                android:textColor="#F1F5F9"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:letterSpacing="-0.02"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Scan the code or visit the link below"
+                android:text="Scan the code to register this device"
                 android:textColor="#40FFFFFF"
                 android:textSize="12sp"
-                android:layout_marginTop="5dp"
-                android:layout_marginBottom="12dp"/>
-
-            <!-- NEW: Manual URL Chip -->
-            <TextView
-                android:id="@+id/tvManualUrl"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="tv-api.telecomm1.com/tv-register"
-                android:textColor="#818CF8"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:background="@drawable/badge_archive_range"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:gravity="center"
                 android:layout_marginBottom="24dp"
-                android:letterSpacing="0.02"/>
+                android:focusable="false"
+                android:clickable="false"/>
 
-            <!-- QR frame with red corner brackets -->
+            <!-- QR frame - STRICTLY NOT focusable -->
             <FrameLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:focusable="false"
+                android:clickable="false"
+                android:descendantFocusability="blocksDescendants">
 
-                <!-- White border around QR -->
                 <FrameLayout
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
+                    android:layout_width="180dp"
+                    android:layout_height="180dp"
                     android:background="#FFFFFF"
-                    android:padding="8dp">
-
+                    android:padding="10dp"
+                    android:focusable="false"
+                    android:clickable="false">
                     <ImageView
                         android:id="@+id/ivQrCode"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:scaleType="fitCenter"
-                        android:contentDescription="Login QR Code"/>
-                    <!-- NO ProgressBar here -->
-
+                        android:focusable="false"
+                        android:clickable="false"/>
                 </FrameLayout>
 
-                <!-- Corner brackets: top-left -->
-                <View android:layout_width="18dp" android:layout_height="2.5dp"
-                    android:background="#E8191A" android:layout_gravity="top|start" android:layout_margin="-1.5dp"/>
-                <View android:layout_width="2.5dp" android:layout_height="18dp"
-                    android:background="#E8191A" android:layout_gravity="top|start" android:layout_margin="-1.5dp"/>
-
-                <!-- top-right -->
-                <View android:layout_width="18dp" android:layout_height="2.5dp"
-                    android:background="#E8191A" android:layout_gravity="top|end" android:layout_margin="-1.5dp"/>
-                <View android:layout_width="2.5dp" android:layout_height="18dp"
-                    android:background="#E8191A" android:layout_gravity="top|end" android:layout_margin="-1.5dp"/>
-
-                <!-- bottom-left -->
-                <View android:layout_width="18dp" android:layout_height="2.5dp"
-                    android:background="#E8191A" android:layout_gravity="bottom|start" android:layout_margin="-1.5dp"/>
-                <View android:layout_width="2.5dp" android:layout_height="18dp"
-                    android:background="#E8191A" android:layout_gravity="bottom|start" android:layout_margin="-1.5dp"/>
-
-                <!-- bottom-right -->
-                <View android:layout_width="18dp" android:layout_height="2.5dp"
-                    android:background="#E8191A" android:layout_gravity="bottom|end" android:layout_margin="-1.5dp"/>
-                <View android:layout_width="2.5dp" android:layout_height="18dp"
-                    android:background="#E8191A" android:layout_gravity="bottom|end" android:layout_margin="-1.5dp"/>
-
+                <!-- Corner brackets (EPG Red) -->
+                <View android:layout_width="16dp" android:layout_height="2.5dp" android:background="#E52121" android:layout_gravity="top|start" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="16dp" android:background="#E52121" android:layout_gravity="top|start" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="16dp" android:layout_height="2.5dp" android:background="#E52121" android:layout_gravity="top|end" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="16dp" android:background="#E52121" android:layout_gravity="top|end" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="16dp" android:layout_height="2.5dp" android:background="#E52121" android:layout_gravity="bottom|start" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="16dp" android:background="#E52121" android:layout_gravity="bottom|start" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="16dp" android:layout_height="2.5dp" android:background="#E52121" android:layout_gravity="bottom|end" android:layout_margin="-1.5dp"/>
+                <View android:layout_width="2.5dp" android:layout_height="16dp" android:background="#E52121" android:layout_gravity="bottom|end" android:layout_margin="-1.5dp"/>
             </FrameLayout>
 
-            <!-- Pairing code -->
             <TextView
                 android:id="@+id/tvPairingCode"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text=""
                 android:textColor="#F1F5F9"
                 android:textSize="32sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.22"
-                android:layout_marginTop="22dp"/>
+                android:letterSpacing="0.2"
+                android:layout_marginTop="20dp"
+                android:focusable="false"
+                android:clickable="false"/>
 
-            <!-- Status -->
+            <TextView
+                android:id="@+id/tvManualUrl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="tv-api.telecomm1.com/tv-register"
+                android:textColor="#94A3B8"
+                android:textSize="11sp"
+                android:alpha="0.6"
+                android:layout_marginTop="6dp"
+                android:focusable="false"
+                android:clickable="false"/>
+
             <TextView
                 android:id="@+id/tvStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Initializing…"
+                android:text="Waiting for scan..."
                 android:textColor="#20FFFFFF"
                 android:textSize="11sp"
-                android:gravity="center"
-                android:layout_marginTop="8dp"/>
+                android:layout_marginTop="12dp"
+                android:focusable="false"
+                android:clickable="false"/>
 
-            <!-- Refresh (hidden until expired) -->
-            <Button
+            <!-- Refresh Button: Focusable only when visible -->
+            <FrameLayout
                 android:id="@+id/btnRefresh"
-                android:layout_width="150dp"
-                android:layout_height="42dp"
-                android:text="Refresh"
-                android:backgroundTint="#E8191A"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="12sp"
-                android:layout_marginTop="14dp"
-                android:visibility="gone"/>
-
+                android:layout_width="160dp"
+                android:layout_height="44dp"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/login_button_selector"
+                android:focusable="true"
+                android:clickable="true"
+                android:visibility="gone">
+                <TextView
+                    android:id="@+id/tvRefreshLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="REFRESH"
+                    android:textColor="#F1F5F9"
+                    android:textSize="12sp"
+                    android:textStyle="bold"/>
+            </FrameLayout>
         </LinearLayout>
-
     </FrameLayout>
-
 </LinearLayout>

@@ -204,6 +204,10 @@ class UserActivity : AppCompatActivity() {
 
         binding.plansPanelOverlay.visibility = View.VISIBLE
         highlightActionRows()
+        
+        // Ensure RecyclerView can be focused and scrolled
+        binding.rvPlanChannels.isFocusable = true
+        binding.rvPlanChannels.requestFocus()
     }
 
     private fun loadPlanInPanel(plan: MyPlan, isKa: Boolean) {
@@ -322,7 +326,14 @@ class UserActivity : AppCompatActivity() {
         if (isPlansPanelOpen) {
             return when (keyCode) {
                 KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_LEFT -> { closePlansPanel(); true }
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, 
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    binding.rvPlanChannels.scrollBy(0, -300)
+                    true
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    binding.rvPlanChannels.scrollBy(0, 300)
+                    true
+                }
                 KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> true
                 else -> super.onKeyDown(keyCode, event)
             }

@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Keep original dark glass background (no lighter highlight inside) -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#111E33"/>
-            <corners android:radius="12dp"/>
+            <solid android:color="#0D1117"/>
+            <corners android:radius="14dp"/>
         </shape>
     </item>
+    <!-- Keep the bold Red outline for focus -->
     <item>
         <shape android:shape="rectangle">
-            <stroke android:width="1dp" android:color="#2D4D7A"/>
-            <corners android:radius="12dp"/>
+            <stroke android:width="2dp" android:color="#E52121"/>
+            <corners android:radius="14dp"/>
         </shape>
     </item>
 </layer-list>
