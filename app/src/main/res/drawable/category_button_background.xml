@@ -1,33 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Focused and Selected (e.g. hovered with DPAD) -->
     <item android:state_selected="true" android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#4A7FD4"/>
+            <solid android:color="#E52121"/>
             <corners android:radius="24dp"/>
         </shape>
     </item>
 
+    <!-- Selected but not currently focused -->
     <item android:state_selected="true">
         <shape android:shape="rectangle">
-            <solid android:color="#4D4A7FD4"/>
-            <stroke android:width="1dp" android:color="#804A7FD4"/>
+            <solid android:color="#1AE52121"/>
+            <stroke android:width="1dp" android:color="#4DE52121"/>
             <corners android:radius="24dp"/>
         </shape>
     </item>
 
+    <!-- Just focused -->
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="#264A7FD4"/>
-            <stroke android:width="1dp" android:color="#4A7FD4"/>
+            <solid android:color="#1C2E4A"/>
+            <stroke android:width="1dp" android:color="#2D4D7A"/>
             <corners android:radius="24dp"/>
         </shape>
     </item>
 
+    <!-- Default state -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#14FFFFFF"/>
-            <stroke android:width="1dp" android:color="#1AFFFFFF"/>
+            <solid android:color="#0DFFFFFF"/>
+            <stroke android:width="1dp" android:color="#14FFFFFF"/>
             <corners android:radius="24dp"/>
         </shape>
     </item>

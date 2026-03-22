@@ -1,6 +1,8 @@
 package ge.mediabox.mediabox.ui.player
 
 import android.app.Activity
+import android.graphics.drawable.AnimatedVectorDrawable
+import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -542,8 +544,8 @@ class EpgOverlayManager(
                     itemView.alpha = 0.35f
                 } else {
                     favoriteIcon.visibility = if (channel.isFavorite) View.VISIBLE else View.GONE
-                    name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
-                    number.setTextColor(if (isHighlighted) 0xFF7AAEE8.toInt() else 0xBB5A9EC8.toInt())
+                    name.setTextColor(if (isHighlighted) 0xFFFFFFFF.toInt() else 0xEEF1F5F9.toInt())
+                    number.setTextColor(if (isHighlighted) 0xFFE5E7EB.toInt() else 0x8894A3B8.toInt())
                     itemView.alpha = if (isHighlighted) 1f else 0.85f
                 }
             }
@@ -592,7 +594,7 @@ class EpgOverlayManager(
             val time:      TextView  = itemView.findViewById(R.id.tvProgramTime)
             val title:     TextView  = itemView.findViewById(R.id.tvProgramTitle)
             val accentBar: View?     = itemView.findViewById(R.id.programAccentBar)
-            val nowBadge:  TextView? = itemView.findViewById(R.id.tvNowBadge)
+            val playingAnim: ImageView? = itemView.findViewById(R.id.ivPlayingAnim)
             val dateCol:   TextView? = itemView.findViewById(R.id.tvProgramDate)
 
             fun bind(program: Program, isHighlighted: Boolean) {
@@ -608,23 +610,37 @@ class EpgOverlayManager(
                 itemView.isActivated = isHighlighted
                 itemView.isSelected  = isPlaying && !isHighlighted
                 accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
-                nowBadge?.visibility  = if (isPlaying) View.VISIBLE else View.GONE
+
+                if (isPlaying) {
+                    playingAnim?.visibility = View.VISIBLE
+                    playingAnim?.post {
+                        (playingAnim.drawable as? AnimatedVectorDrawable)?.let {
+                            if (!it.isRunning) {
+                                Log.d("EPG_ANIM", "Starting animation for program: ${program.title}")
+                                it.start()
+                            }
+                        } ?: Log.e("EPG_ANIM", "Drawable is NOT an AnimatedVectorDrawable for: ${program.title}")
+                    }
+                } else {
+                    playingAnim?.visibility = View.GONE
+                    (playingAnim?.drawable as? AnimatedVectorDrawable)?.stop()
+                }
 
                 // 1. Text Color Logic
                 time.setTextColor(when {
-                    isHighlighted || isPlaying -> 0xFF7AAEE8.toInt()  // bright steel blue
-                    isPast ->                     0xC44A7FD4.toInt()  // muted steel blue
-                    else ->                       0x444A7FD4.toInt()  // dim steel blue
+                    isHighlighted || isPlaying -> 0xFFE5E7EB.toInt()  // Pure Light Gray
+                    isPast ->                     0x8894A3B8.toInt()  // Muted Gray-Blue
+                    else ->                       0x4494A3B8.toInt()  // Dim Gray-Blue
                 })
 
                 title.setTextColor(when {
-                    isHighlighted -> 0xFFF1F5F9.toInt()             // Pure white
+                    isHighlighted -> 0xFFFFFFFF.toInt()             // Pure white
                     isFuture -> 0x55F1F5F9.toInt()                  // Dim white for future
                     else -> 0xEEF1F5F9.toInt()                      // Standard white
                 })
 
                 dateCol?.setTextColor(when {
-                    isHighlighted -> 0xAA7AAEE8.toInt()  // bright blue
+                    isHighlighted -> 0xAA94A3B8.toInt()  // soft gray
                     isFuture ->      0x2294A3B8.toInt()  // unchanged slate
                     else ->          0x8094A3B8.toInt()  // unchanged slate
                 })

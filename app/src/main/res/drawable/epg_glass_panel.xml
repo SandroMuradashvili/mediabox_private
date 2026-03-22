@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Deeper Black with increased transparency (75% opaque) -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#CC101828"/>
+            <solid android:color="#BF020202"/>
             <corners android:radius="16dp"/>
         </shape>
     </item>
+    <!-- Dark subtle neutral border -->
     <item>
         <shape android:shape="rectangle">
-            <stroke android:width="1dp" android:color="#504A7FD4"/>
+            <stroke android:width="1dp" android:color="#1AFFFFFF"/>
             <corners android:radius="16dp"/>
         </shape>
     </item>

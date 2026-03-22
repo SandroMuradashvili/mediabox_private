@@ -2,9 +2,10 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <stroke android:width="2dp" android:color="#B34A7FD4"/>
+            <!-- White subtle outline and tint to match program overlay -->
+            <stroke android:width="1.5dp" android:color="#4DFFFFFF"/>
             <corners android:radius="10dp"/>
-            <solid android:color="#0D4A7FD4"/>
+            <solid android:color="#1AFFFFFF"/>
         </shape>
     </item>
 </layer-list>

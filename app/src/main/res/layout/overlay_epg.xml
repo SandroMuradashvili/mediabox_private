@@ -172,7 +172,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="›"
-                            android:textColor="#556366F1"
+                            android:textColor="#33FFFFFF"
                             android:textSize="120sp"
                             android:textStyle="bold"
                             android:gravity="center"

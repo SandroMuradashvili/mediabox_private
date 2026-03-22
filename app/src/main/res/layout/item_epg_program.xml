@@ -50,22 +50,20 @@
         android:layout_height="0dp"
         android:visibility="gone"/>
 
-    <!-- NOW badge -->
+    <!-- Playing Animation replacing NOW badge -->
+    <ImageView
+        android:id="@+id/ivPlayingAnim"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginStart="8dp"
+        android:src="@drawable/ic_playing_bars"
+        android:visibility="gone"/>
+
+    <!-- Keep original ID but hide it completely -->
     <TextView
         android:id="@+id/tvNowBadge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="NOW"
-        android:textColor="#F1F5F9"
-        android:textSize="9sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.08"
-        android:background="@drawable/epg_now_badge"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
-        android:layout_marginStart="6dp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:visibility="gone"/>
 
     <!-- Date — far right, e.g. "23 Feb" -->

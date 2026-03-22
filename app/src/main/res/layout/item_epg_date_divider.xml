@@ -7,11 +7,12 @@
     android:paddingStart="12dp"
     android:paddingEnd="12dp">
 
+    <!-- Red separator line, slightly thicker (2dp) and semi-transparent -->
     <View
         android:layout_width="0dp"
-        android:layout_height="1dp"
+        android:layout_height="2dp"
         android:layout_weight="1"
-        android:background="@drawable/epg_divider_line"
+        android:background="#1AE52121"
         android:layout_marginEnd="10dp"/>
 
     <TextView
@@ -20,7 +21,7 @@
         android:layout_height="wrap_content"
         android:textSize="12sp"
         android:textStyle="bold"
-        android:textColor="#CCB0B3F5"
+        android:textColor="#FFFFFF"
         android:letterSpacing="0.06"
         android:background="@drawable/epg_date_chip"
         android:paddingStart="16dp"
@@ -28,11 +29,12 @@
         android:paddingTop="5dp"
         android:paddingBottom="5dp"/>
 
+    <!-- Red separator line, slightly thicker (2dp) and semi-transparent -->
     <View
         android:layout_width="0dp"
-        android:layout_height="1dp"
+        android:layout_height="2dp"
         android:layout_weight="1"
-        android:background="@drawable/epg_divider_line"
+        android:background="#1AE52121"
         android:layout_marginStart="10dp"/>
 
 </LinearLayout>
