@@ -7,7 +7,6 @@ import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
-import ge.mediabox.mediabox.ui.LogoManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,7 +26,6 @@ class ControlOverlayManager(
         val root = binding.root
         val isLive = streamTimestamp == null
 
-        // Load Channel-Specific Logo (Left side) - This stays because it changes per channel
         val logo = root.findViewById<ImageView>(R.id.channelLogo)
         if (!channel.logoUrl.isNullOrEmpty() && logo != null) {
             Glide.with(root.context).load(channel.logoUrl).into(logo)
@@ -80,15 +78,7 @@ class ControlOverlayManager(
         )
     }
 
-    // Inside ControlOverlayManager.kt
-
     fun updateQualityInfo(height: Int) {
-        val tvQuality = binding.root.findViewById<TextView>(R.id.tvCurrentQuality) ?: return
-        if (height <= 0) {
-            tvQuality.text = ""
-            return
-        }
-        // Main screen stays simple: just "HD" or "SD"
-        tvQuality.text = if (height >= 700) "HD" else "SD"
+        // No-op: Quality indicator moved to unified Settings panel
     }
 }

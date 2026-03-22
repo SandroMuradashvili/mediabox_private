@@ -474,7 +474,13 @@ class PlayerActivity : AppCompatActivity() {
             onDismiss = { isTimeRewindVisible = false })
 
         val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
-        trackSelectionManager = TrackSelectionOverlayManager(this, trackOverlayView, { player })
+        trackSelectionManager = TrackSelectionOverlayManager(
+            activity = this,
+            overlayView = trackOverlayView,
+            playerProvider = { player },
+            onAspectRatioToggle = { toggleAspectRatio() },
+            getAspectRatioLabel = { getAspectRatioLabel() }
+        )
         trackSelectionManager.init()
     }
 
@@ -489,11 +495,19 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnTimeRewind)?.setOnClickListener { showTimeRewind() }
             findViewById<ImageButton>(R.id.btnPlayPause)?.setOnClickListener  { togglePlayPause() }
             findViewById<View>(R.id.btnLive)?.setOnClickListener { returnToLive() }
-            findViewById<View>(R.id.btnQualityLayout)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.VIDEO) }
-            findViewById<ImageButton>(R.id.btnAudioLanguage)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.AUDIO) }
-            findViewById<View>(R.id.btnAspectRatio)?.setOnClickListener { toggleAspectRatio() }
+            findViewById<ImageButton>(R.id.btnSettings)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.SETTINGS) }
         }
         loadSavedAspectRatio()
+    }
+
+    private fun getAspectRatioLabel(): String {
+        val isKa = LangPrefs.isKa(this)
+        return when (currentResizeMode) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT -> if (isKa) "ორიგინალი" else "Fit"
+            AspectRatioFrameLayout.RESIZE_MODE_FILL -> if (isKa) "შევსება" else "Stretch"
+            AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> if (isKa) "ზუმი" else "Zoom"
+            else -> "Fit"
+        }
     }
 
     private fun toggleAspectRatio() {
@@ -507,14 +521,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun applyAspectRatio(mode: Int) {
         binding.playerView.resizeMode = mode
-        val isKa = LangPrefs.isKa(this)
-        val label = when (mode) {
-            AspectRatioFrameLayout.RESIZE_MODE_FIT -> if (isKa) "ორიგინალი" else "Fit"
-            AspectRatioFrameLayout.RESIZE_MODE_FILL -> if (isKa) "შევსება" else "Stretch"
-            AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> if (isKa) "ზუმი" else "Zoom"
-            else -> "Fit"
-        }
-        binding.root.findViewById<TextView>(R.id.tvCurrentAspectRatio)?.text = label
         getSharedPreferences("AppPrefs", MODE_PRIVATE).edit { putInt("video_resize_mode", mode) }
         rescheduleHideControls()
     }
@@ -522,7 +528,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun loadSavedAspectRatio() {
         val savedMode = getSharedPreferences("AppPrefs", MODE_PRIVATE).getInt("video_resize_mode", AspectRatioFrameLayout.RESIZE_MODE_FIT)
         currentResizeMode = savedMode
-        applyAspectRatio(savedMode)
+        binding.playerView.resizeMode = currentResizeMode
     }
 
     private fun returnToLive() = playChannel(currentChannelIndex)

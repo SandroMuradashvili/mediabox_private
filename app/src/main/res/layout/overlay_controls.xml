@@ -140,23 +140,28 @@
             </LinearLayout>
 
             <!-- Play/Pause -->
-            <ImageButton
-                android:id="@+id/btnPlayPause"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:background="@drawable/control_button_background"
-                android:src="@drawable/ic_pause"
-                android:scaleType="centerInside"
-                android:padding="14dp"
-                android:contentDescription="Play/Pause"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:nextFocusLeft="@+id/btnRewind15s"
-                android:nextFocusRight="@+id/btnForward15s"
-                android:nextFocusUp="@+id/btnPlayPause"
-                android:nextFocusDown="@+id/btnLive"/>
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center" android:layout_marginStart="8dp" android:layout_marginEnd="8dp">
+                <ImageButton
+                    android:id="@+id/btnPlayPause"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:background="@drawable/control_button_background"
+                    android:src="@drawable/ic_pause"
+                    android:scaleType="centerInside"
+                    android:padding="14dp"
+                    android:contentDescription="Play/Pause"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:nextFocusLeft="@+id/btnRewind15s"
+                    android:nextFocusRight="@+id/btnForward15s"
+                    android:nextFocusUp="@+id/btnPlayPause"
+                    android:nextFocusDown="@+id/btnLive"/>
+                <!-- Centering spacer to match the text under other buttons -->
+                <TextView style="@style/CaptionText" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="" android:layout_marginTop="2dp"
+                    android:visibility="invisible"/>
+            </LinearLayout>
 
             <!-- Forward 15s -->
             <LinearLayout android:id="@+id/layoutForward15s" android:layout_width="wrap_content"
@@ -307,79 +312,17 @@
                     android:contentDescription="Toggle Favorite"
                     android:nextFocusUp="@+id/btnPlayPause"
                     android:nextFocusLeft="@+id/btnTimeRewind"
-                    android:nextFocusRight="@+id/btnQuality"/>
+                    android:nextFocusRight="@+id/btnSettings"/>
 
-                <LinearLayout
-                    android:id="@+id/btnQualityLayout"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:background="@drawable/control_button_background"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:focusable="true"
-                    android:clickable="true">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_quality"
-                        android:duplicateParentState="true" />
-
-                    <TextView
-                        android:id="@+id/tvCurrentQuality"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="HD"
-                        android:textColor="#F1F5F9"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="6dp"
-                        android:duplicateParentState="true" />
-                </LinearLayout>
-
-                <!-- Audio/language switcher -->
+                <!-- Unified Settings Button -->
                 <ImageButton
-                    android:id="@+id/btnAudioLanguage"
+                    android:id="@+id/btnSettings"
                     style="@style/SmallControlButton"
-                    android:src="@drawable/ic_audio_language"
+                    android:src="@drawable/ic_menu_settings"
                     android:layout_marginStart="10dp"
-                    android:contentDescription="Audio/Language"
+                    android:contentDescription="Settings"
                     android:nextFocusUp="@+id/btnPlayPause"
-                    android:nextFocusLeft="@+id/btnQuality"/>
-
-                <!-- Inside the bottomBar LinearLayout, near the Quality button -->
-                <LinearLayout
-                    android:id="@+id/btnAspectRatio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:background="@drawable/control_button_background"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:layout_marginStart="10dp">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_cast"
-                        android:duplicateParentState="true" />
-
-                    <TextView
-                        android:id="@+id/tvCurrentAspectRatio"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Fit"
-                        android:textColor="#F1F5F9"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="6dp"
-                        android:duplicateParentState="true" />
-                </LinearLayout>
+                    android:nextFocusLeft="@+id/btnFavorite"/>
 
             </LinearLayout>
 

@@ -1,28 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    overlay_track_selection.xml
-    Slides in from the right — a slim frosted panel listing quality / audio tracks.
--->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#80000000">
+    android:background="@drawable/epg_scrim_background">
 
-    <!-- Panel anchored to right edge -->
     <androidx.cardview.widget.CardView
         android:layout_width="320dp"
         android:layout_height="match_parent"
         android:layout_gravity="end"
-        app:cardBackgroundColor="#F0101828"
-        app:cardCornerRadius="0dp"
-        app:cardElevation="32dp">
+        android:layout_margin="8dp"
+        app:cardBackgroundColor="#00000000"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:background="@drawable/epg_glass_panel">
 
             <!-- Header -->
             <LinearLayout
@@ -32,9 +29,8 @@
                 android:gravity="center_vertical"
                 android:paddingStart="24dp"
                 android:paddingEnd="24dp"
-                android:background="#0CFFFFFF">
+                android:background="@drawable/epg_header_bar">
 
-                <!-- Accent dot -->
                 <View
                     android:layout_width="6dp"
                     android:layout_height="6dp"
@@ -46,7 +42,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Video Quality"
+                    android:text="Settings"
                     android:textColor="#F1F5F9"
                     android:textSize="15sp"
                     android:textStyle="bold"
@@ -61,13 +57,11 @@
 
             </LinearLayout>
 
-            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#0DFFFFFF"/>
+                android:background="@drawable/epg_divider_line"/>
 
-            <!-- Track list -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvTracks"
                 android:layout_width="match_parent"
