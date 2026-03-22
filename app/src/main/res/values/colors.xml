@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Primary Colors -->
-    <!-- REPLACE WITH -->
-    <color name="primary">#4A7FD4</color>
-    <color name="primary_dark">#3A6AB8</color>
-    <color name="primary_light">#6A9FE8</color>
-    <color name="focus_color">#4A7FD4</color>
-    <color name="focus_glow">#4D4A7FD4</color>
+    <!-- Primary Colors (Dark Blue from Logo) -->
+    <color name="primary">#03062C</color>
+    <color name="primary_dark">#02041D</color>
+    <color name="primary_light">#0D124A</color>
+    
+    <!-- Focus & Selection Colors (Red from Logo) -->
+    <color name="focus_color">#E52121</color>
+    <color name="focus_glow">#4DE52121</color>
 
     <!-- Accent Colors -->
-    <color name="accent">#EC4899</color>
-    <color name="accent_light">#F472B6</color>
+    <color name="accent">#E52121</color>
+    <color name="accent_light">#FF4D4D</color>
 
-    <!-- Background Colors — slightly lightened -->
-    <color name="background">#04080F</color>       <!-- was #0D1117 -->
-    <color name="background_light">#050C18</color> <!-- was #111827 -->
-    <color name="surface">#050C18</color>          <!-- was #111827 -->
-    <color name="surface_light">#081426</color>    <!-- was #1A2535 -->
-    <color name="surface_bright">#0E1D32</color>
+    <!-- Background Colors -->
+    <color name="background">#020412</color>
+    <color name="background_light">#03062C</color>
+    <color name="surface">#03062C</color>
+    <color name="surface_light">#0D124A</color>
+    <color name="surface_bright">#161D69</color>
+
     <!-- Text Colors -->
     <color name="text_primary">#F1F5F9</color>
     <color name="text_secondary">#94A3B8</color>
@@ -27,17 +29,16 @@
     <color name="success">#10B981</color>
     <color name="error">#EF4444</color>
     <color name="warning">#F59E0B</color>
-    <color name="live_red">#DC2626</color>
+    <color name="live_red">#E52121</color>
 
     <!-- Overlay Colors -->
-    <color name="overlay_background">#CC21262C</color>
+    <color name="overlay_background">#CC020412</color>
     <color name="overlay_dark">#DD000000</color>
 
     <!-- UI Element Colors -->
-    <color name="card_background">#272D34</color>
-    <color name="button_background">#2E353D</color>
-    <color name="divider">#2E353D</color>
-
+    <color name="card_background">#0D124A</color>
+    <color name="button_background">#161D69</color>
+    <color name="divider">#161D69</color>
 
     <!-- Transparent -->
     <color name="transparent">#00000000</color>
@@ -47,12 +48,7 @@
     <color name="hd_badge">#10B981</color>
     <color name="sd_badge">#F59E0B</color>
 
-    <!-- System theme refs -->
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
+    <!-- System colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

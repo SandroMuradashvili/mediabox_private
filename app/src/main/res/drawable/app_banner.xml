@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/primary"/>
-    <size android:width="320dp" android:height="180dp"/>
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dark Blue Background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#03062C"/>
+            <size android:width="320dp" android:height="180dp"/>
+        </shape>
+    </item>
+    
+    <!-- Centered Logo - Increased size to 160dp -->
+    <item
+        android:drawable="@mipmap/ic_launcher"
+        android:gravity="center"
+        android:width="160dp"
+        android:height="160dp" />
+</layer-list>
