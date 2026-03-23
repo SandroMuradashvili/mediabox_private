@@ -2,41 +2,41 @@
 <animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt">
 
-    <!-- 1. The Vector Graphic (increased to 20dp) -->
+    <!-- The Vector Graphic: centered and using more of the 24x24 viewport -->
     <aapt:attr name="android:drawable">
         <vector
-            android:width="20dp"
-            android:height="20dp"
+            android:width="24dp"
+            android:height="24dp"
             android:viewportWidth="24"
             android:viewportHeight="24">
             <!-- Bar 1 -->
-            <group android:name="g1" android:pivotX="4" android:pivotY="20">
+            <group android:name="g1" android:pivotX="4" android:pivotY="19">
                 <path
-                    android:pathData="M4,10 L4,20"
-                    android:strokeColor="#E52121"
+                    android:pathData="M4,5 L4,19"
+                    android:strokeColor="#FFFFFF"
                     android:strokeWidth="4"
                     android:strokeLineCap="round"/>
             </group>
             <!-- Bar 2 -->
-            <group android:name="g2" android:pivotX="12" android:pivotY="20">
+            <group android:name="g2" android:pivotX="12" android:pivotY="19">
                 <path
-                    android:pathData="M12,10 L12,20"
-                    android:strokeColor="#E52121"
+                    android:pathData="M12,5 L12,19"
+                    android:strokeColor="#FFFFFF"
                     android:strokeWidth="4"
                     android:strokeLineCap="round"/>
             </group>
             <!-- Bar 3 -->
-            <group android:name="g3" android:pivotX="20" android:pivotY="20">
+            <group android:name="g3" android:pivotX="20" android:pivotY="19">
                 <path
-                    android:pathData="M20,10 L20,20"
-                    android:strokeColor="#E52121"
+                    android:pathData="M20,5 L20,19"
+                    android:strokeColor="#FFFFFF"
                     android:strokeWidth="4"
                     android:strokeLineCap="round"/>
             </group>
         </vector>
     </aapt:attr>
 
-    <!-- 2. The Animations for each bar -->
+    <!-- The Animations for each bar -->
     <target android:name="g1">
         <aapt:attr name="android:animation">
             <objectAnimator

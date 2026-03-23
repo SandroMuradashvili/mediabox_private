@@ -70,7 +70,12 @@ class ControlOverlayManager(
             
             val drawable = ivPlayingAnim?.drawable
             if (drawable is AnimatedVectorDrawable) {
-                if (isPlaying) drawable.start() else drawable.stop()
+                // Ensure the animation is running if playing, or stopped at a frame if not
+                if (isPlaying) {
+                    if (!drawable.isRunning) drawable.start()
+                } else {
+                    drawable.stop()
+                }
             }
             btnLive.alpha = 1.0f
         } else {

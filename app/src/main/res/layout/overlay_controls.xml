@@ -272,8 +272,8 @@
                     <!-- Playing animation (shown when live) -->
                     <ImageView
                         android:id="@+id/ivLivePlayingAnim"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_playing_bars"
                         android:visibility="visible"/>
@@ -281,8 +281,8 @@
                     <!-- Broadcast icon (shown when in archive) -->
                     <ImageView
                         android:id="@+id/ivLiveBroadcastIcon"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_broadcast"
                         android:visibility="gone"
