@@ -1,5 +1,6 @@
 package ge.mediabox.mediabox.ui.player
 
+import android.graphics.drawable.AnimatedVectorDrawable
 import android.view.View
 import android.widget.*
 import com.bumptech.glide.Glide
@@ -57,18 +58,30 @@ class ControlOverlayManager(
     }
 
     fun updateLiveIndicator(isLive: Boolean, isPlaying: Boolean = true) {
-        val btnLive = binding.root.findViewById<View>(R.id.btnLive) ?: return
-        val tvLabel = binding.root.findViewById<TextView>(R.id.tvLiveLabel)
-        val ivIcon = binding.root.findViewById<ImageView>(R.id.ivLiveBroadcastIcon)
+        val root = binding.root
+        val btnLive = root.findViewById<View>(R.id.btnLive) ?: return
+        val ivPlayingAnim = root.findViewById<ImageView>(R.id.ivLivePlayingAnim)
+        val ivBroadcastIcon = root.findViewById<ImageView>(R.id.ivLiveBroadcastIcon)
 
-        if (isLive && isPlaying) {
+        if (isLive) {
+            // Live mode: Show animation
+            ivPlayingAnim?.visibility = View.VISIBLE
+            ivBroadcastIcon?.visibility = View.GONE
+            
+            val drawable = ivPlayingAnim?.drawable
+            if (drawable is AnimatedVectorDrawable) {
+                if (isPlaying) drawable.start() else drawable.stop()
+            }
             btnLive.alpha = 1.0f
-            tvLabel?.visibility = View.VISIBLE
-            ivIcon?.visibility = View.GONE
         } else {
-            btnLive.alpha = 0.5f
-            tvLabel?.visibility = View.GONE
-            ivIcon?.visibility = View.VISIBLE
+            // Archive/Delayed mode: Show broadcast icon to return to live
+            ivPlayingAnim?.visibility = View.GONE
+            ivBroadcastIcon?.visibility = View.VISIBLE
+            
+            val drawable = ivPlayingAnim?.drawable
+            if (drawable is AnimatedVectorDrawable) drawable.stop()
+            
+            btnLive.alpha = 0.8f // Slightly dimmed but still indicates action
         }
     }
 

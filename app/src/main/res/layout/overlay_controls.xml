@@ -257,47 +257,37 @@
                         android:layout_marginTop="2dp"/>
                 </LinearLayout>
 
-                <!-- Live button -->
-                <androidx.cardview.widget.CardView
+                <!-- LIVE Button (Circular like others) -->
+                <FrameLayout
                     android:id="@+id/btnLive"
-                    android:layout_width="wrap_content"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_marginStart="12dp"
-                    app:cardBackgroundColor="@color/live_red"
-                    app:cardCornerRadius="8dp"
-                    app:cardElevation="0dp"
+                    android:background="@drawable/control_button_background"
                     android:focusable="true"
                     android:focusableInTouchMode="true"
                     android:nextFocusUp="@+id/btnPlayPause"
                     android:nextFocusRight="@+id/btnTimeRewind">
 
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp">
+                    <!-- Playing animation (shown when live) -->
+                    <ImageView
+                        android:id="@+id/ivLivePlayingAnim"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_playing_bars"
+                        android:visibility="visible"/>
 
-                        <ImageView
-                            android:id="@+id/ivLiveBroadcastIcon"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_broadcast"
-                            android:visibility="gone"
-                            android:layout_marginEnd="4dp"
-                            android:contentDescription="Broadcast"/>
-
-                        <TextView
-                            android:id="@+id/tvLiveLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="LIVE"
-                            android:textColor="@android:color/white"
-                            android:textStyle="bold"
-                            android:textSize="13sp"/>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
+                    <!-- Broadcast icon (shown when in archive) -->
+                    <ImageView
+                        android:id="@+id/ivLiveBroadcastIcon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_broadcast"
+                        android:visibility="gone"
+                        android:contentDescription="Return to Live"/>
+                </FrameLayout>
 
                 <!-- Jump to time -->
                 <ImageButton
