@@ -2,29 +2,29 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#060A12"/>
+            <solid android:color="#0D1117"/>
         </shape>
     </item>
-    <!-- Subtle center warmth -->
+    <!-- Radial glow to match EPG depth -->
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:type="radial"
-                android:gradientRadius="70%p"
-                android:centerX="0.5"
-                android:centerY="0.45"
-                android:startColor="#0C1428"
+                android:gradientRadius="80%p"
+                android:centerX="0.4"
+                android:centerY="0.5"
+                android:startColor="#1A1E26"
                 android:endColor="#00000000"/>
         </shape>
     </item>
-    <!-- Right edge fade into login card -->
+    <!-- Right edge subtle divider shadow -->
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:type="linear"
                 android:angle="0"
                 android:startColor="#00000000"
-                android:endColor="#08050A18"/>
+                android:endColor="#0D000000"/>
         </shape>
     </item>
 </layer-list>

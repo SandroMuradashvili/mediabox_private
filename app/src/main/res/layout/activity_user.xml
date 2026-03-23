@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    PROFILE SCREEN — Redesigned with Radio Colors (#0D1117)
+    PROFILE SCREEN — Recolored to match EPG/Dark Glass style
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -27,7 +27,7 @@
         android:visibility="gone">
 
         <!-- ═══════════════════════════════════════════════════════════
-             LEFT: Identity panel (32%) - Match Radio panel style
+             LEFT: Identity panel (32%)
              ═══════════════════════════════════════════════════════════ -->
         <LinearLayout
             android:layout_width="0dp"
@@ -91,17 +91,16 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="\@username"
-                android:textColor="#94A3B8"
+                android:textColor="#6094A3B8"
                 android:textSize="12sp"
                 android:layout_marginTop="2dp"
-                android:layout_marginBottom="20dp"
-                android:alpha="0.6"/>
+                android:layout_marginBottom="20dp"/>
 
             <!-- Separator -->
             <View
                 android:layout_width="32dp"
                 android:layout_height="1dp"
-                android:background="#1AFFFFFF"
+                android:background="#1AE52121"
                 android:layout_marginBottom="20dp"/>
 
             <!-- Email row -->
@@ -114,7 +113,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="EMAIL"
-                    android:textColor="#55FFFFFF"
+                    android:textColor="#4094A3B8"
                     android:textSize="8sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.14"/>
@@ -141,7 +140,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PHONE"
-                    android:textColor="#55FFFFFF"
+                    android:textColor="#4094A3B8"
                     android:textSize="8sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.14"/>
@@ -166,7 +165,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="BALANCE"
-                    android:textColor="#55FFFFFF"
+                    android:textColor="#4094A3B8"
                     android:textSize="8sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.14"/>
@@ -193,7 +192,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Device ID: —"
-                android:textColor="#44FFFFFF"
+                android:textColor="#3394A3B8"
                 android:textSize="9sp"
                 android:letterSpacing="0.04"
                 android:maxLines="2"/>
@@ -204,7 +203,7 @@
         <View
             android:layout_width="1dp"
             android:layout_height="match_parent"
-            android:background="#1AFFFFFF"/>
+            android:background="#10FFFFFF"/>
 
         <!-- ═══════════════════════════════════════════════════════════
              RIGHT: Actions area (68%)
@@ -256,7 +255,7 @@
                         android:layout_height="0dp"
                         android:layout_weight="1"/>
 
-                    <!-- Language toggle - Icon Only -->
+                    <!-- Language toggle -->
                     <FrameLayout
                         android:id="@+id/btnUserLang"
                         android:layout_width="48dp"
@@ -269,9 +268,7 @@
                             android:layout_height="20dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_profile_language"
-                            android:alpha="0.8"
                             app:tint="#F1F5F9"/>
-                        <!-- Hidden label for accessibility/internal logic -->
                         <TextView
                             android:id="@+id/tvUserLangLabel"
                             android:layout_width="0dp"
@@ -286,7 +283,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="SETTINGS"
-                    android:textColor="#55FFFFFF"
+                    android:textColor="#4094A3B8"
                     android:textSize="9sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.16"
@@ -316,7 +313,8 @@
                             android:src="@drawable/ic_profile_remote"
                             android:scaleType="fitCenter"
                             android:layout_marginEnd="16dp"
-                            android:contentDescription="Remote"/>
+                            android:contentDescription="Remote"
+                            app:tint="#F1F5F9"/>
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -336,10 +334,9 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Use phone as TV remote"
-                                android:textColor="#94A3B8"
+                                android:textColor="#6094A3B8"
                                 android:textSize="11sp"
-                                android:layout_marginTop="2dp"
-                                android:alpha="0.5"/>
+                                android:layout_marginTop="2dp"/>
                         </LinearLayout>
 
                         <TextView
@@ -366,7 +363,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ACTIVE PLANS"
-                    android:textColor="#55FFFFFF"
+                    android:textColor="#4094A3B8"
                     android:textSize="9sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.16"
@@ -393,12 +390,11 @@
                         android:layout_width="match_parent"
                         android:layout_height="64dp"
                         android:text="No active plans"
-                        android:textColor="#94A3B8"
+                        android:textColor="#6094A3B8"
                         android:textSize="13sp"
                         android:gravity="center"
                         android:background="@drawable/profile_action_row"
-                        android:visibility="gone"
-                        android:alpha="0.5"/>
+                        android:visibility="gone"/>
 
                 </FrameLayout>
 
@@ -413,7 +409,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="SESSION"
-                    android:textColor="#55FFFFFF"
+                    android:textColor="#4094A3B8"
                     android:textSize="9sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.16"
@@ -479,14 +475,14 @@
                 android:orientation="horizontal"
                 android:visibility="gone">
 
-                <!-- Dim scrim behind panel (left side) -->
+                <!-- Dim scrim -->
                 <View
                     android:layout_width="0dp"
                     android:layout_weight="0.32"
                     android:layout_height="match_parent"
-                    android:background="#88000000"/>
+                    android:background="#99000000"/>
 
-                <!-- Panel - Match Radio Background Color style -->
+                <!-- Panel -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_weight="0.68"
@@ -520,7 +516,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="← BACK"
-                            android:textColor="#55FFFFFF"
+                            android:textColor="#4094A3B8"
                             android:textSize="9sp"
                             android:letterSpacing="0.10"
                             android:textStyle="bold"/>
@@ -540,16 +536,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Includes free channels and:"
-                        android:textColor="#94A3B8"
+                        android:textColor="#6094A3B8"
                         android:textSize="11sp"
-                        android:layout_marginBottom="14dp"
-                        android:alpha="0.6"/>
+                        android:layout_marginBottom="14dp"/>
 
                     <!-- Divider -->
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="#1AFFFFFF"
+                        android:background="#10FFFFFF"
                         android:layout_marginBottom="12dp"/>
 
                     <!-- Channel grid -->
@@ -571,7 +566,7 @@
 
     </LinearLayout>
 
-    <!-- ══ PLAN SELECTION OVERLAY (full-screen) ══ -->
+    <!-- ══ PLAN SELECTION OVERLAY ══ -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/planDetailsOverlay"
         android:layout_width="match_parent"

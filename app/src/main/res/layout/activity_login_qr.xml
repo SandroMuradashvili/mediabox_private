@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:background="#070B14"
+    android:background="#0D1117"
     android:focusable="false"
     android:clickable="false">
 
@@ -22,7 +22,7 @@
             android:layout_width="1dp"
             android:layout_height="match_parent"
             android:layout_gravity="end"
-            android:background="#07FFFFFF"/>
+            android:background="#10FFFFFF"/>
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -46,7 +46,7 @@
             <View
                 android:layout_width="100dp"
                 android:layout_height="1dp"
-                android:background="#10FFFFFF"
+                android:background="#1AE52121"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="20dp"/>
 
@@ -54,7 +54,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="PREMIUM STREAMING"
-                android:textColor="#22FFFFFF"
+                android:textColor="#4094A3B8"
                 android:textSize="9sp"
                 android:letterSpacing="0.22"
                 android:textStyle="bold"
@@ -65,7 +65,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Live TV  ·  Archive  ·  HD"
-                android:textColor="#12FFFFFF"
+                android:textColor="#2094A3B8"
                 android:textSize="12sp"
                 android:layout_marginTop="6dp"
                 android:focusable="false"
@@ -137,14 +137,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Scan the code to register this device"
-                android:textColor="#40FFFFFF"
+                android:textColor="#6094A3B8"
                 android:textSize="12sp"
                 android:gravity="center"
                 android:layout_marginBottom="24dp"
                 android:focusable="false"
                 android:clickable="false"/>
 
-            <!-- QR frame - STRICTLY NOT focusable -->
+            <!-- QR frame -->
             <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -208,13 +208,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Waiting for scan..."
-                android:textColor="#20FFFFFF"
+                android:textColor="#3394A3B8"
                 android:textSize="11sp"
                 android:layout_marginTop="12dp"
                 android:focusable="false"
                 android:clickable="false"/>
 
-            <!-- Refresh Button: Focusable only when visible -->
+            <!-- Refresh Button -->
             <FrameLayout
                 android:id="@+id/btnRefresh"
                 android:layout_width="160dp"
