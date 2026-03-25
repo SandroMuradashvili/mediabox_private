@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateClock() {
-        val locale = if (LangPrefs.isKa(this)) Locale("ka", "GE") else Locale.ENGLISH
+        val locale = LangPrefs.getLocale(this)
         binding.tvTime.text = SimpleDateFormat("HH:mm", locale).format(Date())
         binding.tvDate.text = SimpleDateFormat("EEE, d MMM", locale).format(Date())
     }

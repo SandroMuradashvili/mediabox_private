@@ -124,7 +124,9 @@ class TrackSelectionOverlayManager(
         val entries = mutableListOf<TrackEntry>()
         val player = playerProvider()
         val fmt = player?.videoFormat
-        val autoLabel = "Auto" + if (fmt != null && fmt.height > 0) " (${if (fmt.height >= 700) "HD" else "SD"})" else ""
+        val isKa = LangPrefs.isKa(activity)
+        val autoBase = if (isKa) "ავტომატური" else "Auto"
+        val autoLabel = autoBase + if (fmt != null && fmt.height > 0) " (${if (fmt.height >= 700) "HD" else "SD"})" else ""
         entries.add(TrackEntry(autoLabel, isAuto = true))
         player?.currentTracks?.groups?.forEach { group ->
             if (group.type == C.TRACK_TYPE_VIDEO) {
@@ -150,13 +152,16 @@ class TrackSelectionOverlayManager(
         val isKa = LangPrefs.isKa(activity)
         val player = playerProvider()
 
+        val autoLabel = if (isKa) "ავტომატური" else "Auto"
+        val defaultLabel = if (isKa) "სტანდარტული" else "Default"
+
         val qualityLabel = player?.let {
-            val e = buildVideoEntries(); e.getOrNull(findCurrentVideoSelection(e))?.label ?: "Auto"
-        } ?: "Auto"
+            val e = buildVideoEntries(); e.getOrNull(findCurrentVideoSelection(e))?.label ?: autoLabel
+        } ?: autoLabel
 
         val audioLabel = player?.let {
-            val e = buildAudioEntries(); e.getOrNull(findCurrentAudioSelection(e))?.label ?: "Default"
-        } ?: "Default"
+            val e = buildAudioEntries(); e.getOrNull(findCurrentAudioSelection(e))?.label ?: defaultLabel
+        } ?: defaultLabel
 
         return listOf(
             TrackEntry("${if (isKa) "ხარისხი" else "Quality"}: $qualityLabel", type = EntryType.SETTING_QUALITY, iconRes = R.drawable.ic_quality),
@@ -248,16 +253,19 @@ class TrackSelectionOverlayManager(
         return 0
     }
 
-    private fun formatVideoLabel(fmt: Format) = when {
-        fmt.height >= 700 -> "HD · ${fmt.height}p"
-        fmt.height > 0    -> "SD · ${fmt.height}p"
-        else              -> "Standard"
+    private fun formatVideoLabel(fmt: Format): String {
+        val isKa = LangPrefs.isKa(activity)
+        return when {
+            fmt.height >= 700 -> "HD · ${fmt.height}p"
+            fmt.height > 0    -> "SD · ${fmt.height}p"
+            else              -> if (isKa) "სტანდარტული" else "Standard"
+        }
     }
 
     private fun languageDisplayName(code: String) = when (code.lowercase().take(2)) {
         "ka" -> "ქართული"; "en" -> "English"; "ru" -> "Русский"; "tr" -> "Türkçe"
         "de" -> "Deutsch";  "fr" -> "Français"; "es" -> "Español"; "ar" -> "العربية"
-        "uk" -> "Українська"; "az" -> "Azərbaycanca"; "hy" -> "Հայերեն"
+        "uk" -> "Українська"; "az" -> "Azərbaycanca"; "hy" -> "Հայერენ"
         else -> code.uppercase()
     }
 

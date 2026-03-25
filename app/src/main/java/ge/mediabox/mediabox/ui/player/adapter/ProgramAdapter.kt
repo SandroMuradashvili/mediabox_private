@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Program
+import ge.mediabox.mediabox.ui.LangPrefs
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -18,7 +19,12 @@ class ProgramAdapter(
     private val onProgramClick: (Program) -> Unit
 ) : RecyclerView.Adapter<ProgramAdapter.ProgramViewHolder>() {
 
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private var timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    fun updateLocale(locale: Locale) {
+        timeFormat = SimpleDateFormat("HH:mm", locale)
+        notifyDataSetChanged()
+    }
 
     inner class ProgramViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 

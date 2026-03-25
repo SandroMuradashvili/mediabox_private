@@ -437,6 +437,10 @@ class PlayerActivity : AppCompatActivity() {
         super.onResume()
         resetInactivityTimer()
         if (!isInitialized) return
+        
+        controlOverlayManager.updateLocale()
+        updateOverlayInfo()
+        
         if (!userIntentionallyPaused) {
             if (isLiveMode) playChannel(currentChannelIndex)
             else player?.playWhenReady = true

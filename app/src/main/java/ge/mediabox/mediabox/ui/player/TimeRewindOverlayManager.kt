@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.repository.ChannelRepository
+import ge.mediabox.mediabox.ui.LangPrefs
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -44,8 +45,8 @@ class TimeRewindOverlayManager(
     private lateinit var hourAdapter:   PickerAdapter
     private lateinit var minuteAdapter: PickerAdapter
 
-    private val displayFmt = SimpleDateFormat("EEE, d MMM  HH:mm", Locale.getDefault())
-    private val dayFmt     = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+    private var displayFmt = SimpleDateFormat("EEE, d MMM  HH:mm", LangPrefs.getLocale(activity))
+    private var dayFmt     = SimpleDateFormat("EEE, d MMM", LangPrefs.getLocale(activity))
 
     val isVisible: Boolean get() = overlayView.visibility == View.VISIBLE
 
@@ -54,11 +55,15 @@ class TimeRewindOverlayManager(
         setupButtons()
     }
 
-    fun show(length: Int) {
+    fun show(hoursBack: Int) {
         overlayView.visibility = View.VISIBLE
-        val isKa = ge.mediabox.mediabox.ui.LangPrefs.isKa(activity)
+        val isKa = LangPrefs.isKa(activity)
+        val locale = LangPrefs.getLocale(activity)
+        
+        displayFmt = SimpleDateFormat("EEE, d MMM  HH:mm", locale)
+        dayFmt     = SimpleDateFormat("EEE, d MMM", locale)
 
-        if (length <= 0) {
+        if (hoursBack <= 0) {
             tvSelectedTime.text = ""
             tvArchiveRange.visibility = View.GONE
             tvOutOfRange.visibility = View.VISIBLE
@@ -77,7 +82,7 @@ class TimeRewindOverlayManager(
             rvHours.alpha = 1.0f
             rvMinutes.alpha = 1.0f
 
-            buildDayList(length)
+            buildDayList(hoursBack)
             refreshAdapters()
 
             focusCol = 0
@@ -109,7 +114,7 @@ class TimeRewindOverlayManager(
     }
 
     private fun buildDayList(hoursBack: Int) {
-        val isKa = ge.mediabox.mediabox.ui.LangPrefs.isKa(activity)
+        val isKa = LangPrefs.isKa(activity)
 
         tvArchiveRange.visibility = View.VISIBLE
         val d = hoursBack / 24
@@ -253,11 +258,14 @@ class TimeRewindOverlayManager(
         val archiveStart = ChannelRepository.getArchiveStartMs(channelIdProvider())
         val outOfRange   = archiveStart != null && tsMs < archiveStart
 
+        val isKa = LangPrefs.isKa(activity)
+        tvOutOfRange.text = if (isKa) "არქივი მიუწვდომელია" else "Out of archive range"
         tvOutOfRange.visibility = if (outOfRange) View.VISIBLE else View.GONE
         tvSelectedTime.setTextColor(if (outOfRange) 0xFFEF4444.toInt() else 0xFFF1F5F9.toInt())
 
         btnConfirm.isEnabled = !outOfRange
         btnConfirm.alpha     = if (outOfRange) 0.4f else 1f
+        btnConfirm.text = if (isKa) "დადასტურება" else "Confirm"
     }
 
     private fun buildTimestamp(): Long {

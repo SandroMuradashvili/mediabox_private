@@ -8,6 +8,7 @@ import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
+import ge.mediabox.mediabox.ui.LangPrefs
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -16,11 +17,18 @@ class ControlOverlayManager(
     private val binding: ActivityPlayerBinding,
     private val onFavoriteToggle: () -> Unit
 ) {
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    private val dateTimeFormat = SimpleDateFormat("HH:mm  dd.MM.yy", Locale.getDefault())
+    private var timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private var dateTimeFormat = SimpleDateFormat("HH:mm  dd.MM.yy", Locale.getDefault())
 
     init {
         binding.root.findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener { onFavoriteToggle() }
+        updateLocale()
+    }
+
+    fun updateLocale() {
+        val locale = LangPrefs.getLocale(binding.root.context)
+        timeFormat = SimpleDateFormat("HH:mm", locale)
+        dateTimeFormat = SimpleDateFormat("HH:mm  dd.MM.yy", locale)
     }
 
     fun updateChannelInfo(channel: Channel, currentProgram: Program?, streamTimestamp: Long? = null, isPlaying: Boolean = true) {

@@ -66,8 +66,8 @@ class EpgOverlayManager(
     private val scrollThrottleMs = 80L
 
     // Date formatters
-    private val fullDateFmt = SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault())
-    private val shortDateFmt = SimpleDateFormat("EEE d MMM", Locale.getDefault())
+    private var fullDateFmt = SimpleDateFormat("EEEE, d MMM yyyy", LangPrefs.getLocale(activity))
+    private var shortDateFmt = SimpleDateFormat("EEE d MMM", LangPrefs.getLocale(activity))
 
     // Lazy view references
     private val programPanel     by lazy { binding.root.findViewById<View>(R.id.programPanel) }
@@ -115,7 +115,7 @@ class EpgOverlayManager(
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
         }
 
-        programAdapter = ProgramAdapter(emptyList()) { handleProgramClick(it) }
+        programAdapter = ProgramAdapter(activity, emptyList()) { handleProgramClick(it) }
         binding.root.findViewById<RecyclerView>(R.id.programList)?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = programAdapter
@@ -325,6 +325,12 @@ class EpgOverlayManager(
     fun refreshData(newChannels: List<Channel>) {
         channels = newChannels
         val isKa = LangPrefs.isKa(activity)
+        val locale = LangPrefs.getLocale(activity)
+        
+        fullDateFmt = SimpleDateFormat("EEEE, d MMM yyyy", locale)
+        shortDateFmt = SimpleDateFormat("EEE d MMM", locale)
+        programAdapter.updateLocale(locale)
+
         repository.refreshLocalization(isKa)
         setupCategories()
         filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
@@ -577,6 +583,7 @@ class EpgOverlayManager(
 
     // FIX: Removed 'inner' to allow Companion Object
     class ProgramAdapter(
+        private val activity: Activity,
         private var items: List<ProgramItem>,
         private val onProgramClick: (Program) -> Unit
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -587,8 +594,14 @@ class EpgOverlayManager(
         }
 
         private var highlightedPos = -1
-        private val rowDateFmt = SimpleDateFormat("d MMM", Locale.getDefault())
-        private val timeFmt    = SimpleDateFormat("HH:mm", Locale.getDefault())
+        private var rowDateFmt = SimpleDateFormat("d MMM", LangPrefs.getLocale(activity))
+        private var timeFmt    = SimpleDateFormat("HH:mm", LangPrefs.getLocale(activity))
+
+        fun updateLocale(locale: Locale) {
+            rowDateFmt = SimpleDateFormat("d MMM", locale)
+            timeFmt    = SimpleDateFormat("HH:mm", locale)
+            notifyDataSetChanged()
+        }
 
         inner class ProgramVH(itemView: View) : RecyclerView.ViewHolder(itemView) {
             val time:      TextView  = itemView.findViewById(R.id.tvProgramTime)
