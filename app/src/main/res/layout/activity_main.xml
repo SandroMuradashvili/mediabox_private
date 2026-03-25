@@ -342,4 +342,8 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <include
+        android:id="@+id/subNotificationOverlay"
+        layout="@layout/overlay_subscription_notification" />
+
 </FrameLayout>

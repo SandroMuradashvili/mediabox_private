@@ -146,4 +146,8 @@
         </androidx.cardview.widget.CardView>
     </FrameLayout>
 
+    <include
+        android:id="@+id/subNotificationOverlay"
+        layout="@layout/overlay_subscription_notification" />
+
 </FrameLayout>

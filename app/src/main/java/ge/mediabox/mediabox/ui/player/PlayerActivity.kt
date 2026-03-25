@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
 import androidx.annotation.OptIn
@@ -20,10 +21,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import ge.mediabox.mediabox.R
+import ge.mediabox.mediabox.data.remote.AuthApiService
+import ge.mediabox.mediabox.data.remote.MyPlan
 import ge.mediabox.mediabox.data.repository.ChannelRepository
 import ge.mediabox.mediabox.databinding.ActivityPlayerBinding
 import ge.mediabox.mediabox.ui.LangPrefs
 import ge.mediabox.mediabox.ui.LogoManager
+import ge.mediabox.mediabox.ui.SubscriptionNotificationManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -89,6 +93,8 @@ class PlayerActivity : AppCompatActivity() {
     private val inactivityHandler = Handler(Looper.getMainLooper())
     private var countdownTimer: android.os.CountDownTimer? = null
     private var isInactivityPopupShowing = false
+    private var isSubNotificationShowing = false
+    private var currentNotifiedPlan: MyPlan? = null
 
     private val inactivityRunnable = Runnable {
         showInactivityPopup()
@@ -100,6 +106,11 @@ class PlayerActivity : AppCompatActivity() {
 
             if (isInactivityPopupShowing) {
                 dismissInactivityPopup()
+                return true
+            }
+
+            if (isSubNotificationShowing) {
+                dismissSubNotification()
                 return true
             }
 
@@ -187,6 +198,7 @@ class PlayerActivity : AppCompatActivity() {
             initializePlayer()
             setupOverlays()
             setupControlButtons()
+            setupSubNotification()
 
             val savedChannelId = getSharedPreferences("AppPrefs", MODE_PRIVATE).getInt("last_viewed_channel_id", -1)
             var startIndex = channels.indexOfFirst { it.id == savedChannelId && !it.isLocked }
@@ -197,6 +209,7 @@ class PlayerActivity : AppCompatActivity() {
                 zapHandler.postDelayed({ playChannel(startIndex) }, 300)
             }
             isInitialized = true
+            checkSubscriptions()
         }
     }
 
@@ -445,6 +458,7 @@ class PlayerActivity : AppCompatActivity() {
             if (isLiveMode) playChannel(currentChannelIndex)
             else player?.playWhenReady = true
         }
+        checkSubscriptions()
     }
 
     override fun onDestroy() {
@@ -502,6 +516,62 @@ class PlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnSettings)?.setOnClickListener { hideControls(); trackSelectionManager.show(TrackSelectionOverlayManager.Mode.SETTINGS) }
         }
         loadSavedAspectRatio()
+    }
+
+    private fun setupSubNotification() {
+        binding.subNotificationOverlay.root.findViewById<Button>(R.id.btnSubNotificationOk)?.setOnClickListener {
+            dismissSubNotification()
+        }
+    }
+
+    private fun checkSubscriptions() {
+        val token = authToken ?: return
+        lifecycleScope.launch {
+            try {
+                val api = AuthApiService.create(this@PlayerActivity)
+                val plans = api.getMyPlans()
+                val planToNotify = SubscriptionNotificationManager.getPlanToNotify(this@PlayerActivity, plans)
+                if (planToNotify != null) {
+                    showSubNotification(planToNotify)
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
+    private fun showSubNotification(plan: MyPlan) {
+        isSubNotificationShowing = true
+        currentNotifiedPlan = plan
+        val isKa = LangPrefs.isKa(this)
+        val overlay = binding.subNotificationOverlay.root
+        
+        overlay.findViewById<TextView>(R.id.tvSubNotificationTitle)?.text = 
+            if (isKa) "გამოწერა იწურება" else "Subscription Expiring"
+            
+        val planName = if (isKa) plan.name_ka else plan.name_en
+        val days = plan.days_left.toInt()
+        overlay.findViewById<TextView>(R.id.tvSubNotificationMessage)?.text = 
+            if (isKa) "თქვენს პაკეტს ($planName) დარჩა $days დღე." 
+            else "Your plan ($planName) expires in $days days."
+            
+        overlay.findViewById<Button>(R.id.btnSubNotificationOk)?.apply {
+            text = if (isKa) "გასაგებია" else "OK"
+            requestFocus()
+        }
+        
+        overlay.visibility = View.VISIBLE
+    }
+
+    private fun dismissSubNotification() {
+        val planToMark = currentNotifiedPlan
+        isSubNotificationShowing = false
+        currentNotifiedPlan = null
+        binding.subNotificationOverlay.root.visibility = View.GONE
+        
+        if (planToMark != null) {
+            SubscriptionNotificationManager.markAsNotified(this, planToMark)
+        }
+        
+        checkSubscriptions()
     }
 
     private fun getAspectRatioLabel(): String {
@@ -569,7 +639,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
-        if (trackSelectionManager.isVisible) return
+        if (trackSelectionManager.isVisible || isSubNotificationShowing) return
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.topBar)?.visibility = View.VISIBLE
@@ -628,6 +698,12 @@ class PlayerActivity : AppCompatActivity() {
         resetInactivityTimer()
         if (isInactivityPopupShowing) {
             dismissInactivityPopup()
+            return true
+        }
+        if (isSubNotificationShowing) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_BACK) {
+                dismissSubNotification()
+            }
             return true
         }
         if (!isInitialized) return true

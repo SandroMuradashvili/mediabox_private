@@ -8,11 +8,14 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import ge.mediabox.mediabox.R
+import ge.mediabox.mediabox.data.remote.AuthApiService
+import ge.mediabox.mediabox.data.remote.MyPlan
 import ge.mediabox.mediabox.databinding.ActivityMainBinding
 import ge.mediabox.mediabox.ui.player.PlayerActivity
 import kotlinx.coroutines.launch
@@ -25,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var selectedIndex = 0
     private var isReady = false
+    private var isNotificationShowing = false
+    private var currentNotifiedPlan: MyPlan? = null
 
     private val cards get() = listOf(
         binding.cardWatchTv,
@@ -61,8 +66,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupCards()
+        setupNotification()
         showMenuImmediate()
         clockHandler.post(clockRunnable)
+        
+        checkSubscriptions()
     }
 
     override fun onResume() {
@@ -73,7 +81,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
         updateCardLabels()
-        updateSelection()
+        if (!isNotificationShowing) {
+            updateSelection()
+            checkSubscriptions()
+        }
     }
 
     override fun onDestroy() {
@@ -88,11 +99,77 @@ class MainActivity : AppCompatActivity() {
 
         cards.forEachIndexed { index, card ->
             card.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) {
+                if (hasFocus && !isNotificationShowing) {
                     selectedIndex = index
                     updateSelection()
                 }
             }
+        }
+    }
+
+    private fun setupNotification() {
+        binding.subNotificationOverlay.root.findViewById<Button>(R.id.btnSubNotificationOk)?.setOnClickListener {
+            dismissNotification()
+        }
+    }
+
+    private fun checkSubscriptions() {
+        val token = getSavedToken() ?: return
+        lifecycleScope.launch {
+            try {
+                val api = AuthApiService.create(this@MainActivity)
+                val plans = api.getMyPlans()
+                val planToNotify = SubscriptionNotificationManager.getPlanToNotify(this@MainActivity, plans)
+                if (planToNotify != null) {
+                    showSubscriptionNotification(planToNotify)
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
+    private fun showSubscriptionNotification(plan: MyPlan) {
+        isNotificationShowing = true
+        currentNotifiedPlan = plan
+        
+        val isKa = LangPrefs.isKa(this)
+        val overlay = binding.subNotificationOverlay.root
+        
+        val title = overlay.findViewById<TextView>(R.id.tvSubNotificationTitle)
+        val message = overlay.findViewById<TextView>(R.id.tvSubNotificationMessage)
+        val okBtn = overlay.findViewById<Button>(R.id.btnSubNotificationOk)
+
+        title?.text = if (isKa) "გამოწერა იწურება" else "Subscription Expiring"
+        
+        val planName = if (isKa) plan.name_ka else plan.name_en
+        val days = plan.days_left.toInt()
+        message?.text = if (isKa) {
+            "თქვენს პაკეტს ($planName) დარჩა $days დღე."
+        } else {
+            "Your plan ($planName) expires in $days days."
+        }
+        
+        okBtn?.text = if (isKa) "გასაგებია" else "OK"
+        
+        overlay.visibility = View.VISIBLE
+        okBtn?.requestFocus()
+    }
+
+    private fun dismissNotification() {
+        val planToMark = currentNotifiedPlan
+        isNotificationShowing = false
+        currentNotifiedPlan = null
+        binding.subNotificationOverlay.root.visibility = View.GONE
+        
+        if (planToMark != null) {
+            SubscriptionNotificationManager.markAsNotified(this, planToMark)
+        }
+        
+        // Immediately check for the next plan in the sequence
+        checkSubscriptions()
+        
+        // If nothing else was triggered, return focus
+        if (!isNotificationShowing) {
+            cards.getOrNull(selectedIndex)?.requestFocus()
         }
     }
 
@@ -133,7 +210,6 @@ class MainActivity : AppCompatActivity() {
             if (selected) R.drawable.menu_card_glass_selected else R.drawable.menu_card_glass
         )
 
-        // Subtle scale — just enough to feel responsive, no pop
         card.animate()
             .scaleX(if (selected) 1.02f else 1.0f)
             .scaleY(if (selected) 1.02f else 1.0f)
@@ -142,19 +218,15 @@ class MainActivity : AppCompatActivity() {
             .setInterpolator(interp)
             .start()
 
-        // Icon brightens on select
         card.findViewWithTag<ImageView>("icon")
             ?.animate()?.alpha(if (selected) 1.0f else 0.45f)?.setDuration(duration)?.start()
 
-        // Accent line appears under icon
         card.findViewWithTag<View>("labelAccent")
             ?.animate()?.alpha(if (selected) 1f else 0f)?.setDuration(duration)?.start()
 
-        // Label brightens
         card.findViewWithTag<TextView>("label")
             ?.animate()?.alpha(if (selected) 1.0f else 0.6f)?.setDuration(duration)?.start()
 
-        // Sublabel fades in on select
         card.findViewWithTag<TextView>("sublabel")
             ?.animate()
             ?.alpha(if (selected) 0.5f else 0f)
@@ -182,6 +254,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isReady) return true
+
+        if (isNotificationShowing) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_BACK) {
+                dismissNotification()
+                return true
+            }
+            return true
+        }
 
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -219,7 +299,9 @@ class MainActivity : AppCompatActivity() {
         cards.forEach { applyCardState(it, false) }
 
         Handler(Looper.getMainLooper()).postDelayed({
-            cards[0].requestFocus()
+            if (!isNotificationShowing) {
+                cards[0].requestFocus()
+            }
             isReady = true
         }, 150)
     }
