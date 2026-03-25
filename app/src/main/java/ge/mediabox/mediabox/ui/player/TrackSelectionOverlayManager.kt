@@ -18,12 +18,6 @@ import androidx.recyclerview.widget.RecyclerView
 import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.ui.LangPrefs
 
-/**
- * Manages a unified track-selection overlay for:
- *   • Video quality  (HD / SD / Auto)
- *   • Audio language
- *   • Unified Settings (Quality, Audio, Aspect Ratio)
- */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class TrackSelectionOverlayManager(
     private val activity: Activity,
@@ -32,17 +26,7 @@ class TrackSelectionOverlayManager(
     private val onAspectRatioToggle: () -> Unit,
     private val getAspectRatioLabel: () -> String
 ) {
-
     enum class Mode { VIDEO, AUDIO, SETTINGS }
-
-    private val tvTitle: TextView = overlayView.findViewById(R.id.tvTrackTitle)
-    private val rvTracks: RecyclerView = overlayView.findViewById(R.id.rvTracks)
-
-    private var currentMode = Mode.SETTINGS
-    private var selectedIndex = 0
-    private lateinit var adapter: TrackAdapter
-
-    val isVisible: Boolean get() = overlayView.visibility == View.VISIBLE
 
     data class TrackEntry(
         val label: String,
@@ -55,285 +39,248 @@ class TrackSelectionOverlayManager(
 
     enum class EntryType { TRACK, SETTING_QUALITY, SETTING_AUDIO, SETTING_ASPECT }
 
-    private var videoEntries: List<TrackEntry> = emptyList()
-    private var audioEntries: List<TrackEntry> = emptyList()
-    private var settingsEntries: List<TrackEntry> = emptyList()
+    private val tvTitle: TextView = overlayView.findViewById(R.id.tvTrackTitle)
+    private val rvTracks: RecyclerView = overlayView.findViewById(R.id.rvTracks)
+
+    private var currentMode = Mode.SETTINGS
+    private var selectedIndex = 0
+    private lateinit var adapter: TrackAdapter
+
+    val isVisible: Boolean get() = overlayView.visibility == View.VISIBLE
 
     fun init() {
-        adapter = TrackAdapter(emptyList()) { pos -> applySelection(pos) }
+        adapter = TrackAdapter()
         rvTracks.layoutManager = LinearLayoutManager(activity)
         rvTracks.adapter = adapter
-        // DISABLE FADE ANIMATION: Set item animator to null for instant selection changes
         rvTracks.itemAnimator = null
+        rvTracks.isFocusable = false
+        rvTracks.isFocusableInTouchMode = false
         overlayView.visibility = View.GONE
     }
 
+    // Called by PlayerActivity when tracks change — only refresh if already visible
     fun onTracksChanged(tracks: Tracks) {
-        videoEntries = buildVideoEntries(tracks)
-        audioEntries = buildAudioEntries(tracks)
-        if (currentMode == Mode.SETTINGS) refreshSettings()
+        if (isVisible && currentMode == Mode.SETTINGS) refreshSettingsEntries()
     }
 
     fun show(mode: Mode) {
         currentMode = mode
-        val player = playerProvider()
-        if (player != null) {
-            onTracksChanged(player.currentTracks)
-        }
-
+        selectedIndex = 0
         val isKa = LangPrefs.isKa(activity)
-        when (mode) {
+
+        val entries = when (mode) {
             Mode.VIDEO -> {
                 tvTitle.text = if (isKa) "ვიდეოს ხარისხი" else "Video Quality"
-                selectedIndex = findCurrentSelection(videoEntries, Mode.VIDEO)
+                buildVideoEntries().also { selectedIndex = findCurrentVideoSelection(it) }
             }
             Mode.AUDIO -> {
                 tvTitle.text = if (isKa) "აუდიო ენა" else "Audio Language"
-                selectedIndex = findCurrentSelection(audioEntries, Mode.AUDIO)
+                buildAudioEntries().also { selectedIndex = findCurrentAudioSelection(it) }
             }
             Mode.SETTINGS -> {
                 tvTitle.text = if (isKa) "პარამეტრები" else "Settings"
-                refreshSettings()
-                selectedIndex = 0
+                buildSettingsEntries()
             }
         }
 
-        adapter.update(currentEntries(), selectedIndex)
+        // selectedPos: for TRACK modes show where current selection is (checkmark).
+        // For SETTINGS: -1 always — nothing is "confirmed selected", items are actions.
+        // highlightPos: where the cursor sits. For SETTINGS always start at 0 (no pre-selection).
+        // CRITICAL: highlightedPos in adapter starts at -1 so no row is visually activated
+        // until the user actually moves — this prevents the phantom "top row triggered" bug.
+        val preSelected = if (mode == Mode.SETTINGS) -1 else selectedIndex
+        adapter.update(entries, highlightPos = selectedIndex, selectedPos = preSelected)
         overlayView.visibility = View.VISIBLE
-        scrollToSelected()
-    }
-
-    private fun refreshSettings() {
-        val player = playerProvider()
-        val isKa = LangPrefs.isKa(activity)
-        
-        val currentQualityLabel = if (player != null) {
-            val entries = buildVideoEntries(player.currentTracks)
-            val sel = findCurrentSelection(entries, Mode.VIDEO)
-            entries.getOrNull(sel)?.label ?: "Auto"
-        } else "Auto"
-        
-        val currentAudioLabel = if (player != null) {
-            val entries = buildAudioEntries(player.currentTracks)
-            val sel = findCurrentSelection(entries, Mode.AUDIO)
-            entries.getOrNull(sel)?.label ?: "Default"
-        } else "Default"
-
-        settingsEntries = listOf(
-            TrackEntry("${if (isKa) "ხარისხი" else "Quality"}: $currentQualityLabel", type = EntryType.SETTING_QUALITY, iconRes = R.drawable.ic_quality),
-            TrackEntry("${if (isKa) "აუდიო" else "Audio"}: $currentAudioLabel", type = EntryType.SETTING_AUDIO, iconRes = R.drawable.ic_audio_language),
-            TrackEntry("${if (isKa) "ზომა" else "Aspect"}: ${getAspectRatioLabel()}", type = EntryType.SETTING_ASPECT, iconRes = R.drawable.ic_cast)
-        )
-        
-        if (currentMode == Mode.SETTINGS) {
-            adapter.updateLabelsOnly(settingsEntries)
-        }
+        rvTracks.post { (rvTracks.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(selectedIndex, 0) }
     }
 
     fun dismiss() {
         overlayView.visibility = View.GONE
+        // Hard reset all state so nothing bleeds into the next open
+        selectedIndex = 0
+        adapter.resetState()
     }
 
     fun handleKeyEvent(keyCode: Int): Boolean {
-        val entries = currentEntries()
+        val entries = adapter.currentEntries
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                if (selectedIndex > 0) {
-                    selectedIndex--
-                    adapter.setHighlight(selectedIndex)
-                    rvTracks.scrollToPosition(selectedIndex)
-                }
+                if (selectedIndex > 0) { selectedIndex--; adapter.setHighlight(selectedIndex); rvTracks.scrollToPosition(selectedIndex) }
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (selectedIndex < entries.size - 1) {
-                    selectedIndex++
-                    adapter.setHighlight(selectedIndex)
-                    rvTracks.scrollToPosition(selectedIndex)
-                }
+                if (selectedIndex < entries.size - 1) { selectedIndex++; adapter.setHighlight(selectedIndex); rvTracks.scrollToPosition(selectedIndex) }
                 true
             }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                applySelection(selectedIndex)
-                true
-            }
-            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_LEFT -> {
-                dismiss()
-                true
-            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { applySelection(selectedIndex); true }
+            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_LEFT -> { dismiss(); true }
             else -> false
         }
     }
 
-    private fun buildVideoEntries(tracks: Tracks): List<TrackEntry> {
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private fun buildVideoEntries(): List<TrackEntry> {
         val entries = mutableListOf<TrackEntry>()
         val player = playerProvider()
         val fmt = player?.videoFormat
-        val currentAutoDetails = if (fmt != null && fmt.height > 0) {
-            val tag = if (fmt.height >= 700) "HD" else "SD"
-            " ($tag)"
-        } else ""
-        entries.add(TrackEntry(label = "Auto$currentAutoDetails", isAuto = true))
-        for (group in tracks.groups) {
-            if (group.type != C.TRACK_TYPE_VIDEO) continue
-            for (i in 0 until group.length) {
-                val format = group.getTrackFormat(i)
-                entries.add(TrackEntry(label = formatVideoLabel(format), trackGroup = group.mediaTrackGroup, trackIndex = i))
+        val autoLabel = "Auto" + if (fmt != null && fmt.height > 0) " (${if (fmt.height >= 700) "HD" else "SD"})" else ""
+        entries.add(TrackEntry(autoLabel, isAuto = true))
+        player?.currentTracks?.groups?.forEach { group ->
+            if (group.type == C.TRACK_TYPE_VIDEO) {
+                for (i in 0 until group.length)
+                    entries.add(TrackEntry(formatVideoLabel(group.getTrackFormat(i)), trackGroup = group.mediaTrackGroup, trackIndex = i))
             }
         }
         return entries
     }
 
-    private fun buildAudioEntries(tracks: Tracks): List<TrackEntry> {
+    private fun buildAudioEntries(): List<TrackEntry> {
         val entries = mutableListOf<TrackEntry>()
-        for (group in tracks.groups) {
-            if (group.type != C.TRACK_TYPE_AUDIO) continue
-            for (i in 0 until group.length) {
-                val format = group.getTrackFormat(i)
-                entries.add(TrackEntry(label = languageDisplayName(format.language ?: "und"), trackGroup = group.mediaTrackGroup, trackIndex = i))
+        playerProvider()?.currentTracks?.groups?.forEach { group ->
+            if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (i in 0 until group.length)
+                    entries.add(TrackEntry(languageDisplayName(group.getTrackFormat(i).language ?: "und"), trackGroup = group.mediaTrackGroup, trackIndex = i))
             }
         }
         return entries
     }
 
-    private fun formatVideoLabel(fmt: Format): String {
-        val height = fmt.height
-        return when {
-            height >= 700 -> "HD · ${height}p"
-            height > 0    -> "SD · ${height}p"
-            else          -> "Standard"
-        }
+    private fun buildSettingsEntries(): List<TrackEntry> {
+        val isKa = LangPrefs.isKa(activity)
+        val player = playerProvider()
+
+        val qualityLabel = player?.let {
+            val e = buildVideoEntries(); e.getOrNull(findCurrentVideoSelection(e))?.label ?: "Auto"
+        } ?: "Auto"
+
+        val audioLabel = player?.let {
+            val e = buildAudioEntries(); e.getOrNull(findCurrentAudioSelection(e))?.label ?: "Default"
+        } ?: "Default"
+
+        return listOf(
+            TrackEntry("${if (isKa) "ხარისხი" else "Quality"}: $qualityLabel", type = EntryType.SETTING_QUALITY, iconRes = R.drawable.ic_quality),
+            TrackEntry("${if (isKa) "აუდიო" else "Audio"}: $audioLabel", type = EntryType.SETTING_AUDIO, iconRes = R.drawable.ic_audio_language),
+            TrackEntry("${if (isKa) "ზომა" else "Aspect"}: ${getAspectRatioLabel()}", type = EntryType.SETTING_ASPECT, iconRes = R.drawable.ic_cast)
+        )
     }
 
-    private fun languageDisplayName(code: String): String = when (code.lowercase().take(2)) {
-        "ka" -> "ქართული"
-        "en" -> "English"
-        "ru" -> "Русский"
-        "tr" -> "Türkçe"
-        "de" -> "Deutsch"
-        "fr" -> "Français"
-        "es" -> "Español"
-        "ar" -> "العربية"
-        "uk" -> "Українська"
-        "az" -> "Azərbaycanca"
-        "hy" -> "Հაერენ"
-        else -> code.uppercase()
+    // FIX: Refresh settings without touching highlight/selected state
+    private fun refreshSettingsEntries() {
+        adapter.updateLabels(buildSettingsEntries())
     }
 
     private fun applySelection(pos: Int) {
-        val entries = currentEntries()
-        val entry   = entries.getOrNull(pos) ?: return
-        val player  = playerProvider() ?: return
-
+        val entry = adapter.currentEntries.getOrNull(pos) ?: return
         when (entry.type) {
             EntryType.TRACK -> {
-                applyTrackSelection(entry)
-                adapter.setSelected(pos)
+                applyTrackEntry(entry)
+                adapter.setSelected(pos)  // only TRACK entries get a checkmark
                 dismiss()
             }
-            EntryType.SETTING_QUALITY -> cycleQuality()
-            EntryType.SETTING_AUDIO -> cycleAudio()
-            EntryType.SETTING_ASPECT -> onAspectRatioToggle()
+            // SETTINGS entries are stateless actions — never mark as selected
+            EntryType.SETTING_QUALITY -> { cycleVideoQuality(); refreshSettingsEntries() }
+            EntryType.SETTING_AUDIO   -> { cycleAudioTrack();   refreshSettingsEntries() }
+            EntryType.SETTING_ASPECT  -> { onAspectRatioToggle(); refreshSettingsEntries() }
         }
-        if (entry.type != EntryType.TRACK) refreshSettings()
     }
 
-    private fun applyTrackSelection(entry: TrackEntry) {
+    private fun applyTrackEntry(entry: TrackEntry) {
         val player = playerProvider() ?: return
         val params = player.trackSelectionParameters.buildUpon()
-        if (currentMode == Mode.VIDEO) {
-            if (entry.isAuto) params.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-            else entry.trackGroup?.let { tg -> params.addOverride(TrackSelectionOverride(tg, entry.trackIndex)) }
-        } else if (currentMode == Mode.AUDIO) {
-            entry.trackGroup?.let { tg ->
+        when (currentMode) {
+            Mode.VIDEO -> if (entry.isAuto) params.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            else entry.trackGroup?.let { params.addOverride(TrackSelectionOverride(it, entry.trackIndex)) }
+            Mode.AUDIO -> entry.trackGroup?.let {
                 params.clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                params.addOverride(TrackSelectionOverride(tg, entry.trackIndex))
+                params.addOverride(TrackSelectionOverride(it, entry.trackIndex))
             }
+            else -> {}
         }
         player.trackSelectionParameters = params.build()
     }
 
-    private fun cycleQuality() {
+    private fun cycleVideoQuality() {
         val player = playerProvider() ?: return
-        val entries = buildVideoEntries(player.currentTracks)
-        if (entries.size <= 1) return
-        val current = findCurrentSelection(entries, Mode.VIDEO)
-        val next = (current + 1) % entries.size
+        val entries = buildVideoEntries().takeIf { it.size > 1 } ?: return
+        val next = (findCurrentVideoSelection(entries) + 1) % entries.size
         val params = player.trackSelectionParameters.buildUpon()
-        val entry = entries[next]
-        if (entry.isAuto) params.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-        else entry.trackGroup?.let { tg -> params.addOverride(TrackSelectionOverride(tg, entry.trackIndex)) }
+        val e = entries[next]
+        if (e.isAuto) params.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        else e.trackGroup?.let { params.addOverride(TrackSelectionOverride(it, e.trackIndex)) }
         player.trackSelectionParameters = params.build()
     }
 
-    private fun cycleAudio() {
+    private fun cycleAudioTrack() {
         val player = playerProvider() ?: return
-        val entries = buildAudioEntries(player.currentTracks)
-        if (entries.size <= 1) return
-        val current = findCurrentSelection(entries, Mode.AUDIO)
-        val next = (current + 1) % entries.size
+        val entries = buildAudioEntries().takeIf { it.size > 1 } ?: return
+        val next = (findCurrentAudioSelection(entries) + 1) % entries.size
+        val e = entries[next]
         val params = player.trackSelectionParameters.buildUpon()
-        val entry = entries[next]
-        entry.trackGroup?.let { tg ->
-            params.clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-            params.addOverride(TrackSelectionOverride(tg, entry.trackIndex))
+        e.trackGroup?.let { params.clearOverridesOfType(C.TRACK_TYPE_AUDIO); params.addOverride(TrackSelectionOverride(it, e.trackIndex)) }
+        player.trackSelectionParameters = params.build()
+    }
+
+    private fun findCurrentVideoSelection(entries: List<TrackEntry>): Int {
+        val overrides = playerProvider()?.trackSelectionParameters?.overrides ?: return 0
+        val hasOverride = overrides.keys.any { tg -> entries.any { e -> e.trackGroup == tg } }
+        if (!hasOverride) return 0
+        entries.forEachIndexed { i, e ->
+            if (e.trackGroup != null && overrides[e.trackGroup]?.trackIndices?.contains(e.trackIndex) == true) return i
         }
-        player.trackSelectionParameters = params.build()
+        return 0
     }
 
-    private fun findCurrentSelection(entries: List<TrackEntry>, mode: Mode): Int {
+    private fun findCurrentAudioSelection(entries: List<TrackEntry>): Int {
         val player = playerProvider() ?: return 0
         val overrides = player.trackSelectionParameters.overrides
-        if (mode == Mode.VIDEO) {
-            val hasVideoOverride = overrides.keys.any { tg -> entries.any { e -> e.trackGroup == tg } }
-            if (!hasVideoOverride) return 0
-            entries.forEachIndexed { i, e -> if (e.trackGroup != null && overrides[e.trackGroup]?.trackIndices?.contains(e.trackIndex) == true) return i }
-            return 0
-        } else {
-            entries.forEachIndexed { i, e -> if (e.trackGroup != null && overrides[e.trackGroup]?.trackIndices?.contains(e.trackIndex) == true) return i }
-            val currentTracks = player.currentTracks
-            entries.forEachIndexed { i, e ->
-                if (e.trackGroup != null) {
-                    for (group in currentTracks.groups) {
-                        if (group.type == C.TRACK_TYPE_AUDIO && group.mediaTrackGroup == e.trackGroup && group.isTrackSelected(e.trackIndex)) return i
-                    }
+        entries.forEachIndexed { i, e ->
+            if (e.trackGroup != null && overrides[e.trackGroup]?.trackIndices?.contains(e.trackIndex) == true) return i
+        }
+        // Fall back to whichever track is actively selected
+        entries.forEachIndexed { i, e ->
+            if (e.trackGroup != null) {
+                player.currentTracks.groups.forEach { group ->
+                    if (group.type == C.TRACK_TYPE_AUDIO && group.mediaTrackGroup == e.trackGroup && group.isTrackSelected(e.trackIndex)) return i
                 }
             }
-            return 0
         }
+        return 0
     }
 
-    private fun currentEntries() = when (currentMode) {
-        Mode.VIDEO -> videoEntries
-        Mode.AUDIO -> audioEntries
-        Mode.SETTINGS -> settingsEntries
+    private fun formatVideoLabel(fmt: Format) = when {
+        fmt.height >= 700 -> "HD · ${fmt.height}p"
+        fmt.height > 0    -> "SD · ${fmt.height}p"
+        else              -> "Standard"
     }
 
-    private fun scrollToSelected() {
-        rvTracks.post { (rvTracks.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(selectedIndex, 0) }
+    private fun languageDisplayName(code: String) = when (code.lowercase().take(2)) {
+        "ka" -> "ქართული"; "en" -> "English"; "ru" -> "Русский"; "tr" -> "Türkçe"
+        "de" -> "Deutsch";  "fr" -> "Français"; "es" -> "Español"; "ar" -> "العربية"
+        "uk" -> "Українська"; "az" -> "Azərbaycanca"; "hy" -> "Հայերեն"
+        else -> code.uppercase()
     }
 
-    inner class TrackAdapter(
-        private var entries: List<TrackEntry>,
-        private val onClick: (Int) -> Unit
-    ) : RecyclerView.Adapter<TrackAdapter.VH>() {
+    // ── Adapter ───────────────────────────────────────────────────────────────
+
+    inner class TrackAdapter : RecyclerView.Adapter<TrackAdapter.VH>() {
+        var currentEntries: List<TrackEntry> = emptyList()
+            private set
         private var highlightedPos = 0
+        // FIX: -1 means "nothing selected" — no checkmark drawn
         private var selectedPos = -1
 
         inner class VH(root: View) : RecyclerView.ViewHolder(root) {
             val ivIcon: ImageView = root.findViewById(R.id.ivTrackIcon)
             val tvLabel: TextView = root.findViewById(R.id.tvTrackLabel)
             val tvCheck: TextView = root.findViewById(R.id.tvTrackCheck)
-            init { root.setOnClickListener { val pos = adapterPosition; if (pos != RecyclerView.NO_POSITION) onClick(pos) } }
 
             fun bind(entry: TrackEntry, isHighlighted: Boolean, isSelected: Boolean) {
                 tvLabel.text = entry.label
-                if (entry.iconRes != null) {
-                    ivIcon.visibility = View.VISIBLE
-                    ivIcon.setImageResource(entry.iconRes)
-                } else {
-                    ivIcon.visibility = View.GONE
-                }
+                if (entry.iconRes != null) { ivIcon.visibility = View.VISIBLE; ivIcon.setImageResource(entry.iconRes) }
+                else ivIcon.visibility = View.GONE
+                itemView.isFocusable = false
+                itemView.isFocusableInTouchMode = false
                 tvCheck.visibility = if (isSelected && currentMode != Mode.SETTINGS) View.VISIBLE else View.INVISIBLE
                 itemView.isActivated = isHighlighted
                 val color = if (isHighlighted) 0xFFF1F5F9.toInt() else 0xBBF1F5F9.toInt()
@@ -343,34 +290,42 @@ class TrackSelectionOverlayManager(
             }
         }
 
-        fun update(newEntries: List<TrackEntry>, preSelected: Int) {
-            entries = newEntries
-            highlightedPos = preSelected
-            selectedPos = preSelected
+        /** Full reset — call on dismiss to prevent state bleed across sessions */
+        fun resetState() {
+            highlightedPos = -1
+            selectedPos = -1
+            // No notifyDataSetChanged needed — panel is hidden
+        }
+
+        /** Full reset — call when opening the panel */
+        fun update(entries: List<TrackEntry>, highlightPos: Int, selectedPos: Int) {
+            currentEntries = entries
+            highlightedPos = highlightPos
+            this.selectedPos = selectedPos
             notifyDataSetChanged()
         }
 
-        fun updateLabelsOnly(newEntries: List<TrackEntry>) {
-            entries = newEntries
+        /** Label-only refresh — preserves highlight, does NOT touch selectedPos */
+        fun updateLabels(entries: List<TrackEntry>) {
+            currentEntries = entries
             notifyDataSetChanged()
         }
 
         fun setHighlight(pos: Int) {
-            val old = highlightedPos
-            highlightedPos = pos
-            notifyItemChanged(old)
-            notifyItemChanged(pos)
+            val old = highlightedPos; highlightedPos = pos
+            notifyItemChanged(old); notifyItemChanged(pos)
         }
 
         fun setSelected(pos: Int) {
-            val old = selectedPos
-            selectedPos = pos
-            notifyItemChanged(old)
-            notifyItemChanged(pos)
+            val old = selectedPos; selectedPos = pos
+            notifyItemChanged(old); notifyItemChanged(pos)
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_track_entry, parent, false))
-        override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(entries[position], position == highlightedPos, position == selectedPos)
-        override fun getItemCount() = entries.size
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
+            LayoutInflater.from(parent.context).inflate(R.layout.item_track_entry, parent, false)
+        )
+        override fun onBindViewHolder(holder: VH, position: Int) =
+            holder.bind(currentEntries[position], position == highlightedPos, position == selectedPos)
+        override fun getItemCount() = currentEntries.size
     }
 }
