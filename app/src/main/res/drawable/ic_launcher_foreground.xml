@@ -10,10 +10,10 @@
     android:height="108dp"
     android:viewportWidth="649"
     android:viewportHeight="132">
-  <group android:scaleX="0.6"
-      android:scaleY="0.12222222"
-      android:translateX="129.8"
-      android:translateY="57.933334">
+  <group android:scaleX="0.61"
+      android:scaleY="0.124259256"
+      android:translateX="126.555"
+      android:translateY="57.79889">
 
       <!-- Red pill behind "box" -->
       <path

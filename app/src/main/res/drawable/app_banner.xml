@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Dark Blue Background -->
+    <!-- Dark Background -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#03062C"/>
+            <solid android:color="#121212"/>
             <size android:width="320dp" android:height="180dp"/>
         </shape>
     </item>
     
-    <!-- Centered Logo - Increased size to 160dp -->
+    <!-- 
+         Centered Wide Logo 
+         Using ic_mediabox_logo instead of ic_launcher_foreground to preserve 
+         the wide aspect ratio and prevent the "square" appearance.
+    -->
     <item
-        android:drawable="@mipmap/ic_launcher"
+        android:drawable="@drawable/ic_mediabox_logo"
         android:gravity="center"
-        android:width="160dp"
-        android:height="160dp" />
+        android:width="260dp"
+        android:height="53dp" />
 </layer-list>
