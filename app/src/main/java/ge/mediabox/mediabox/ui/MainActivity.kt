@@ -71,6 +71,13 @@ class MainActivity : AppCompatActivity() {
         clockHandler.post(clockRunnable)
         
         checkSubscriptions()
+        // Warm up channel + EPG data in background so EPG is instant when user opens player
+        val deviceId = DeviceIdHelper.getDeviceId(this)
+        val isKa = LangPrefs.isKa(this)
+        lifecycleScope.launch {
+            ge.mediabox.mediabox.data.repository.ChannelRepository.initialize(token, isKa, deviceId)
+            ge.mediabox.mediabox.data.repository.ChannelRepository.prefetchAllEpg()
+        }
     }
 
     override fun onResume() {

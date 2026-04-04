@@ -38,7 +38,6 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.edit
-import androidx.media3.common.util.Log
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import ge.mediabox.mediabox.ui.DeviceIdHelper
@@ -477,8 +476,8 @@ class PlayerActivity : AppCompatActivity() {
         zapHandler.removeCallbacksAndMessages(null)
         hideControlsHandler.removeCallbacksAndMessages(null)
         player?.release(); player = null
+        if (::epgOverlayManager.isInitialized) epgOverlayManager.destroy() // ADD THIS
     }
-
     private fun setupOverlays() {
         controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
         val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)

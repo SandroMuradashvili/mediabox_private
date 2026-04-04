@@ -119,13 +119,14 @@
                     android:orientation="vertical"
                     android:background="@drawable/epg_left_panel">
 
-                    <!-- Focus scrim — shown when focus is NOT on channels -->
+                    <!-- Red focus line — visible when focus is on channels side -->
                     <View
-                        android:id="@+id/channelListScrim"
+                        android:id="@+id/channelFocusLine"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="#66000000"
+                        android:layout_height="2dp"
+                        android:background="#EF4444"
                         android:visibility="gone"/>
+
 
                     <TextView
                         android:layout_width="match_parent"
@@ -162,6 +163,14 @@
                     android:layout_width="0dp"
                     android:layout_weight="0.75"
                     android:layout_height="match_parent">
+
+                    <!-- Red focus line — visible when focus is on programs side -->
+                    <View
+                        android:id="@+id/programFocusLine"
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:background="#EF4444"
+                        android:visibility="gone"/>
 
                     <!-- Placeholder — shown when no channel is selected OR a locked channel is hovered -->
                     <LinearLayout
@@ -282,13 +291,6 @@
 
                     </LinearLayout>
 
-                    <!-- Focus scrim — shown when focus is NOT on programs -->
-                    <View
-                        android:id="@+id/programPanelScrim"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="#66000000"
-                        android:visibility="gone"/>
 
                 </FrameLayout>
 

@@ -98,11 +98,12 @@ object ChannelRepository {
         val first = unlocked.take(30)
         val rest  = unlocked.drop(30)
 
+        // First 30: fetch as fast as possible, no delay
         for (ch in first) {
             fetchEpgIfNeeded(ch)
-            kotlinx.coroutines.delay(80)
         }
 
+        // Rest: gentle throttle to avoid hammering server
         for (ch in rest) {
             val priority = priorityChannelApiId
             if (priority != null && priority != ch.apiId) {
@@ -115,7 +116,7 @@ object ChannelRepository {
         }
     }
 
-    private suspend fun fetchEpgIfNeeded(ch: ge.mediabox.mediabox.data.model.Channel) {
+    private fun fetchEpgIfNeeded(ch: Channel) {
         val now = System.currentTimeMillis()
         if (ch.programs.isNotEmpty() && (now - ch.lastEpgFetchTime) < EPG_CACHE_DURATION) return
         try {
