@@ -16,7 +16,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import ge.mediabox.mediabox.R
-import ge.mediabox.mediabox.data.api.ApiService
 import ge.mediabox.mediabox.data.model.Channel
 import ge.mediabox.mediabox.data.model.Program
 import ge.mediabox.mediabox.data.repository.ChannelRepository
@@ -76,6 +75,8 @@ class EpgOverlayManager(
     private val tvHoveredDate    by lazy { binding.root.findViewById<TextView>(R.id.tvHoveredDate) }
     private val tvPlaceholderTitle    by lazy { binding.root.findViewById<TextView>(R.id.tvPlaceholderTitle) }
     private val tvPlaceholderSubtitle by lazy { binding.root.findViewById<TextView>(R.id.tvPlaceholderSubtitle) }
+    private val channelListScrim  by lazy { binding.root.findViewById<View>(R.id.channelListScrim) }
+    private val programPanelScrim by lazy { binding.root.findViewById<View>(R.id.programPanelScrim) }
 
     private lateinit var channelAdapter: ChannelAdapter
     private lateinit var programAdapter: ProgramAdapter
@@ -193,6 +194,22 @@ class EpgOverlayManager(
         hideProgramPanel()
     }
 
+    private fun updateScrimForSection() {
+        when (focusSection) {
+            FocusSection.CATEGORIES -> {
+                channelListScrim?.visibility  = View.GONE
+                programPanelScrim?.visibility = View.VISIBLE
+            }
+            FocusSection.CHANNELS -> {
+                channelListScrim?.visibility  = View.GONE
+                programPanelScrim?.visibility = View.VISIBLE
+            }
+            FocusSection.PROGRAMS -> {
+                channelListScrim?.visibility  = View.VISIBLE
+                programPanelScrim?.visibility = View.GONE
+            }
+        }
+    }
     private fun highlightCategory() {
         categoryButtons.forEachIndexed { i, btn ->
             val isSelected = i == selectedCategoryIndex
@@ -208,18 +225,15 @@ class EpgOverlayManager(
             binding.root.findViewById<HorizontalScrollView>(R.id.categoryScrollView)
                 ?.smoothScrollTo(btn.left - 40, 0)
         }
+        updateScrimForSection()
     }
 
     // ── Program panel helpers ─────────────────────────────────────────────────
 
     private fun hideProgramPanel() {
         programPanel?.visibility = View.GONE
-        programPlaceholder?.visibility = View.VISIBLE
+        programPlaceholder?.visibility = View.GONE  // No placeholder at all
         tvHoveredDate?.visibility = View.GONE
-        tvPlaceholderTitle?.text = if (LangPrefs.isKa(activity)) "აირჩიეთ არხი" else "Select a channel"
-        tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
-        tvPlaceholderSubtitle?.text = if (LangPrefs.isKa(activity)) "დააჭირეთ → პროგრამების სანახავად" else "Press → to browse programs"
-        tvPlaceholderSubtitle?.setTextColor(0x605A9EC8.toInt())
     }
 
     private fun showLockedChannelInfo(channel: Channel) {
@@ -238,35 +252,36 @@ class EpgOverlayManager(
         val channel = filteredChannels.getOrNull(channelIndex) ?: return
         if (channel.isLocked) { showLockedChannelInfo(channel); return }
 
-        // Cancel any in-flight load from rapid scrolling
         loadProgramsJob?.cancel()
 
-        val cachedPrograms = channel.programs
-        if (cachedPrograms.isNotEmpty()) {
-            // Instant render from cache — no coroutine needed for the data
+        val cached = channel.programs
+        if (cached.isNotEmpty()) {
             loadProgramsJob = scope.launch {
-                renderPrograms(channel, cachedPrograms)
+                renderPrograms(channel, cached)
             }
         } else {
-            // Not cached yet — show placeholder, fetch quietly
+            // No placeholder — just silently wait for data
             hideProgramPanel()
             loadProgramsJob = scope.launch {
                 val programs = ChannelRepository.getProgramsForChannel(channel.id)
-                // Check we're still on the same channel (user may have scrolled away)
-                if (selectedChannelIndex == channelIndex) {
-                    if (programs.isNotEmpty()) renderPrograms(channel, programs)
-                    else hideProgramPanel()
+                if (selectedChannelIndex == channelIndex && programs.isNotEmpty()) {
+                    renderPrograms(channel, programs)
                 }
             }
         }
     }
 
-    private suspend fun renderPrograms(channel: Channel, programs: List<Program>) {
+    private suspend fun renderPrograms(
+        channel: Channel,
+        programs: List<Program>,
+        overrideTimestampMs: Long? = null
+    ) {
         val items = buildProgramItemList(programs)
         currentProgramItems = items
 
-        var targetPos = findCurrentProgramPosition(programs, items)
-        // Skip past any date divider that lands on top
+        // Find position: use override timestamp (archive mode) or current time (live)
+        val anchorMs = overrideTimestampMs ?: System.currentTimeMillis()
+        var targetPos = findProgramPositionForTime(programs, anchorMs)
         while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
         selectedProgramIndex = targetPos
 
@@ -274,7 +289,7 @@ class EpgOverlayManager(
 
         withContext(Dispatchers.Main) {
             rv.visibility = View.INVISIBLE
-            programAdapter.updatePrograms(items)
+            programAdapter.updatePrograms(items, overrideTimestampMs)
 
             rv.post {
                 (rv.layoutManager as? LinearLayoutManager)
@@ -287,7 +302,6 @@ class EpgOverlayManager(
                     programPlaceholder?.visibility = View.GONE
                     programAdapter.setHighlight(targetPos)
                     updateHoveredDate(targetPos)
-                    // Do NOT change focusSection here — user is still in CHANNELS
                 }
             }
         }
@@ -304,18 +318,25 @@ class EpgOverlayManager(
         return items
     }
 
-    private fun findCurrentProgramPosition(programs: List<Program>, items: List<ProgramItem>): Int {
+    // REMOVE the old findCurrentProgramPosition() entirely, replace with:
+    private fun findProgramPositionForTime(
+        programs: List<Program>,
+        timestampMs: Long
+    ): Int {
         if (programs.isEmpty()) return 0
-        val currentIndex = programs.indexOfFirst { it.isCurrentlyPlaying() }
-        if (currentIndex < 0) return 0
-        // Count date dividers that appear before currentIndex in the flat list
+        val targetIndex = programs.indexOfFirst { timestampMs in it.startTime until it.endTime }
+        val idx = if (targetIndex >= 0) targetIndex else {
+            // Fallback: find closest past program
+            programs.indexOfLast { it.endTime <= timestampMs }.coerceAtLeast(0)
+        }
+        // Count date dividers before idx in flat list
         var dividers = 0
-        for (i in 0 until currentIndex) {
+        for (i in 0 until idx) {
             val cur  = fullDateFmt.format(Date(programs[i].startTime))
             val prev = if (i > 0) fullDateFmt.format(Date(programs[i - 1].startTime)) else null
             if (cur != prev) dividers++
         }
-        return currentIndex + dividers
+        return idx + dividers
     }
 
     private fun updateHoveredDate(position: Int) {
@@ -363,24 +384,42 @@ class EpgOverlayManager(
         hideProgramPanel()
     }
 
-    fun requestFocus(currentChannelId: Int) {
+    fun requestFocus(currentChannelId: Int, currentTimestampMs: Long = System.currentTimeMillis()) {
         val index = filteredChannels.indexOfFirst { it.id == currentChannelId }
 
         if (index != -1) {
             focusSection = FocusSection.CHANNELS
             selectedChannelIndex = index
             channelAdapter.setHighlight(selectedChannelIndex)
-            categoryButtons.forEach { it.alpha = 0.55f; it.isSelected = false }
+            updateScrimForSection()
 
             val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
             (rv?.layoutManager as? LinearLayoutManager)
                 ?.scrollToPositionWithOffset(selectedChannelIndex, 150)
 
-            // Auto-load programs — instant if cached, silent network fetch if not
-            loadProgramsForChannel(selectedChannelIndex)
+            val channel = filteredChannels[index]
+            if (channel.isLocked) {
+                showLockedChannelInfo(channel)
+                return
+            }
+
+            loadProgramsJob?.cancel()
+            val cached = channel.programs
+            if (cached.isNotEmpty()) {
+                loadProgramsJob = scope.launch {
+                    renderPrograms(channel, cached, currentTimestampMs)
+                }
+            } else {
+                hideProgramPanel()
+                loadProgramsJob = scope.launch {
+                    val programs = ChannelRepository.getProgramsForChannel(channel.id)
+                    if (programs.isNotEmpty()) renderPrograms(channel, programs, currentTimestampMs)
+                }
+            }
         } else {
             focusSection = FocusSection.CATEGORIES
             highlightCategory()
+            updateScrimForSection()
         }
     }
 
@@ -418,6 +457,7 @@ class EpgOverlayManager(
                 channelAdapter.setHighlight(selectedChannelIndex)
                 scrollChannelListTo(selectedChannelIndex)
                 highlightCategory()
+                updateScrimForSection()
                 filteredChannels.getOrNull(selectedChannelIndex)
                     ?.takeIf { it.isLocked }
                     ?.let { showLockedChannelInfo(it) }
@@ -446,6 +486,7 @@ class EpgOverlayManager(
                     focusSection = FocusSection.CATEGORIES
                     channelAdapter.setHighlight(-1)
                     highlightCategory()
+                    updateScrimForSection()
                 }
                 true
             }
@@ -467,17 +508,21 @@ class EpgOverlayManager(
                 focusSection = FocusSection.CATEGORIES
                 channelAdapter.setHighlight(-1)
                 highlightCategory()
+                updateScrimForSection()
                 hideProgramPanel()
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                // Move into program list if programs are loaded
                 val ch = filteredChannels.getOrNull(selectedChannelIndex)
                 if (ch?.isLocked == true) {
                     showLockedChannelInfo(ch)
-                } else if (programPanel?.visibility == View.VISIBLE) {
+                } else {
+                    // Enter programs regardless — if not loaded yet, wait for it
                     focusSection = FocusSection.PROGRAMS
-                    programAdapter.setHighlight(selectedProgramIndex)
+                    updateScrimForSection()
+                    if (programPanel?.visibility == View.VISIBLE) {
+                        programAdapter.setHighlight(selectedProgramIndex)
+                    }
                 }
                 true
             }
@@ -501,7 +546,6 @@ class EpgOverlayManager(
                 lastProgramScrollTime = now
                 val delta = if (keyCode == KeyEvent.KEYCODE_DPAD_UP) -1 else 1
                 var target = selectedProgramIndex + delta
-                // Skip over date dividers
                 while (target in 0 until programAdapter.itemCount &&
                     currentProgramItems.getOrNull(target) is ProgramItem.DateDivider) {
                     target += delta
@@ -519,6 +563,7 @@ class EpgOverlayManager(
                 programAdapter.setHighlight(-1)
                 channelAdapter.setHighlight(selectedChannelIndex)
                 scrollChannelListTo(selectedChannelIndex)
+                updateScrimForSection()
                 true
             }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
@@ -619,6 +664,9 @@ class EpgOverlayManager(
         }
 
         private var highlightedPos = -1
+
+        // Change the class-level field — add this near the top of ProgramAdapter:
+        private var watchingTimestampMs: Long? = null  // null = live mode
         private var rowDateFmt = SimpleDateFormat("d MMM", LangPrefs.getLocale(activity))
         private var timeFmt    = SimpleDateFormat("HH:mm", LangPrefs.getLocale(activity))
 
@@ -637,58 +685,64 @@ class EpgOverlayManager(
 
             fun bind(program: Program, isHighlighted: Boolean) {
                 val now = System.currentTimeMillis()
-                val isPlaying = program.isCurrentlyPlaying(now)
-                val isPast    = program.endTime < now
-                val isFuture  = program.startTime > now // Define future status
+                val anchorMs = watchingTimestampMs ?: now
+
+                // Is this the program currently being watched (live or archive)?
+                val isWatching = anchorMs in program.startTime until program.endTime
+                // Is it truly live (no archive override, program is airing now)?
+                val isTrulyLive = watchingTimestampMs == null && program.isCurrentlyPlaying(now)
+
+                val isPast   = program.endTime < now
+                val isFuture = program.startTime > now
 
                 time.text  = "${timeFmt.format(Date(program.startTime))}–${timeFmt.format(Date(program.endTime))}"
                 title.text = program.title
                 dateCol?.text = rowDateFmt.format(Date(program.startTime))
 
                 itemView.isActivated = isHighlighted
-                itemView.isSelected  = isPlaying && !isHighlighted
-                accentBar?.visibility = if (isPlaying) View.VISIBLE else View.INVISIBLE
+                itemView.isSelected  = isWatching && !isHighlighted
+                accentBar?.visibility = if (isWatching) View.VISIBLE else View.INVISIBLE
 
-                if (isPlaying) {
+                // Playing animation — shown when this is the program being watched
+                val liveBadge = itemView.findViewById<TextView>(R.id.tvLiveBadge)
+                if (isWatching) {
                     playingAnim?.visibility = View.VISIBLE
                     playingAnim?.post {
                         (playingAnim.drawable as? AnimatedVectorDrawable)?.let {
-                            if (!it.isRunning) {
-                                Log.d("EPG_ANIM", "Starting animation for program: ${program.title}")
-                                it.start()
-                            }
-                        } ?: Log.e("EPG_ANIM", "Drawable is NOT an AnimatedVectorDrawable for: ${program.title}")
+                            if (!it.isRunning) it.start()
+                        }
                     }
+                    // LIVE badge only when truly watching live broadcast
+                    liveBadge?.visibility = if (isTrulyLive) View.VISIBLE else View.GONE
                 } else {
                     playingAnim?.visibility = View.GONE
                     (playingAnim?.drawable as? AnimatedVectorDrawable)?.stop()
+                    liveBadge?.visibility = View.GONE
                 }
 
-                // 1. Text Color Logic
+                // Text colors
                 time.setTextColor(when {
-                    isHighlighted || isPlaying -> 0xFFE5E7EB.toInt()  // Pure Light Gray
-                    isPast ->                     0x8894A3B8.toInt()  // Muted Gray-Blue
-                    else ->                       0x4494A3B8.toInt()  // Dim Gray-Blue
+                    isHighlighted || isWatching -> 0xFFE5E7EB.toInt()
+                    isPast                      -> 0x8894A3B8.toInt()
+                    else                        -> 0x4494A3B8.toInt()
                 })
-
                 title.setTextColor(when {
-                    isHighlighted -> 0xFFFFFFFF.toInt()             // Pure white
-                    isFuture -> 0x55F1F5F9.toInt()                  // Dim white for future
-                    else -> 0xEEF1F5F9.toInt()                      // Standard white
+                    isHighlighted -> 0xFFFFFFFF.toInt()
+                    isFuture      -> 0x55F1F5F9.toInt()
+                    else          -> 0xEEF1F5F9.toInt()
                 })
-
                 dateCol?.setTextColor(when {
-                    isHighlighted -> 0xAA94A3B8.toInt()  // soft gray
-                    isFuture ->      0x2294A3B8.toInt()  // unchanged slate
-                    else ->          0x8094A3B8.toInt()  // unchanged slate
+                    isHighlighted -> 0xAA94A3B8.toInt()
+                    isFuture      -> 0x2294A3B8.toInt()
+                    else          -> 0x8094A3B8.toInt()
                 })
 
-                // 2. Alpha (Dimming) Logic
+                // Alpha
                 itemView.alpha = when {
                     isHighlighted -> 1.0f
-                    isPlaying     -> 1.0f
-                    isPast        -> 0.85f // Past/Archive is slightly dimmed
-                    isFuture      -> 0.35f // FUTURE is now significantly dimmed
+                    isWatching    -> 1.0f
+                    isPast        -> 0.85f
+                    isFuture      -> 0.35f
                     else          -> 1.0f
                 }
             }
@@ -728,9 +782,13 @@ class EpgOverlayManager(
 
         override fun getItemCount() = items.size
 
-        fun updatePrograms(newItems: List<ProgramItem>) {
+
+
+        // Replace updatePrograms():
+        fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null) {
             items = newItems
             highlightedPos = -1
+            watchingTimestampMs = overrideTimestampMs
             notifyDataSetChanged()
         }
     }

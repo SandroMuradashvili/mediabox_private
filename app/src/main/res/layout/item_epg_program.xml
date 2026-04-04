@@ -50,12 +50,30 @@
         android:layout_height="0dp"
         android:visibility="gone"/>
 
-    <!-- Playing Animation replacing NOW badge -->
+    <!-- LIVE pill badge — only shown when program is live AND playing live (not archive) -->
+    <TextView
+        android:id="@+id/tvLiveBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="LIVE"
+        android:textSize="9sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/epg_now_badge"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:letterSpacing="0.08"
+        android:visibility="gone"/>
+
+    <!-- Playing Animation — shown for both live AND archive-watched program -->
     <ImageView
         android:id="@+id/ivPlayingAnim"
         android:layout_width="20dp"
         android:layout_height="20dp"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="6dp"
         android:src="@drawable/ic_playing_bars"
         android:visibility="gone"/>
 

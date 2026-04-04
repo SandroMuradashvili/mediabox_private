@@ -339,6 +339,7 @@ class PlayerActivity : AppCompatActivity() {
         if (!isBrowsing) binding.videoPlaceholder.visibility = View.VISIBLE
         updateOverlayInfo()
         fetchProgramsForCurrentChannel()
+        lifecycleScope.launch(Dispatchers.IO) { repository.priorityFetchEpg(channel.id) }
         prefetchNeighbors(index)
         loadStream { repository.getStreamUrl(channel.id, authToken) }
     }
@@ -670,7 +671,12 @@ class PlayerActivity : AppCompatActivity() {
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
         epgOverlayManager.refreshData(channels)
-        epgOverlayManager.requestFocus(channels.getOrNull(currentChannelIndex)?.id ?: -1)
+        val currentTs = getCurrentAbsoluteTime()
+        val tsToPass = if (isLiveMode) System.currentTimeMillis() else currentTs
+        epgOverlayManager.requestFocus(
+            channels.getOrNull(currentChannelIndex)?.id ?: -1,
+            tsToPass
+        )
     }
 
     private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }

@@ -119,6 +119,14 @@
                     android:orientation="vertical"
                     android:background="@drawable/epg_left_panel">
 
+                    <!-- Focus scrim — shown when focus is NOT on channels -->
+                    <View
+                        android:id="@+id/channelListScrim"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#66000000"
+                        android:visibility="gone"/>
+
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -273,6 +281,14 @@
                             android:scrollbars="none"/>
 
                     </LinearLayout>
+
+                    <!-- Focus scrim — shown when focus is NOT on programs -->
+                    <View
+                        android:id="@+id/programPanelScrim"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#66000000"
+                        android:visibility="gone"/>
 
                 </FrameLayout>
 

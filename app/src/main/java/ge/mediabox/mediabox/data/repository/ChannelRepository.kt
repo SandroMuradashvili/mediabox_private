@@ -91,28 +91,46 @@ object ChannelRepository {
         }
         null
     }
+    @Volatile private var priorityChannelApiId: String? = null
 
-    /**
-     * Background EPG prefetch — called once on app start.
-     * Fetches programs for all unlocked channels that haven't been cached yet,
-     * with a small delay between each to avoid hammering the server.
-     * Cache is valid for 4 hours (EPG_CACHE_DURATION).
-     */
     suspend fun prefetchAllEpg() = withContext(Dispatchers.IO) {
         val unlocked = channels.filter { !it.isLocked }
-        for (ch in unlocked) {
-            val now = System.currentTimeMillis()
-            // Skip if already cached and still valid
-            if (ch.programs.isNotEmpty() && (now - ch.lastEpgFetchTime) < EPG_CACHE_DURATION) continue
-            try {
-                val programs = ApiService.fetchAllPrograms(ch.apiId).sortedBy { it.startTime }
-                if (programs.isNotEmpty()) {
-                    ch.programs = programs
-                    ch.lastEpgFetchTime = now
-                }
-            } catch (_: Exception) {}
-            kotlinx.coroutines.delay(80) // gentle throttle
+        val first = unlocked.take(30)
+        val rest  = unlocked.drop(30)
+
+        for (ch in first) {
+            fetchEpgIfNeeded(ch)
+            kotlinx.coroutines.delay(80)
         }
+
+        for (ch in rest) {
+            val priority = priorityChannelApiId
+            if (priority != null && priority != ch.apiId) {
+                val priorityCh = channels.find { it.apiId == priority }
+                if (priorityCh != null) fetchEpgIfNeeded(priorityCh)
+                priorityChannelApiId = null
+            }
+            fetchEpgIfNeeded(ch)
+            kotlinx.coroutines.delay(80)
+        }
+    }
+
+    private suspend fun fetchEpgIfNeeded(ch: ge.mediabox.mediabox.data.model.Channel) {
+        val now = System.currentTimeMillis()
+        if (ch.programs.isNotEmpty() && (now - ch.lastEpgFetchTime) < EPG_CACHE_DURATION) return
+        try {
+            val programs = ApiService.fetchAllPrograms(ch.apiId).sortedBy { it.startTime }
+            if (programs.isNotEmpty()) {
+                ch.programs = programs
+                ch.lastEpgFetchTime = now
+            }
+        } catch (_: Exception) {}
+    }
+
+    suspend fun priorityFetchEpg(channelId: Int) = withContext(Dispatchers.IO) {
+        val ch = channels.find { it.id == channelId } ?: return@withContext
+        priorityChannelApiId = ch.apiId
+        fetchEpgIfNeeded(ch)
     }
 
     /**
