@@ -5,7 +5,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/epg_scrim_background">
+    android:background="@drawable/epg_scrim_background"
+    android:layerType="none">
 
     <androidx.cardview.widget.CardView
         android:id="@+id/epgGlassCard"
@@ -15,6 +16,7 @@
         app:cardBackgroundColor="#00000000"
         app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
+        android:layerType="none"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"

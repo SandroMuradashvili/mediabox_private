@@ -478,35 +478,41 @@ class PlayerActivity : AppCompatActivity() {
         player?.release(); player = null
         if (::epgOverlayManager.isInitialized) epgOverlayManager.destroy() // ADD THIS
     }
-    private fun setupOverlays() {
-        controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
-        val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)
-        if (topLogo != null) LogoManager.loadLogo(topLogo)
+        private fun setupOverlays() {
+            controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
+            val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)
+            if (topLogo != null) LogoManager.loadLogo(topLogo)
 
-        epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
-            onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
-            onArchiveSelected = { instruction ->
-                val parts = instruction.split(":")
-                if (parts.size >= 4) playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
-                hideEpg()
+
+            epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
+                onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
+                onArchiveSelected = { instruction ->
+                    val parts = instruction.split(":")
+                    if (parts.size >= 4) playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
+                    hideEpg()
+                }
+            )
+
+            lifecycleScope.launch(Dispatchers.Default) {
+                epgOverlayManager.preWarmPools()
             }
-        )
-        val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
-        timeRewindManager = TimeRewindOverlayManager(activity = this, overlayView = rewindOverlayView,
-            channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
-            onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
-            onDismiss = { isTimeRewindVisible = false })
 
-        val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
-        trackSelectionManager = TrackSelectionOverlayManager(
-            activity = this,
-            overlayView = trackOverlayView,
-            playerProvider = { player },
-            onAspectRatioToggle = { toggleAspectRatio() },
-            getAspectRatioLabel = { getAspectRatioLabel() }
-        )
-        trackSelectionManager.init()
-    }
+            val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
+            timeRewindManager = TimeRewindOverlayManager(activity = this, overlayView = rewindOverlayView,
+                channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
+                onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
+                onDismiss = { isTimeRewindVisible = false })
+
+            val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
+            trackSelectionManager = TrackSelectionOverlayManager(
+                activity = this,
+                overlayView = trackOverlayView,
+                playerProvider = { player },
+                onAspectRatioToggle = { toggleAspectRatio() },
+                getAspectRatioLabel = { getAspectRatioLabel() }
+            )
+            trackSelectionManager.init()
+        }
 
     private fun setupControlButtons() {
         binding.root.apply {

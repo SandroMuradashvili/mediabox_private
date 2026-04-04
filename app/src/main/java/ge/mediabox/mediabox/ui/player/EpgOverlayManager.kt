@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -66,10 +67,10 @@ class EpgOverlayManager(
     private enum class FocusSection { CATEGORIES, CHANNELS, PROGRAMS }
     private var focusSection = FocusSection.CATEGORIES
 
-    // Delayed load — fires only after user stops scrolling on an uncached channel
+    // Delayed load — fires only after user stops scrolling on uncached channel
     private val programLoadHandler = Handler(Looper.getMainLooper())
     private var programLoadRunnable: Runnable? = null
-    private val programLoadDelayMs = 200L
+    private val programLoadDelayMs = 350L
 
     // Program list scroll throttle
     private var lastProgramScrollTime = 0L
@@ -78,6 +79,18 @@ class EpgOverlayManager(
     // Date formatters
     private var fullDateFmt  = SimpleDateFormat("EEEE, d MMM yyyy", LangPrefs.getLocale(activity))
     private var shortDateFmt = SimpleDateFormat("EEE d MMM",        LangPrefs.getLocale(activity))
+
+    // ── Category cache — skip full rebuild if labels haven't changed ──────────
+    // This is the biggest source of main-thread work on EPG open:
+    // creating N TextViews + LinearLayout measure/layout pass every time.
+    private var lastBuiltCategoryLabels = ""
+
+    // ── Shared RecycledViewPool — inflated views survive EPG open/close ───────
+    // TYPE_PROGRAM=0, TYPE_DIVIDER=1 must match ProgramAdapter companion constants.
+    private val sharedProgramPool = RecyclerView.RecycledViewPool().apply {
+        setMaxRecycledViews(0, 30)
+        setMaxRecycledViews(1, 6)
+    }
 
     // Lazy view references
     private val programPanel          by lazy { binding.root.findViewById<View>(R.id.programPanel) }
@@ -103,6 +116,32 @@ class EpgOverlayManager(
         mainJob.cancel()
     }
 
+    // ── Pre-warm — call once at startup from PlayerActivity ───────────────────
+    // Inflates program row views into the shared pool on a background thread so
+    // the first EPG open costs zero inflation on the main thread.
+    fun preWarmPools() {
+        // We must inflate on the Main Thread to be safe with UI Context,
+        // but we do it before the EPG is ever shown.
+        activity.runOnUiThread {
+            val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return@runOnUiThread
+
+            try {
+                repeat(15) {
+                    // This is the SAFE way. 0 is TYPE_PROGRAM
+                    val vh = programAdapter.createViewHolder(rv, 0)
+                    sharedProgramPool.putRecycledView(vh)
+                }
+                repeat(5) {
+                    // 1 is TYPE_DIVIDER
+                    val vh = programAdapter.createViewHolder(rv, 1)
+                    sharedProgramPool.putRecycledView(vh)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("EPG_PREWARM", "Failed to pre-warm: ${e.message}")
+            }
+        }
+    }
+
     // ── Setup ─────────────────────────────────────────────────────────────────
 
     private fun setupEpg() {
@@ -118,7 +157,8 @@ class EpgOverlayManager(
             isFocusableInTouchMode = false
             setHasFixedSize(true)
             setItemViewCacheSize(40)
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // No LAYER_TYPE_HARDWARE — transparent hardware layers force GPU
+            // compositing on every frame and starve the video decoder thread.
         }
 
         programAdapter = ProgramAdapter(activity, emptyList()) { handleProgramClick(it) }
@@ -130,7 +170,9 @@ class EpgOverlayManager(
             setHasFixedSize(false)
             setItemViewCacheSize(40)
             itemAnimator = null
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // Shared pool: pre-warmed views are reused here on first open
+            setRecycledViewPool(sharedProgramPool)
+            // No LAYER_TYPE_HARDWARE
         }
 
         setupCategories()
@@ -138,6 +180,19 @@ class EpgOverlayManager(
     }
 
     private fun setupCategories() {
+        val isKa = LangPrefs.isKa(activity)
+        val categories = repository.getCategories(isKa)
+
+        // Skip the full rebuild (TextView creation + layout pass) if categories
+        // haven't actually changed since last time. On every EPG open this
+        // previously always ran, blocking the main thread for ~20-40ms.
+        val newLabels = categories.joinToString("|")
+        if (newLabels == lastBuiltCategoryLabels) {
+            highlightCategory()
+            return
+        }
+        lastBuiltCategoryLabels = newLabels
+
         val container  = binding.root.findViewById<LinearLayout>(R.id.categoryButtons)
         val scrollView = binding.root.findViewById<HorizontalScrollView>(R.id.categoryScrollView)
 
@@ -147,9 +202,6 @@ class EpgOverlayManager(
 
         container?.removeAllViews()
         categoryButtons.clear()
-
-        val isKa = LangPrefs.isKa(activity)
-        val categories = repository.getCategories(isKa)
 
         categories.forEachIndexed { index, category ->
             val btn = TextView(activity).apply {
@@ -275,19 +327,21 @@ class EpgOverlayManager(
 
         val cached = channel.programs
         if (cached.isNotEmpty()) {
-            // Instant — cached, no network, render immediately
+            // Instant — cached data, no network needed
             loadProgramsJob?.cancel()
             loadProgramsJob = scope.launch {
                 renderPrograms(channel, cached)
             }
         } else {
-            // Not cached — wait until user stops scrolling
+            // Not cached — wait until user stops scrolling before hitting network
             hideProgramPanel()
             val runnable = Runnable {
+                val indexAtDispatch = channelIndex  // snapshot
                 loadProgramsJob?.cancel()
                 loadProgramsJob = ioScope.launch {
                     val programs = ChannelRepository.getProgramsForChannel(channel.id)
-                    if (selectedChannelIndex == channelIndex && programs.isNotEmpty()) {
+                    // Drop result if user has already moved to a different channel
+                    if (selectedChannelIndex == indexAtDispatch && programs.isNotEmpty()) {
                         withContext(Dispatchers.Main) {
                             renderPrograms(channel, programs)
                         }
@@ -316,7 +370,6 @@ class EpgOverlayManager(
 
         withContext(Dispatchers.Main) {
             programAdapter.updatePrograms(items, overrideTimestampMs)
-            // Single post — no double-frame delay
             rv.post {
                 (rv.layoutManager as? LinearLayoutManager)
                     ?.scrollToPositionWithOffset(targetPos, 0)
@@ -393,6 +446,7 @@ class EpgOverlayManager(
         shortDateFmt = SimpleDateFormat("EEE d MMM",        locale)
         programAdapter.updateLocale(locale)
         repository.refreshLocalization(isKa)
+        // setupCategories() will skip the rebuild if labels are unchanged
         setupCategories()
         filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
         channelAdapter.updateChannels(filteredChannels)
@@ -608,8 +662,10 @@ class EpgOverlayManager(
                 itemView.setOnClickListener {
                     val pos = bindingAdapterPosition
                     if (pos != RecyclerView.NO_POSITION) {
+                        val old = highlightedPos
                         highlightedPos = pos
-                        notifyDataSetChanged()
+                        if (old in 0 until itemCount) notifyItemChanged(old)
+                        notifyItemChanged(pos)
                         onChannelClick(pos)
                     }
                 }
@@ -659,9 +715,21 @@ class EpgOverlayManager(
         override fun getItemCount() = list.size
 
         fun updateChannels(newChannels: List<Channel>) {
+            val old = list
             list = newChannels
             highlightedPos = -1
-            notifyDataSetChanged()
+            val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+                override fun getOldListSize() = old.size
+                override fun getNewListSize() = newChannels.size
+                override fun areItemsTheSame(o: Int, n: Int) = old[o].id == newChannels[n].id
+                override fun areContentsTheSame(o: Int, n: Int): Boolean {
+                    val a = old[o]; val b = newChannels[n]
+                    return a.name == b.name &&
+                            a.isFavorite == b.isFavorite &&
+                            a.isLocked == b.isLocked
+                }
+            }, false)
+            diff.dispatchUpdatesTo(this)
         }
     }
 
@@ -674,8 +742,10 @@ class EpgOverlayManager(
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         companion object {
-            private const val TYPE_PROGRAM = 0
-            private const val TYPE_DIVIDER = 1
+            // These values are referenced by sharedProgramPool in EpgOverlayManager.
+            // Do not change without updating setMaxRecycledViews() calls above.
+            const val TYPE_PROGRAM = 0
+            const val TYPE_DIVIDER = 1
         }
 
         private var highlightedPos      = -1
@@ -689,11 +759,35 @@ class EpgOverlayManager(
             notifyDataSetChanged()
         }
 
+        // Inside ProgramAdapter class
         fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null) {
-            items               = newItems
-            highlightedPos      = -1
-            watchingTimestampMs = overrideTimestampMs
-            notifyDataSetChanged()
+            val oldItems = items
+            val diffCallback = object : DiffUtil.Callback() {
+                override fun getOldListSize(): Int = oldItems.size
+                override fun getNewListSize(): Int = newItems.size
+
+                override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
+                    val old = oldItems[oldPos]
+                    val new = newItems[newPos]
+                    return if (old is ProgramItem.ProgramData && new is ProgramItem.ProgramData) {
+                        old.program.id == new.program.id
+                    } else if (old is ProgramItem.DateDivider && new is ProgramItem.DateDivider) {
+                        old.date == new.date
+                    } else false
+                }
+
+                override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
+                    return oldItems[oldPos] == newItems[newPos]
+                }
+            }
+
+            val diffResult = DiffUtil.calculateDiff(diffCallback)
+
+            this.items = newItems
+            this.watchingTimestampMs = overrideTimestampMs
+            this.highlightedPos = -1
+
+            diffResult.dispatchUpdatesTo(this)
         }
 
         fun setHighlight(pos: Int) {
