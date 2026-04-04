@@ -119,7 +119,7 @@ class EpgOverlayManager(
         activity.runOnUiThread {
             val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return@runOnUiThread
             try {
-                // TYPE_PROGRAM=0, TYPE_DIVIDER=1
+                // TYPE_PROGRAM is 0, TYPE_DIVIDER is 1
                 repeat(20) {
                     val vh = programAdapter.createViewHolder(rv, 0)
                     sharedProgramPool.putRecycledView(vh)
@@ -296,37 +296,36 @@ class EpgOverlayManager(
     }
 
     private fun loadProgramsForChannel(channelIndex: Int) {
+        // 1. Cancel everything: the timer AND the actual loading coroutine
         programLoadRunnable?.let { programLoadHandler.removeCallbacks(it) }
+        loadProgramsJob?.cancel()
 
         val channel = filteredChannels.getOrNull(channelIndex) ?: return
         if (channel.isLocked) { showLockedChannelInfo(channel); return }
 
-        val cached = channel.programs
-        if (cached.isNotEmpty()) {
-            loadProgramsJob?.cancel()
-            loadProgramsJob = scope.launch {
-                renderPrograms(channel, cached)
-            }
-        } else {
-            // SCROLL OPTIMIZATION: Clear list instead of hiding panel to keep background video smooth
-            programAdapter.updatePrograms(emptyList())
-            programPlaceholder?.visibility = View.GONE
+        // 2. Clear the UI instantly. This is very "cheap" for the CPU.
+        // It prevents the video background from stuttering while you move.
+        programAdapter.updatePrograms(emptyList())
+        programPlaceholder?.visibility = View.GONE
 
-            val runnable = Runnable {
-                val indexAtDispatch = channelIndex
-                loadProgramsJob?.cancel()
-                loadProgramsJob = ioScope.launch {
-                    val programs = ChannelRepository.getProgramsForChannel(channel.id)
-                    if (selectedChannelIndex == indexAtDispatch && programs.isNotEmpty()) {
-                        withContext(Dispatchers.Main) {
-                            renderPrograms(channel, programs)
-                        }
-                    }
+        // 3. The Settle Delay (350ms)
+        val runnable = Runnable {
+            val indexAtDispatch = channelIndex
+
+            loadProgramsJob = scope.launch {
+                // Check cache first, otherwise hit network (IO)
+                val programs = channel.programs.ifEmpty {
+                    withContext(Dispatchers.IO) { ChannelRepository.getProgramsForChannel(channel.id) }
+                }
+
+                // Only render if the user is still sitting on this channel
+                if (selectedChannelIndex == indexAtDispatch && programs.isNotEmpty()) {
+                    renderPrograms(channel, programs)
                 }
             }
-            programLoadRunnable = runnable
-            programLoadHandler.postDelayed(runnable, programLoadDelayMs)
         }
+        programLoadRunnable = runnable
+        programLoadHandler.postDelayed(runnable, programLoadDelayMs)
     }
 
     private suspend fun renderPrograms(
@@ -514,7 +513,10 @@ class EpgOverlayManager(
         val now = System.currentTimeMillis()
 
         return when (keyCode) {
+            // Inside handleChannelKeys
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                val now = System.currentTimeMillis()
+                // Ignore signals that are faster than 60ms
                 if (now - lastMoveTime < moveThrottleMs) return true
                 lastMoveTime = now
 
@@ -523,14 +525,15 @@ class EpgOverlayManager(
 
                 if (newIndex in filteredChannels.indices) {
                     selectedChannelIndex = newIndex
+
+                    // VISUALS: Move highlight and jump to position instantly
                     channelAdapter.setHighlight(selectedChannelIndex)
+                    (channelList.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(selectedChannelIndex, 150)
 
-                    // LIGHTWEIGHT SCROLL
-                    val lm = (channelList.layoutManager as LinearLayoutManager)
-                    lm.scrollToPositionWithOffset(selectedChannelIndex, 150)
-
+                    // DATA: Trigger the delayed load
                     loadProgramsForChannel(selectedChannelIndex)
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                    // Return to categories
                     focusSection = FocusSection.CATEGORIES
                     channelAdapter.setHighlight(-1)
                     highlightCategory()
