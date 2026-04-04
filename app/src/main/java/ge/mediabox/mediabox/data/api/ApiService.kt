@@ -128,10 +128,10 @@ object ApiService {
         return ChannelsResponse(channels, accessibleIds)
     }
 
-    fun fetchFavourites(token: String): List<String> {
+    fun fetchFavourites(token: String, deviceId: String): List<String> {
         val ids = mutableListOf<String>()
         try {
-            val conn = openGet("$BASE_URL/user/preferences/favourite-channels", token)
+            val conn = openGet("$BASE_URL/user/preferences/favourite-channels?device_id=$deviceId", token)
             if (conn.responseCode == HttpURLConnection.HTTP_OK) {
                 val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
                 json.optJSONArray("favouriteChannelIds")?.let { arr ->
@@ -142,14 +142,17 @@ object ApiService {
         return ids
     }
 
-    fun addFavourite(token: String, externalId: String): Boolean = try {
+    fun addFavourite(token: String, externalId: String, deviceId: String): Boolean = try {
         val conn = openPost("$BASE_URL/user/preferences/favourite-channels", token)
-        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("channelId", externalId).toString()) }
+        OutputStreamWriter(conn.outputStream).use {
+            it.write(JSONObject().put("channelId", externalId).put("device_id", deviceId).toString())
+        }
         conn.responseCode in 200..299
     } catch (e: Exception) { false }
 
-    fun removeFavourite(token: String, externalId: String): Boolean = try {
-        val conn = (URL("$BASE_URL/user/preferences/favourites/$externalId").openConnection() as HttpURLConnection).apply {
+    fun removeFavourite(token: String, externalId: String, deviceId: String): Boolean = try {
+        val conn = (URL("$BASE_URL/user/preferences/favourites/$externalId?device_id=$deviceId")
+            .openConnection() as HttpURLConnection).apply {
             requestMethod = "DELETE"
             setRequestProperty("Authorization", "Bearer $token")
             setRequestProperty("Accept", "application/json")

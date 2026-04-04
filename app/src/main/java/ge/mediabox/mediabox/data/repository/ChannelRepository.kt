@@ -12,16 +12,16 @@ object ChannelRepository {
     private var isInitialized = false
 
     // CACHE SETTINGS
-    private const val EPG_CACHE_DURATION = 2 * 60 * 60 * 1000L // 2 Hours
+    private const val EPG_CACHE_DURATION = 4 * 60 * 60 * 1000L // 4 Hours
     private const val STREAM_EXPIRY_BUFFER = 5 * 60 * 1000L    // 5 Minutes
 
     private const val ARCHIVE_EXPIRY_BUFFER = 5 * 60 * 1000L // 5 Minutes safety buffer
 
-    suspend fun initialize(token: String?, isKa: Boolean) = withContext(Dispatchers.IO) {
+    suspend fun initialize(token: String?, isKa: Boolean, deviceId: String) = withContext(Dispatchers.IO) {
         if (isInitialized) return@withContext
         cachedApiCategories = ApiService.fetchCategories(token)
         val resp = ApiService.fetchChannels(token)
-        val favIds = if (!token.isNullOrBlank()) ApiService.fetchFavourites(token) else emptyList()
+        val favIds = if (!token.isNullOrBlank()) ApiService.fetchFavourites(token, deviceId) else emptyList()
 
         channels.clear()
         resp.channels.forEach { apiCh ->
@@ -93,6 +93,29 @@ object ChannelRepository {
     }
 
     /**
+     * Background EPG prefetch — called once on app start.
+     * Fetches programs for all unlocked channels that haven't been cached yet,
+     * with a small delay between each to avoid hammering the server.
+     * Cache is valid for 4 hours (EPG_CACHE_DURATION).
+     */
+    suspend fun prefetchAllEpg() = withContext(Dispatchers.IO) {
+        val unlocked = channels.filter { !it.isLocked }
+        for (ch in unlocked) {
+            val now = System.currentTimeMillis()
+            // Skip if already cached and still valid
+            if (ch.programs.isNotEmpty() && (now - ch.lastEpgFetchTime) < EPG_CACHE_DURATION) continue
+            try {
+                val programs = ApiService.fetchAllPrograms(ch.apiId).sortedBy { it.startTime }
+                if (programs.isNotEmpty()) {
+                    ch.programs = programs
+                    ch.lastEpgFetchTime = now
+                }
+            } catch (_: Exception) {}
+            kotlinx.coroutines.delay(80) // gentle throttle
+        }
+    }
+
+    /**
      * CACHED EPG FETCH:
      * Returns cached programs if fetched within last 2 hours.
      */
@@ -161,7 +184,9 @@ object ChannelRepository {
 
     fun getAllChannels() = channels
     fun setFavoriteLocal(id: Int, fav: Boolean) { channels.find { it.id == id }?.isFavorite = fav }
-    fun addFavouriteRemote(token: String, apiId: String) = ApiService.addFavourite(token, apiId)
-    fun removeFavouriteRemote(token: String, apiId: String) = ApiService.removeFavourite(token, apiId)
+    fun addFavouriteRemote(token: String, apiId: String, deviceId: String) =
+        ApiService.addFavourite(token, apiId, deviceId)
+    fun removeFavouriteRemote(token: String, apiId: String, deviceId: String) =
+        ApiService.removeFavourite(token, apiId, deviceId)
     fun getArchiveStartMs(id: Int): Long? = channels.find { it.id == id }?.hoursBack?.let { System.currentTimeMillis() - it * 3600000L }
 }

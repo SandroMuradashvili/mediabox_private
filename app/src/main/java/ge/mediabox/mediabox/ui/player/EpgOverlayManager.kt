@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Job
 
 class EpgOverlayManager(
     private val activity: Activity,
@@ -231,39 +232,62 @@ class EpgOverlayManager(
         tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt())
     }
 
+    private var loadProgramsJob: Job? = null
+
     private fun loadProgramsForChannel(channelIndex: Int) {
         val channel = filteredChannels.getOrNull(channelIndex) ?: return
         if (channel.isLocked) { showLockedChannelInfo(channel); return }
 
-        programPlaceholder?.visibility = View.VISIBLE
-        programPanel?.visibility = View.GONE
-        tvHoveredDate?.visibility = View.GONE
+        // Cancel any in-flight load from rapid scrolling
+        loadProgramsJob?.cancel()
 
-        scope.launch {
-            // FIX: Call ChannelRepository instead of ApiService directly.
-            // This hits the 2-hour cache.
-            val allPrograms = ChannelRepository.getProgramsForChannel(channel.id)
+        val cachedPrograms = channel.programs
+        if (cachedPrograms.isNotEmpty()) {
+            // Instant render from cache — no coroutine needed for the data
+            loadProgramsJob = scope.launch {
+                renderPrograms(channel, cachedPrograms)
+            }
+        } else {
+            // Not cached yet — show placeholder, fetch quietly
+            hideProgramPanel()
+            loadProgramsJob = scope.launch {
+                val programs = ChannelRepository.getProgramsForChannel(channel.id)
+                // Check we're still on the same channel (user may have scrolled away)
+                if (selectedChannelIndex == channelIndex) {
+                    if (programs.isNotEmpty()) renderPrograms(channel, programs)
+                    else hideProgramPanel()
+                }
+            }
+        }
+    }
 
-            val items = buildProgramItemList(allPrograms)
-            currentProgramItems = items
+    private suspend fun renderPrograms(channel: Channel, programs: List<Program>) {
+        val items = buildProgramItemList(programs)
+        currentProgramItems = items
 
-            var targetPos = findCurrentProgramPosition(allPrograms, items)
-            while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
-            selectedProgramIndex = targetPos
+        var targetPos = findCurrentProgramPosition(programs, items)
+        // Skip past any date divider that lands on top
+        while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
+        selectedProgramIndex = targetPos
 
-            val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return@launch
+        val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
+
+        withContext(Dispatchers.Main) {
             rv.visibility = View.INVISIBLE
             programAdapter.updatePrograms(items)
 
             rv.post {
-                (rv.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(targetPos, 0)
+                (rv.layoutManager as? LinearLayoutManager)
+                    ?.scrollToPositionWithOffset(targetPos, 0)
                 rv.post {
-                    binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
+                    binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)
+                        ?.text = channel.name
                     rv.visibility = View.VISIBLE
                     programPanel?.visibility = View.VISIBLE
                     programPlaceholder?.visibility = View.GONE
                     programAdapter.setHighlight(targetPos)
                     updateHoveredDate(targetPos)
+                    // Do NOT change focusSection here — user is still in CHANNELS
                 }
             }
         }
@@ -340,23 +364,21 @@ class EpgOverlayManager(
     }
 
     fun requestFocus(currentChannelId: Int) {
-        // 1. Find where the current playing channel is in the current filtered list
         val index = filteredChannels.indexOfFirst { it.id == currentChannelId }
 
         if (index != -1) {
-            // Focus the channel list directly
             focusSection = FocusSection.CHANNELS
             selectedChannelIndex = index
             channelAdapter.setHighlight(selectedChannelIndex)
-
-            // Clear category highlights
             categoryButtons.forEach { it.alpha = 0.55f; it.isSelected = false }
 
-            // Scroll the list to the channel
             val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
-            (rv?.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(selectedChannelIndex, 150)
+            (rv?.layoutManager as? LinearLayoutManager)
+                ?.scrollToPositionWithOffset(selectedChannelIndex, 150)
+
+            // Auto-load programs — instant if cached, silent network fetch if not
+            loadProgramsForChannel(selectedChannelIndex)
         } else {
-            // Fallback: If current channel isn't in this category, focus first category
             focusSection = FocusSection.CATEGORIES
             highlightCategory()
         }
@@ -418,7 +440,8 @@ class EpgOverlayManager(
                     channelAdapter.setHighlight(selectedChannelIndex)
                     channelList.smoothScrollToPosition(selectedChannelIndex)
                     val ch = filteredChannels.getOrNull(selectedChannelIndex)
-                    if (ch?.isLocked == true) showLockedChannelInfo(ch) else hideProgramPanel()
+                    if (ch?.isLocked == true) showLockedChannelInfo(ch)
+                    else loadProgramsForChannel(selectedChannelIndex)
                 } else {
                     focusSection = FocusSection.CATEGORIES
                     channelAdapter.setHighlight(-1)
@@ -435,7 +458,8 @@ class EpgOverlayManager(
                     channelAdapter.setHighlight(selectedChannelIndex)
                     channelList.smoothScrollToPosition(selectedChannelIndex)
                     val ch = filteredChannels.getOrNull(selectedChannelIndex)
-                    if (ch?.isLocked == true) showLockedChannelInfo(ch) else hideProgramPanel()
+                    if (ch?.isLocked == true) showLockedChannelInfo(ch)
+                    else loadProgramsForChannel(selectedChannelIndex)
                 }
                 true
             }
@@ -447,10 +471,11 @@ class EpgOverlayManager(
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                // Move into program list if programs are loaded
                 val ch = filteredChannels.getOrNull(selectedChannelIndex)
-                if (ch?.isLocked == true) showLockedChannelInfo(ch)
-                else {
-                    loadProgramsForChannel(selectedChannelIndex)
+                if (ch?.isLocked == true) {
+                    showLockedChannelInfo(ch)
+                } else if (programPanel?.visibility == View.VISIBLE) {
                     focusSection = FocusSection.PROGRAMS
                     programAdapter.setHighlight(selectedProgramIndex)
                 }

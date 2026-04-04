@@ -41,6 +41,7 @@ import androidx.core.content.edit
 import androidx.media3.common.util.Log
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
+import ge.mediabox.mediabox.ui.DeviceIdHelper
 
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -192,8 +193,13 @@ class PlayerActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val isKa = LangPrefs.isKa(this@PlayerActivity)
-            repository.initialize(authToken, isKa)
+            val deviceId = DeviceIdHelper.getDeviceId(this@PlayerActivity)
+            repository.initialize(authToken, isKa, deviceId)
             channels = repository.getAllChannels()
+
+            // prefetchAllEpg is already withContext(Dispatchers.IO) internally,
+            // so launch it as a separate job so it doesn't block channel playback
+            launch { repository.prefetchAllEpg() }
 
             initializePlayer()
             setupOverlays()
@@ -682,11 +688,15 @@ class PlayerActivity : AppCompatActivity() {
     private fun toggleFavorite() {
         val token = authToken ?: return
         val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return
+        val deviceId = DeviceIdHelper.getDeviceId(this)
         val willBeFavorite = !channel.isFavorite
         repository.setFavoriteLocal(channel.id, willBeFavorite)
         controlOverlayManager.updateFavoriteButton(willBeFavorite)
         lifecycleScope.launch(Dispatchers.IO) {
-            val success = if (willBeFavorite) repository.addFavouriteRemote(token, channel.apiId) else repository.removeFavouriteRemote(token, channel.apiId)
+            val success = if (willBeFavorite)
+                repository.addFavouriteRemote(token, channel.apiId, deviceId)
+            else
+                repository.removeFavouriteRemote(token, channel.apiId, deviceId)
             if (!success) withContext(Dispatchers.Main) {
                 repository.setFavoriteLocal(channel.id, !willBeFavorite)
                 controlOverlayManager.updateFavoriteButton(!willBeFavorite)
