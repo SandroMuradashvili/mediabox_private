@@ -510,13 +510,11 @@ class EpgOverlayManager(
 
     private fun handleChannelKeys(keyCode: Int): Boolean {
         val channelList = binding.root.findViewById<RecyclerView>(R.id.channelList) ?: return false
-        val now = System.currentTimeMillis()
 
         return when (keyCode) {
             // Inside handleChannelKeys
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
                 val now = System.currentTimeMillis()
-                // Ignore signals that are faster than 60ms
                 if (now - lastMoveTime < moveThrottleMs) return true
                 lastMoveTime = now
 
@@ -525,15 +523,11 @@ class EpgOverlayManager(
 
                 if (newIndex in filteredChannels.indices) {
                     selectedChannelIndex = newIndex
-
-                    // VISUALS: Move highlight and jump to position instantly
                     channelAdapter.setHighlight(selectedChannelIndex)
-                    (channelList.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(selectedChannelIndex, 150)
-
-                    // DATA: Trigger the delayed load
+                    (channelList.layoutManager as LinearLayoutManager)
+                        .scrollToPositionWithOffset(selectedChannelIndex, 0)
                     loadProgramsForChannel(selectedChannelIndex)
                 } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-                    // Return to categories
                     focusSection = FocusSection.CATEGORIES
                     channelAdapter.setHighlight(-1)
                     highlightCategory()
@@ -570,6 +564,67 @@ class EpgOverlayManager(
                 true
             }
             else -> false
+        }
+    }
+
+    fun saveState(prefs: android.content.SharedPreferences) {
+        prefs.edit()
+            .putInt("epg_category_index", selectedCategoryIndex)
+            .putInt("epg_channel_index", selectedChannelIndex)
+            .putInt("epg_program_index", selectedProgramIndex)
+            .putString("epg_category", currentCategory)
+            .putString("epg_focus_section", focusSection.name)
+            .apply()
+    }
+
+    fun restoreState(prefs: android.content.SharedPreferences) {
+        val savedCategory = prefs.getString("epg_category", "") ?: ""
+        val isKa = LangPrefs.isKa(activity)
+        val categories = repository.getCategories(isKa)
+
+        // Validate saved category still exists
+        if (savedCategory.isNotEmpty() && categories.contains(savedCategory)) {
+            selectedCategoryIndex = prefs.getInt("epg_category_index", 0)
+            currentCategory = savedCategory
+            filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
+            channelAdapter.updateChannels(filteredChannels)
+        }
+
+        val savedChannelIndex = prefs.getInt("epg_channel_index", 0)
+        selectedChannelIndex = savedChannelIndex.coerceIn(0, (filteredChannels.size - 1).coerceAtLeast(0))
+
+        selectedProgramIndex = prefs.getInt("epg_program_index", 0)
+
+        val sectionName = prefs.getString("epg_focus_section", FocusSection.CHANNELS.name)
+        focusSection = try {
+            FocusSection.valueOf(sectionName ?: FocusSection.CHANNELS.name)
+        } catch (e: Exception) {
+            FocusSection.CHANNELS
+        }
+    }
+
+    fun requestFocusOnRestored() {
+        channelAdapter.setHighlight(selectedChannelIndex)
+        highlightCategory()
+        updateFocusIndicator()
+
+        val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
+        (rv?.layoutManager as? LinearLayoutManager)
+            ?.scrollToPositionWithOffset(selectedChannelIndex, 0)
+
+        val channel = filteredChannels.getOrNull(selectedChannelIndex)
+        if (channel == null || channel.isLocked) {
+            if (channel != null) showLockedChannelInfo(channel)
+            return
+        }
+
+        val cached = channel.programs
+        if (cached.isNotEmpty()) {
+            loadProgramsJob = scope.launch {
+                renderPrograms(channel, cached)
+            }
+        } else {
+            loadProgramsForChannel(selectedChannelIndex)
         }
     }
 

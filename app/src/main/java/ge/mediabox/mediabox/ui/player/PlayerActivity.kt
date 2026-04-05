@@ -675,17 +675,25 @@ class PlayerActivity : AppCompatActivity() {
     private fun showEpg() {
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
-        epgOverlayManager.refreshData(channels)
-        val currentTs = getCurrentAbsoluteTime()
-        val tsToPass = if (isLiveMode) System.currentTimeMillis() else currentTs
-        epgOverlayManager.requestFocus(
-            channels.getOrNull(currentChannelIndex)?.id ?: -1,
-            tsToPass
-        )
+        val prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE)
+        val hasState = prefs.contains("epg_category")
+        if (hasState) {
+            epgOverlayManager.refreshData(channels)
+            epgOverlayManager.restoreState(prefs)
+            // Still scroll channel list and load programs for restored position
+            epgOverlayManager.requestFocusOnRestored()
+        } else {
+            epgOverlayManager.refreshData(channels)
+            val currentTs = if (isLiveMode) System.currentTimeMillis() else getCurrentAbsoluteTime()
+            epgOverlayManager.requestFocus(channels.getOrNull(currentChannelIndex)?.id ?: -1, currentTs)
+        }
     }
 
-    private fun hideEpg() { isEpgVisible = false; binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE }
-
+    private fun hideEpg() {
+        epgOverlayManager.saveState(getSharedPreferences("AppPrefs", MODE_PRIVATE))
+        isEpgVisible = false
+        binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE
+    }
     private fun showTimeRewind() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         hideControls()
