@@ -127,7 +127,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="2dp"
                         android:background="#EF4444"
-                        android:visibility="gone"/>
+                        android:visibility="invisible"/>
 
 
                     <TextView
@@ -172,7 +172,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="2dp"
                         android:background="#EF4444"
-                        android:visibility="gone"/>
+                        android:visibility="invisible"/>
 
                     <!-- Placeholder — shown when no channel is selected OR a locked channel is hovered -->
                     <LinearLayout

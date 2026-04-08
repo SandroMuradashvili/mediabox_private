@@ -91,28 +91,15 @@ object ChannelRepository {
         }
         null
     }
-    @Volatile private var priorityChannelApiId: String? = null
 
-    suspend fun prefetchAllEpg() = withContext(Dispatchers.IO) {
-        val unlocked = channels.filter { !it.isLocked }
-        val first = unlocked.take(30)
-        val rest  = unlocked.drop(30)
-
-        // First 30: fetch as fast as possible, no delay
-        for (ch in first) {
+    /**
+     * Prefetch EPG for the first 10 unlocked channels only.
+     * Called once when EPG is first opened, silently in background.
+     */
+    suspend fun prefetchFirstTenEpg() = withContext(Dispatchers.IO) {
+        val unlocked = channels.filter { !it.isLocked }.take(10)
+        for (ch in unlocked) {
             fetchEpgIfNeeded(ch)
-        }
-
-        // Rest: gentle throttle to avoid hammering server
-        for (ch in rest) {
-            val priority = priorityChannelApiId
-            if (priority != null && priority != ch.apiId) {
-                val priorityCh = channels.find { it.apiId == priority }
-                if (priorityCh != null) fetchEpgIfNeeded(priorityCh)
-                priorityChannelApiId = null
-            }
-            fetchEpgIfNeeded(ch)
-            kotlinx.coroutines.delay(80)
         }
     }
 
@@ -130,13 +117,12 @@ object ChannelRepository {
 
     suspend fun priorityFetchEpg(channelId: Int) = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == channelId } ?: return@withContext
-        priorityChannelApiId = ch.apiId
         fetchEpgIfNeeded(ch)
     }
 
     /**
      * CACHED EPG FETCH:
-     * Returns cached programs if fetched within last 2 hours.
+     * Returns cached programs if fetched within last 4 hours.
      */
     suspend fun getProgramsForChannel(id: Int): List<Program> = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == id } ?: return@withContext emptyList()
@@ -172,10 +158,8 @@ object ChannelRepository {
         if (resp != null && resp.url.isNotEmpty()) {
             ch.archiveStreamUrl = resp.url
 
-            // ApiService already returns Milliseconds, so just use it directly!
             val expiryMs = ApiService.extractExpiryFromUrl(resp.url)
             ch.archiveStreamExpiry = expiryMs
-
 
             if (resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
             return@withContext resp.url

@@ -196,9 +196,7 @@ class PlayerActivity : AppCompatActivity() {
             repository.initialize(authToken, isKa, deviceId)
             channels = repository.getAllChannels()
 
-            // prefetchAllEpg is already withContext(Dispatchers.IO) internally,
-            // so launch it as a separate job so it doesn't block channel playback
-            launch { repository.prefetchAllEpg() }
+            // No mass EPG prefetch — EPG loads on demand when user opens guide
 
             initializePlayer()
             setupOverlays()
@@ -224,12 +222,10 @@ class PlayerActivity : AppCompatActivity() {
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
-        // 1. Aim for HD immediately
         val bandwidthMeter = DefaultBandwidthMeter.Builder(this)
             .setInitialBitrateEstimate(25_000_000L) // 25 Mbps
             .build()
 
-        // 2. Extra heavy buffering to smooth out quality changes
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 45_000,  // Min buffer (45s)
@@ -240,17 +236,16 @@ class PlayerActivity : AppCompatActivity() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        // 3. Strictest possible "Rate Limiter" for quality switches (Wait 120s before switching back)
         val adaptiveTrackSelectionFactory = AdaptiveTrackSelection.Factory(
-            120_000, // Wait 2 minutes of stable internet before increasing quality
-            60_000,  // Wait 1 minute before decreasing quality
+            120_000,
+            60_000,
             AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
-            0.60f    // Bandwidth fraction: Only use 60% of estimated speed (Very safe cushion)
+            0.60f
         )
 
         val trackSelector = DefaultTrackSelector(this, adaptiveTrackSelectionFactory).apply {
             parameters = buildUponParameters()
-                .setAllowVideoNonSeamlessAdaptiveness(false) // LOCK: Disable jarring "snaps"
+                .setAllowVideoNonSeamlessAdaptiveness(false)
                 .build()
         }
 
@@ -284,13 +279,12 @@ class PlayerActivity : AppCompatActivity() {
             if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) returnToLive()
         }
         override fun onTracksChanged(tracks: Tracks) { if (::trackSelectionManager.isInitialized) trackSelectionManager.onTracksChanged(tracks) }
-        
-        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) { 
-            // HARD LOCK: Re-apply user resize preference whenever video resolution changes to stop "tweaking"
+
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
             binding.playerView.resizeMode = currentResizeMode
-            updateQualityDisplay(videoSize.height) 
+            updateQualityDisplay(videoSize.height)
         }
-        
+
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
@@ -338,7 +332,6 @@ class PlayerActivity : AppCompatActivity() {
         if (!isBrowsing) binding.videoPlaceholder.visibility = View.VISIBLE
         updateOverlayInfo()
         fetchProgramsForCurrentChannel()
-        lifecycleScope.launch(Dispatchers.IO) { repository.priorityFetchEpg(channel.id) }
         prefetchNeighbors(index)
         loadStream { repository.getStreamUrl(channel.id, authToken) }
     }
@@ -439,6 +432,11 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Returns the absolute wall-clock time of what's currently on screen.
+     * - Live mode: current system time
+     * - Archive mode: the timestamp at which the archive stream started + how far the player has advanced
+     */
     private fun getCurrentAbsoluteTime(): Long {
         return if (isLiveMode) System.currentTimeMillis()
         else archiveBaseTimestamp + (player?.currentPosition ?: 0L)
@@ -456,10 +454,10 @@ class PlayerActivity : AppCompatActivity() {
         super.onResume()
         resetInactivityTimer()
         if (!isInitialized) return
-        
+
         controlOverlayManager.updateLocale()
         updateOverlayInfo()
-        
+
         if (!userIntentionallyPaused) {
             if (isLiveMode) playChannel(currentChannelIndex)
             else player?.playWhenReady = true
@@ -476,43 +474,43 @@ class PlayerActivity : AppCompatActivity() {
         zapHandler.removeCallbacksAndMessages(null)
         hideControlsHandler.removeCallbacksAndMessages(null)
         player?.release(); player = null
-        if (::epgOverlayManager.isInitialized) epgOverlayManager.destroy() // ADD THIS
+        if (::epgOverlayManager.isInitialized) epgOverlayManager.destroy()
     }
-        private fun setupOverlays() {
-            controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
-            val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)
-            if (topLogo != null) LogoManager.loadLogo(topLogo)
 
+    private fun setupOverlays() {
+        controlOverlayManager = ControlOverlayManager(binding = binding, onFavoriteToggle = { toggleFavorite() })
+        val topLogo = binding.controlOverlay.root.findViewById<ImageView>(R.id.ivTopLogo)
+        if (topLogo != null) LogoManager.loadLogo(topLogo)
 
-            epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
-                onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
-                onArchiveSelected = { instruction ->
-                    val parts = instruction.split(":")
-                    if (parts.size >= 4) playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
-                    hideEpg()
-                }
-            )
-
-            lifecycleScope.launch(Dispatchers.Default) {
-                epgOverlayManager.preWarmPools()
+        epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
+            onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
+            onArchiveSelected = { instruction ->
+                val parts = instruction.split(":")
+                if (parts.size >= 4) playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
+                hideEpg()
             }
+        )
 
-            val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
-            timeRewindManager = TimeRewindOverlayManager(activity = this, overlayView = rewindOverlayView,
-                channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
-                onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
-                onDismiss = { isTimeRewindVisible = false })
-
-            val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
-            trackSelectionManager = TrackSelectionOverlayManager(
-                activity = this,
-                overlayView = trackOverlayView,
-                playerProvider = { player },
-                onAspectRatioToggle = { toggleAspectRatio() },
-                getAspectRatioLabel = { getAspectRatioLabel() }
-            )
-            trackSelectionManager.init()
+        lifecycleScope.launch(Dispatchers.Default) {
+            epgOverlayManager.preWarmPools()
         }
+
+        val rewindOverlayView = layoutInflater.inflate(R.layout.overlay_time_rewind, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
+        timeRewindManager = TimeRewindOverlayManager(activity = this, overlayView = rewindOverlayView,
+            channelIdProvider = { channels.getOrNull(currentChannelIndex)?.id ?: -1 },
+            onTimeSelected = { ts -> playArchiveAt(channels[currentChannelIndex].id, ts) },
+            onDismiss = { isTimeRewindVisible = false })
+
+        val trackOverlayView = layoutInflater.inflate(R.layout.overlay_track_selection, binding.root, false).also { it.visibility = View.GONE; binding.root.addView(it) }
+        trackSelectionManager = TrackSelectionOverlayManager(
+            activity = this,
+            overlayView = trackOverlayView,
+            playerProvider = { player },
+            onAspectRatioToggle = { toggleAspectRatio() },
+            getAspectRatioLabel = { getAspectRatioLabel() }
+        )
+        trackSelectionManager.init()
+    }
 
     private fun setupControlButtons() {
         binding.root.apply {
@@ -555,21 +553,21 @@ class PlayerActivity : AppCompatActivity() {
         currentNotifiedPlan = plan
         val isKa = LangPrefs.isKa(this)
         val overlay = binding.subNotificationOverlay.root
-        
-        overlay.findViewById<TextView>(R.id.tvSubNotificationTitle)?.text = 
+
+        overlay.findViewById<TextView>(R.id.tvSubNotificationTitle)?.text =
             if (isKa) "გამოწერა იწურება" else "Subscription Expiring"
-            
+
         val planName = if (isKa) plan.name_ka else plan.name_en
         val days = plan.days_left.toInt()
-        overlay.findViewById<TextView>(R.id.tvSubNotificationMessage)?.text = 
-            if (isKa) "თქვენს პაკეტს ($planName) დარჩა $days დღე." 
+        overlay.findViewById<TextView>(R.id.tvSubNotificationMessage)?.text =
+            if (isKa) "თქვენს პაკეტს ($planName) დარჩა $days დღე."
             else "Your plan ($planName) expires in $days days."
-            
+
         overlay.findViewById<Button>(R.id.btnSubNotificationOk)?.apply {
             text = if (isKa) "გასაგებია" else "OK"
             requestFocus()
         }
-        
+
         overlay.visibility = View.VISIBLE
     }
 
@@ -578,11 +576,11 @@ class PlayerActivity : AppCompatActivity() {
         isSubNotificationShowing = false
         currentNotifiedPlan = null
         binding.subNotificationOverlay.root.visibility = View.GONE
-        
+
         if (planToMark != null) {
             SubscriptionNotificationManager.markAsNotified(this, planToMark)
         }
-        
+
         checkSubscriptions()
     }
 
@@ -675,17 +673,23 @@ class PlayerActivity : AppCompatActivity() {
     private fun showEpg() {
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
+
+        // Pass the EXACT current playback time — archive-aware
+        val currentTs = getCurrentAbsoluteTime()
+
         val prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE)
         val hasState = prefs.contains("epg_category")
         if (hasState) {
             epgOverlayManager.refreshData(channels)
             epgOverlayManager.restoreState(prefs)
-            // Still scroll channel list and load programs for restored position
-            epgOverlayManager.requestFocusOnRestored()
+            // Update playback timestamp even on restore so cursor is correct
+            epgOverlayManager.requestFocusOnRestored(currentTs)
         } else {
             epgOverlayManager.refreshData(channels)
-            val currentTs = if (isLiveMode) System.currentTimeMillis() else getCurrentAbsoluteTime()
-            epgOverlayManager.requestFocus(channels.getOrNull(currentChannelIndex)?.id ?: -1, currentTs)
+            epgOverlayManager.requestFocus(
+                currentChannelId = channels.getOrNull(currentChannelIndex)?.id ?: -1,
+                currentTimestampMs = currentTs
+            )
         }
     }
 
@@ -694,6 +698,7 @@ class PlayerActivity : AppCompatActivity() {
         isEpgVisible = false
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE
     }
+
     private fun showTimeRewind() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         hideControls()

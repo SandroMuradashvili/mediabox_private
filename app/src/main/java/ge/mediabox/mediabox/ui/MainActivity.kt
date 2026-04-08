@@ -85,7 +85,6 @@ class MainActivity : AppCompatActivity() {
         val isKa = LangPrefs.isKa(this)
         lifecycleScope.launch {
             ge.mediabox.mediabox.data.repository.ChannelRepository.initialize(token, isKa, deviceId)
-            ge.mediabox.mediabox.data.repository.ChannelRepository.prefetchAllEpg()
         }
     }
 
