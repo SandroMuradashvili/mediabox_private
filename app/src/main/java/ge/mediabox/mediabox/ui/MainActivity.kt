@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var selectedIndex = 0
     private var isReady = false
-    private var isNotificationShowing = false
+    private var isSubNotificationShowing = false
     private var currentNotifiedPlan: MyPlan? = null
 
     private val cards get() = listOf(
@@ -66,12 +66,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupCards()
-        setupNotification()
+        setupNotificationOverlay()
         showMenuImmediate()
         clockHandler.post(clockRunnable)
         
         checkSubscriptions()
-        // Warm up channel + EPG data in background so EPG is instant when user opens player
+        
+        // Initial fetch of unread notifications from API
+        NotificationDisplayManager.fetchInitialNotifications(token, lifecycleScope)
+
+        // Socket listener for real-time notifications
+        MobileRemoteManager.setNotificationListener { notification ->
+            NotificationDisplayManager.addNotification(notification)
+        }
+
+        // Warm up channel + EPG data in background
         val deviceId = DeviceIdHelper.getDeviceId(this)
         val isKa = LangPrefs.isKa(this)
         lifecycleScope.launch {
@@ -83,15 +92,25 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!::binding.isInitialized) return
-        if (getSavedToken().isNullOrBlank()) {
+        val token = getSavedToken()
+        if (token.isNullOrBlank()) {
             redirectToLogin()
             return
         }
+        
+        // Register this activity to display notifications
+        NotificationDisplayManager.register(this, binding.subNotificationOverlay.root, token)
+        
         updateCardLabels()
-        if (!isNotificationShowing) {
+        if (!isSubNotificationShowing && !NotificationDisplayManager.isShowing()) {
             updateSelection()
             checkSubscriptions()
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        NotificationDisplayManager.unregister()
     }
 
     override fun onDestroy() {
@@ -106,7 +125,7 @@ class MainActivity : AppCompatActivity() {
 
         cards.forEachIndexed { index, card ->
             card.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus && !isNotificationShowing) {
+                if (hasFocus && !isSubNotificationShowing && !NotificationDisplayManager.isShowing()) {
                     selectedIndex = index
                     updateSelection()
                 }
@@ -114,13 +133,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupNotification() {
+    private fun setupNotificationOverlay() {
+        // okBtn click is handled inside NotificationDisplayManager for general notifications
+        // We handle it here ONLY if it's a local subscription notification
         binding.subNotificationOverlay.root.findViewById<Button>(R.id.btnSubNotificationOk)?.setOnClickListener {
-            dismissNotification()
+            if (isSubNotificationShowing) {
+                dismissSubscriptionNotification()
+            }
         }
     }
 
     private fun checkSubscriptions() {
+        if (NotificationDisplayManager.isShowing()) return
         val token = getSavedToken() ?: return
         lifecycleScope.launch {
             try {
@@ -135,7 +159,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSubscriptionNotification(plan: MyPlan) {
-        isNotificationShowing = true
+        if (NotificationDisplayManager.isShowing()) return
+        isSubNotificationShowing = true
         currentNotifiedPlan = plan
         
         val isKa = LangPrefs.isKa(this)
@@ -159,11 +184,15 @@ class MainActivity : AppCompatActivity() {
         
         overlay.visibility = View.VISIBLE
         okBtn?.requestFocus()
+        
+        okBtn?.setOnClickListener {
+            dismissSubscriptionNotification()
+        }
     }
 
-    private fun dismissNotification() {
+    private fun dismissSubscriptionNotification() {
         val planToMark = currentNotifiedPlan
-        isNotificationShowing = false
+        isSubNotificationShowing = false
         currentNotifiedPlan = null
         binding.subNotificationOverlay.root.visibility = View.GONE
         
@@ -171,11 +200,9 @@ class MainActivity : AppCompatActivity() {
             SubscriptionNotificationManager.markAsNotified(this, planToMark)
         }
         
-        // Immediately check for the next plan in the sequence
         checkSubscriptions()
         
-        // If nothing else was triggered, return focus
-        if (!isNotificationShowing) {
+        if (!isSubNotificationShowing && !NotificationDisplayManager.isShowing()) {
             cards.getOrNull(selectedIndex)?.requestFocus()
         }
     }
@@ -262,9 +289,10 @@ class MainActivity : AppCompatActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isReady) return true
 
-        if (isNotificationShowing) {
+        if (isSubNotificationShowing || NotificationDisplayManager.isShowing()) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_BACK) {
-                dismissNotification()
+                // Perform click on OK button regardless of which type is showing
+                binding.subNotificationOverlay.root.findViewById<View>(R.id.btnSubNotificationOk)?.performClick()
                 return true
             }
             return true
@@ -306,7 +334,7 @@ class MainActivity : AppCompatActivity() {
         cards.forEach { applyCardState(it, false) }
 
         Handler(Looper.getMainLooper()).postDelayed({
-            if (!isNotificationShowing) {
+            if (!isSubNotificationShowing && !NotificationDisplayManager.isShowing()) {
                 cards[0].requestFocus()
             }
             isReady = true

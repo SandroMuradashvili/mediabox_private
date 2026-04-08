@@ -3,6 +3,7 @@ package ge.mediabox.mediabox.ui
 import android.app.Instrumentation
 import android.util.Log
 import android.view.KeyEvent
+import ge.mediabox.mediabox.data.api.ApiService
 import io.socket.client.IO
 import io.socket.client.Socket
 import org.json.JSONObject
@@ -18,6 +19,13 @@ object MobileRemoteManager {
 
     private var socket: Socket? = null
     private val instrumentation = Instrumentation()
+    
+    // Callback for real-time notifications
+    private var onNotificationReceived: ((ApiService.Notification) -> Unit)? = null
+
+    fun setNotificationListener(listener: (ApiService.Notification) -> Unit) {
+        onNotificationReceived = listener
+    }
 
     fun isConnected(): Boolean = socket?.connected() ?: false
 
@@ -58,6 +66,22 @@ object MobileRemoteManager {
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing command", e)
+                }
+            }
+
+            socket?.on("notification") { args ->
+                try {
+                    val data = args[0] as JSONObject
+                    val id = data.optString("id", data.optString("_id", ""))
+                    val message = data.optString("message", "")
+                    val title = data.optString("title", null)
+                    
+                    if (id.isNotEmpty() && message.isNotEmpty()) {
+                        val notification = ApiService.Notification(id, message, title)
+                        onNotificationReceived?.invoke(notification)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing notification from socket", e)
                 }
             }
 

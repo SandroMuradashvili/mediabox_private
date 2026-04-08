@@ -20,6 +20,8 @@ object ApiService {
     // Full Data Class for Logo Response
     data class LogoResponse(val logo_light: String, val logo_dark: String)
 
+    data class Notification(val id: String, val message: String, val title: String? = null)
+
     // Full Function to fetch logos with LOGO_TEST logs
     fun fetchLogos(token: String? = null): LogoResponse? = try {
         val url = "${BuildConfig.BASE_API_URL}/settings/logos"
@@ -221,5 +223,57 @@ object ApiService {
             Log.e("ApiService", "Error parsing programs: ${e.message}")
         }
         return programs
+    }
+
+    fun fetchNotifications(token: String): List<Notification> {
+        val notifications = mutableListOf<Notification>()
+        val url = "$BASE_URL/notifications"
+        Log.d("Pairing", "📡 [ApiService] Fetching notifications from: $url")
+        try {
+            val conn = openGet(url, token)
+            Log.d("Pairing", "📡 [ApiService] Response Code: ${conn.responseCode}")
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                Log.d("Pairing", "📡 [ApiService] Notifications JSON: $text")
+                
+                val root = JSONObject(text)
+                val dataArr = root.optJSONArray("data")
+                
+                if (dataArr != null) {
+                    for (i in 0 until dataArr.length()) {
+                        val obj = dataArr.getJSONObject(i)
+                        
+                        // Extract title from top level
+                        val title = obj.optString("title", "")
+                        
+                        // Extract message from nested payload object
+                        val payload = obj.optJSONObject("payload")
+                        val message = payload?.optString("message", "") ?: obj.optString("message", "")
+                        
+                        notifications.add(Notification(
+                            obj.optString("id", obj.optString("_id", "")),
+                            message,
+                            if (title.isNotEmpty()) title else null
+                        ))
+                    }
+                }
+            } else {
+                Log.e("Pairing", "❌ [ApiService] Notification fetch failed with HTTP ${conn.responseCode}")
+            }
+        } catch (e: Exception) {
+            Log.e("Pairing", "❌ [ApiService] fetchNotifications error", e)
+        }
+        return notifications
+    }
+
+    fun markNotificationAsRead(id: String, token: String): Boolean = try {
+        val url = "$BASE_URL/notifications/$id/read"
+        Log.d("Pairing", "📡 [ApiService] Marking notification $id as read: $url")
+        val conn = openPost(url, token)
+        Log.d("Pairing", "📡 [ApiService] Mark as read response: ${conn.responseCode}")
+        conn.responseCode == HttpURLConnection.HTTP_OK
+    } catch (e: Exception) {
+        Log.e("Pairing", "❌ [ApiService] markNotificationAsRead error", e)
+        false
     }
 }

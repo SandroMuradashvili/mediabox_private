@@ -194,6 +194,7 @@ class LoginActivity : AppCompatActivity() {
             mSocket = IO.socket(SOCKET_URL, options)
 
             mSocket?.on(Socket.EVENT_CONNECT) {
+                Log.d(TAG, "Socket Connected ✓")
                 runOnUiThread { 
                     currentStatus = PairingStatus.CONNECTED
                     updateStatusText()
@@ -201,17 +202,27 @@ class LoginActivity : AppCompatActivity() {
             }
 
             mSocket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
-                Log.e(TAG, "Socket Error: ${args.getOrNull(0)}")
+                Log.e(TAG, "Socket Connect Error: ${args.getOrNull(0)}")
             }
 
             mSocket?.on("pairing_ready") { args ->
                 val data = args.getOrNull(0) as? JSONObject
+                Log.d(TAG, "Socket Message [pairing_ready]: $data")
+                
                 val claimToken = data?.optString("claim_token")
-
                 if (!claimToken.isNullOrEmpty()) {
-                    disconnectSocket()
+                    // Removed disconnectSocket() so it stays open
                     lifecycleScope.launch { claimSession(claimToken) }
                 }
+            }
+
+            // Listen for any other potential messages for testing
+            mSocket?.on("message") { args ->
+                Log.d(TAG, "Socket Message [message]: ${args.getOrNull(0)}")
+            }
+            
+            mSocket?.on("command") { args ->
+                Log.d(TAG, "Socket Message [command]: ${args.getOrNull(0)}")
             }
 
             mSocket?.on(Socket.EVENT_DISCONNECT) {

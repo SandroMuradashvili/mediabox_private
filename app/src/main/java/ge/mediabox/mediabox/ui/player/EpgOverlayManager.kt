@@ -527,12 +527,15 @@ class EpgOverlayManager(
                     (channelList.layoutManager as LinearLayoutManager)
                         .scrollToPositionWithOffset(selectedChannelIndex, 0)
                     loadProgramsForChannel(selectedChannelIndex)
-                } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP && selectedChannelIndex == 0) {
+                    // Only go to categories if we're genuinely at the top
                     focusSection = FocusSection.CATEGORIES
                     channelAdapter.setHighlight(-1)
                     highlightCategory()
                     updateFocusIndicator()
+                    programLoadRunnable?.let { programLoadHandler.removeCallbacks(it) }
                 }
+                // else: bottom boundary, do nothing, consume event
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -568,12 +571,14 @@ class EpgOverlayManager(
     }
 
     fun saveState(prefs: android.content.SharedPreferences) {
+        val sectionToSave = if (focusSection == FocusSection.PROGRAMS)
+            FocusSection.CHANNELS else focusSection
         prefs.edit()
             .putInt("epg_category_index", selectedCategoryIndex)
             .putInt("epg_channel_index", selectedChannelIndex)
             .putInt("epg_program_index", selectedProgramIndex)
             .putString("epg_category", currentCategory)
-            .putString("epg_focus_section", focusSection.name)
+            .putString("epg_focus_section", sectionToSave.name)
             .apply()
     }
 
@@ -582,7 +587,6 @@ class EpgOverlayManager(
         val isKa = LangPrefs.isKa(activity)
         val categories = repository.getCategories(isKa)
 
-        // Validate saved category still exists
         if (savedCategory.isNotEmpty() && categories.contains(savedCategory)) {
             selectedCategoryIndex = prefs.getInt("epg_category_index", 0)
             currentCategory = savedCategory
@@ -592,15 +596,16 @@ class EpgOverlayManager(
 
         val savedChannelIndex = prefs.getInt("epg_channel_index", 0)
         selectedChannelIndex = savedChannelIndex.coerceIn(0, (filteredChannels.size - 1).coerceAtLeast(0))
-
         selectedProgramIndex = prefs.getInt("epg_program_index", 0)
 
+        // Never restore PROGRAMS — panel is GONE on open, causes desync
         val sectionName = prefs.getString("epg_focus_section", FocusSection.CHANNELS.name)
-        focusSection = try {
+        val restored = try {
             FocusSection.valueOf(sectionName ?: FocusSection.CHANNELS.name)
         } catch (e: Exception) {
             FocusSection.CHANNELS
         }
+        focusSection = if (restored == FocusSection.PROGRAMS) FocusSection.CHANNELS else restored
     }
 
     fun requestFocusOnRestored() {
@@ -819,12 +824,16 @@ class EpgOverlayManager(
             val dateCol:     TextView?  = itemView.findViewById(R.id.tvProgramDate)
 
             fun bind(program: Program, isHighlighted: Boolean) {
+
+                itemView.isActivated = false
+                itemView.isSelected = false
+
                 val now      = System.currentTimeMillis()
                 val anchorMs = watchingTimestampMs ?: now
 
+
                 val isWatching  = anchorMs in program.startTime until program.endTime
                 val isPast      = program.endTime < now
-                val isFuture    = program.startTime > now
 
                 time.text     = "${timeFmt.format(Date(program.startTime))}–${timeFmt.format(Date(program.endTime))}"
                 title.text    = program.title
