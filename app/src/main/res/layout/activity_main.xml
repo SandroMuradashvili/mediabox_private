@@ -8,13 +8,19 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
+    <!-- Subtle Background Vignette -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/vignette_overlay" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <!-- ══ HEADER ════════════════════════════════════════════════ -->
+        <!-- HEADER -->
         <LinearLayout
             android:id="@+id/headerBar"
             android:layout_width="0dp"
@@ -24,7 +30,6 @@
             android:paddingStart="52dp"
             android:paddingEnd="52dp"
             android:paddingTop="28dp"
-            android:paddingBottom="18dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
@@ -34,316 +39,135 @@
                 android:layout_width="130dp"
                 android:layout_height="27dp"
                 android:src="@drawable/ic_mediabox_logo"
-                android:scaleType="fitStart"
-                android:contentDescription="Mediabox"/>
+                android:scaleType="fitStart" />
 
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1"/>
+            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1"/>
 
             <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="end">
-
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="end">
                 <TextView
                     android:id="@+id/tvTime"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="00:00"
-                    android:textColor="#F1F5F9"
-                    android:textSize="26sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="-0.03"
-                    android:fontFamily="sans-serif-light"/>
-
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:textColor="#F1F5F9" android:textSize="26sp" android:textStyle="bold" />
                 <TextView
                     android:id="@+id/tvDate"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Mon, 1 Jan"
-                    android:textColor="#4094A3B8"
-                    android:textSize="10sp"
-                    android:gravity="end"
-                    android:letterSpacing="0.06"
-                    android:layout_marginTop="2dp"/>
-
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:textColor="#4094A3B8" android:textSize="10sp" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Hairline separator -->
-        <View
-            android:id="@+id/dividerTop"
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:background="#1AE52121"
-            android:layout_marginStart="52dp"
-            android:layout_marginEnd="52dp"
-            app:layout_constraintTop_toBottomOf="@id/headerBar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
-        <!-- ══ CARDS ═════════════════════════════════════════════════ -->
-        <LinearLayout
-            android:id="@+id/cardsRow"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+        <!-- CAROUSEL AREA -->
+        <FrameLayout
+            android:id="@+id/cardsCarousel"
+            android:layout_width="match_parent"
+            android:layout_height="350dp"
             android:clipChildren="false"
             android:clipToPadding="false"
-            app:layout_constraintTop_toBottomOf="@id/dividerTop"
-            app:layout_constraintBottom_toTopOf="@id/hintBar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/headerBar"
+            app:layout_constraintBottom_toTopOf="@id/hintBar">
 
-            <!-- ─── WATCH TV ─── -->
+            <!-- WATCH TV CARD -->
             <FrameLayout
                 android:id="@+id/cardWatchTv"
-                android:layout_width="210dp"
-                android:layout_height="248dp"
-                android:layout_marginStart="18dp"
-                android:layout_marginEnd="18dp"
+                android:layout_width="220dp"
+                android:layout_height="280dp"
+                android:layout_gravity="center"
                 android:background="@drawable/menu_card_glass"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:clickable="true">
-
+                android:focusable="true">
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp"
-                    android:paddingTop="36dp"
-                    android:paddingBottom="30dp">
-
-                    <!-- Icon -->
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="50dp"
-                        android:layout_height="50dp"
-                        android:src="@drawable/ic_menu_watch"
-                        android:alpha="0.45"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Watch TV"
-                        app:tint="#F1F5F9"/>
-
-                    <!-- Accent line -->
-                    <View
-                        android:tag="labelAccent"
-                        android:layout_width="24dp"
-                        android:layout_height="1dp"
-                        android:background="#E52121"
-                        android:layout_marginTop="22dp"
-                        android:layout_marginBottom="12dp"
-                        android:alpha="0"/>
-
-                    <TextView
-                        android:tag="label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ტელევიზია"
-                        android:textColor="#F1F5F9"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:gravity="center"
-                        android:letterSpacing="-0.01"
-                        android:alpha="0.6"/>
-
-                    <TextView
-                        android:tag="sublabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="პირდაპირი · არქივი · HD"
-                        android:textColor="#6094A3B8"
-                        android:textSize="13sp"
-                        android:gravity="center"
-                        android:letterSpacing="0.01"
-                        android:layout_marginTop="8dp"
-                        android:alpha="0"/>
-
+                    android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:orientation="vertical" android:gravity="center" android:padding="20dp">
+                    <ImageView android:tag="icon" android:layout_width="65dp" android:layout_height="65dp"
+                        android:src="@drawable/ic_menu_watch" app:tint="#F1F5F9" />
+                    <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="#F1F5F9" android:textSize="20sp" android:textStyle="bold" android:layout_marginTop="15dp"/>
+                    <TextView android:tag="sublabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="#94A3B8" android:textSize="11sp" android:alpha="0" android:gravity="center" />
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- ─── RADIO ─── -->
+            <!-- RADIO CARD -->
             <FrameLayout
                 android:id="@+id/cardRadio"
-                android:layout_width="210dp"
-                android:layout_height="248dp"
-                android:layout_marginStart="18dp"
-                android:layout_marginEnd="18dp"
+                android:layout_width="220dp"
+                android:layout_height="280dp"
+                android:layout_gravity="center"
                 android:background="@drawable/menu_card_glass"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:clickable="true">
-
+                android:focusable="true">
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp"
-                    android:paddingTop="36dp"
-                    android:paddingBottom="30dp">
-
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="50dp"
-                        android:layout_height="50dp"
-                        android:src="@drawable/ic_radio"
-                        android:alpha="0.45"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Radio"
-                        app:tint="#F1F5F9"/>
-
-                    <View
-                        android:tag="labelAccent"
-                        android:layout_width="24dp"
-                        android:layout_height="1dp"
-                        android:background="#E52121"
-                        android:layout_marginTop="22dp"
-                        android:layout_marginBottom="12dp"
-                        android:alpha="0"/>
-
-                    <TextView
-                        android:tag="label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="რადიო"
-                        android:textColor="#F1F5F9"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:gravity="center"
-                        android:letterSpacing="-0.01"
-                        android:alpha="0.6"/>
-
-                    <TextView
-                        android:tag="sublabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="სადგურები · მუსიკა"
-                        android:textColor="#6094A3B8"
-                        android:textSize="13sp"
-                        android:gravity="center"
-                        android:letterSpacing="0.01"
-                        android:layout_marginTop="8dp"
-                        android:alpha="0"/>
-
+                    android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:orientation="vertical" android:gravity="center" android:padding="20dp">
+                    <ImageView android:tag="icon" android:layout_width="65dp" android:layout_height="65dp"
+                        android:src="@drawable/ic_radio" app:tint="#F1F5F9" />
+                    <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="#F1F5F9" android:textSize="20sp" android:textStyle="bold" android:layout_marginTop="15dp"/>
+                    <TextView android:tag="sublabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="#94A3B8" android:textSize="11sp" android:alpha="0" android:gravity="center" />
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- ─── PROFILE ─── -->
+            <!-- PROFILE CARD -->
             <FrameLayout
                 android:id="@+id/cardProfile"
-                android:layout_width="210dp"
-                android:layout_height="248dp"
-                android:layout_marginStart="18dp"
-                android:layout_marginEnd="18dp"
+                android:layout_width="220dp"
+                android:layout_height="280dp"
+                android:layout_gravity="center"
                 android:background="@drawable/menu_card_glass"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:clickable="true">
-
+                android:focusable="true">
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp"
-                    android:paddingTop="36dp"
-                    android:paddingBottom="30dp">
-
-                    <ImageView
-                        android:tag="icon"
-                        android:layout_width="50dp"
-                        android:layout_height="50dp"
-                        android:src="@drawable/ic_menu_profile"
-                        android:alpha="0.45"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Profile"
-                        app:tint="#F1F5F9"/>
-
-                    <View
-                        android:tag="labelAccent"
-                        android:layout_width="24dp"
-                        android:layout_height="1dp"
-                        android:background="#E52121"
-                        android:layout_marginTop="22dp"
-                        android:layout_marginBottom="12dp"
-                        android:alpha="0"/>
-
-                    <TextView
-                        android:tag="label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="პროფილი"
-                        android:textColor="#F1F5F9"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:gravity="center"
-                        android:letterSpacing="-0.01"
-                        android:alpha="0.6"/>
-
-                    <TextView
-                        android:tag="sublabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ანგარიში · გამოწერა"
-                        android:textColor="#6094A3B8"
-                        android:textSize="13sp"
-                        android:gravity="center"
-                        android:letterSpacing="0.01"
-                        android:layout_marginTop="8dp"
-                        android:alpha="0"/>
-
+                    android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:orientation="vertical" android:gravity="center" android:padding="20dp">
+                    <ImageView android:tag="icon" android:layout_width="65dp" android:layout_height="65dp"
+                        android:src="@drawable/ic_menu_profile" app:tint="#F1F5F9" />
+                    <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="#F1F5F9" android:textSize="20sp" android:textStyle="bold" android:layout_marginTop="15dp"/>
+                    <TextView android:tag="sublabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="#94A3B8" android:textSize="11sp" android:alpha="0" android:gravity="center" />
                 </LinearLayout>
             </FrameLayout>
+        </FrameLayout>
 
-        </LinearLayout>
+        <!-- EDGE GRADIENTS (Placed ABOVE the cards) -->
+        <View
+            android:id="@+id/fadeLeft"
+            android:layout_width="200dp"
+            android:layout_height="350dp"
+            android:background="@drawable/side_fade_left"
+            android:elevation="15dp"
+            app:layout_constraintTop_toTopOf="@id/cardsCarousel"
+            app:layout_constraintBottom_toBottomOf="@id/cardsCarousel"
+            app:layout_constraintStart_toStartOf="parent" />
 
-        <!-- ══ HINT BAR ══════════════════════════════════════════════ -->
+        <View
+            android:id="@+id/fadeRight"
+            android:layout_width="200dp"
+            android:layout_height="350dp"
+            android:background="@drawable/side_fade_right"
+            android:elevation="15dp"
+            app:layout_constraintTop_toTopOf="@id/cardsCarousel"
+            app:layout_constraintBottom_toBottomOf="@id/cardsCarousel"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- HINT BAR -->
         <LinearLayout
             android:id="@+id/hintBar"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:paddingBottom="20dp"
+            android:paddingBottom="40dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
+            app:layout_constraintEnd_toEndOf="parent"
+            android:gravity="center">
             <TextView
                 android:id="@+id/tvSelectionHint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text=""
-                android:textColor="#4094A3B8"
-                android:textSize="11sp"
-                android:letterSpacing="0.01"
-                android:gravity="center"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="◀  ▶  ნავიგაცია     OK  არჩევა"
-                android:textColor="#2094A3B8"
-                android:textSize="9sp"
-                android:letterSpacing="0.07"
-                android:layout_marginTop="4dp"/>
-
+                android:textColor="#94A3B8"
+                android:textSize="15sp" />
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <include
-        android:id="@+id/subNotificationOverlay"
-        layout="@layout/overlay_subscription_notification" />
-
+    <include android:id="@+id/subNotificationOverlay" layout="@layout/overlay_subscription_notification" />
 </FrameLayout>
