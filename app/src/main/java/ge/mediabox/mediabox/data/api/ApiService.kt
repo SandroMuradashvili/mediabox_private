@@ -80,7 +80,7 @@ object ApiService {
         return conn
     }
 
-    private fun openPost(path: String, token: String? = null): HttpURLConnection {
+    fun openPost(path: String, token: String? = null): HttpURLConnection {
         val conn = URL(path).openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
         conn.connectTimeout = 8000
@@ -275,5 +275,27 @@ object ApiService {
     } catch (e: Exception) {
         Log.e("Pairing", "❌ [ApiService] markNotificationAsRead error", e)
         false
+    }
+
+    /**
+     * Fetches a socket token for the given device and auth token.
+     */
+    fun getSocketToken(token: String, deviceId: String): String? = try {
+        val url = "$BASE_URL/tv/remote/ready"
+        Log.d(TAG, "📡 Fetching socket token from: $url")
+        val conn = openPost(url, token)
+        OutputStreamWriter(conn.outputStream).use {
+            it.write(JSONObject().put("device_id", deviceId).toString())
+        }
+        if (conn.responseCode in 200..299) {
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            JSONObject(text).optString("socket_token")
+        } else {
+            Log.e(TAG, "❌ getSocketToken failed: ${conn.responseCode}")
+            null
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "❌ getSocketToken error", e)
+        null
     }
 }

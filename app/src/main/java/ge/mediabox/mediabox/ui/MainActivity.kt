@@ -18,10 +18,13 @@ import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.data.remote.MyPlan
 import ge.mediabox.mediabox.databinding.ActivityMainBinding
 import ge.mediabox.mediabox.ui.player.PlayerActivity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import ge.mediabox.mediabox.data.api.ApiService
 
 class MainActivity : AppCompatActivity() {
 
@@ -80,8 +83,18 @@ class MainActivity : AppCompatActivity() {
             NotificationDisplayManager.addNotification(notification)
         }
 
-        // Warm up channel + EPG data in background
+        // Connect Socket for real-time notifications and remote
         val deviceId = DeviceIdHelper.getDeviceId(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val socketToken = ApiService.getSocketToken(token, deviceId)
+            if (socketToken != null) {
+                withContext(Dispatchers.Main) {
+                    MobileRemoteManager.connect(socketToken)
+                }
+            }
+        }
+
+        // Warm up channel + EPG data in background
         val isKa = LangPrefs.isKa(this)
         lifecycleScope.launch {
             ge.mediabox.mediabox.data.repository.ChannelRepository.initialize(token, isKa, deviceId)

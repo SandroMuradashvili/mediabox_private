@@ -1,5 +1,6 @@
 package ge.mediabox.mediabox.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.util.Log
 import android.view.View
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withContext
 import java.util.LinkedList
 import java.util.Queue
 
+@SuppressLint("StaticFieldLeak")
 object NotificationDisplayManager {
     private const val TAG = "Pairing"
     private val notificationQueue: Queue<ApiService.Notification> = LinkedList()
@@ -33,7 +35,7 @@ object NotificationDisplayManager {
         currentActivity = activity
         currentOverlay = overlay
         currentToken = token
-        
+
         // If there are pending notifications in queue, start showing them
         if (!isShowing && notificationQueue.isNotEmpty()) {
             Log.d(TAG, "🔔 [NotificationManager] Pending notifications found on register, showing next...")

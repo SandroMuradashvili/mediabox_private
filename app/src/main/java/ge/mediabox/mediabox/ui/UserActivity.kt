@@ -20,22 +20,14 @@ import ge.mediabox.mediabox.R
 import ge.mediabox.mediabox.data.remote.AuthApiService
 import ge.mediabox.mediabox.data.remote.MyPlan
 import ge.mediabox.mediabox.data.remote.PlanChannel
-import ge.mediabox.mediabox.data.remote.PlanChannelsResponse
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 import androidx.core.content.edit
 
 class UserActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TOKEN = "extra_token"
-        private const val BASE_API_URL = "https://tv-api.telecomm1.com/api"
     }
 
     private lateinit var binding: ActivityUserBinding
@@ -43,11 +35,10 @@ class UserActivity : AppCompatActivity() {
 
     // ── Focus zones ───────────────────────────────────────────────────────────
     // 0: Back button
-    // 1: Mobile Remote row
-    // 2: Plans row (RecyclerView)
-    // 3: Language button (top bar)
-    // 4: Sign Out row
-    // 5: Plans panel open (side panel)
+    // 1: Plans row (RecyclerView)
+    // 2: Language button (top bar)
+    // 3: Sign Out row
+    // 4: Plans panel open (side panel)
     private var focusZone = 0
 
     private var planCount = 0
@@ -58,12 +49,6 @@ class UserActivity : AppCompatActivity() {
 
     // Cache for plan channels to avoid reloading and "flicker"
     private val planChannelsCache = mutableMapOf<String, List<PlanChannel>>()
-
-    private var isMobileRemoteEnabled: Boolean
-        get() = getSharedPreferences("AppPrefs", MODE_PRIVATE).getBoolean("mobile_remote_enabled", false)
-        set(value) = getSharedPreferences("AppPrefs", MODE_PRIVATE).edit {
-            putBoolean("mobile_remote_enabled", value)
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,7 +75,6 @@ class UserActivity : AppCompatActivity() {
         applyFocus(0)
 
         binding.btnBack.setOnClickListener { finish() }
-        binding.btnMobileRemote.setOnClickListener { toggleMobileRemote() }
         binding.btnUserLang.setOnClickListener { toggleLanguage() }
         binding.rowSignOut.setOnClickListener { doLogout() }
     }
@@ -167,12 +151,9 @@ class UserActivity : AppCompatActivity() {
         binding.tvDeviceId.text = "$idLabel: $deviceId"
 
         binding.tvBackLabel.text             = if (isKa) "← უკან" else "← Back"
-        binding.tvMobileRemoteLabel.text     = if (isKa) "მობილური პულტი" else "Mobile Remote"
-        binding.tvMobileRemoteSub.text       = if (isKa) "ტელეფონით მართე ტელევიზორი" else "Use phone as TV remote"
         binding.tvActivePlansHeader.text     = if (isKa) "აქტიური პაკეტები" else "ACTIVE PLANS"
         binding.tvLogoutLabelNew.text        = if (isKa) "გამოსვლა" else "Sign Out"
         binding.tvLogoutSubNew.text          = if (isKa) "სეანსის დასრულება" else "End current session"
-        updateRemoteToggleUI()
 
         planCount = myPlans.size
         if (myPlans.isEmpty()) {
@@ -197,7 +178,7 @@ class UserActivity : AppCompatActivity() {
     private fun openPlansPanel() {
         if (storedPlans.isEmpty()) return
         isPlansPanelOpen = true
-        focusZone        = 5
+        focusZone        = 4
 
         val isKa = LangPrefs.isKa(this)
         loadPlanInPanel(storedPlans[planFocusIndex], isKa)
@@ -244,74 +225,25 @@ class UserActivity : AppCompatActivity() {
     private fun closePlansPanel() {
         isPlansPanelOpen = false
         binding.plansPanelOverlay.visibility = View.GONE
-        focusZone = 2
+        focusZone = 1
         highlightActionRows()
     }
-
-    // ── Mobile Remote ─────────────────────────────────────────────────────────
-
-    private fun toggleMobileRemote() {
-        if (isMobileRemoteEnabled) {
-            isMobileRemoteEnabled = false
-            MobileRemoteManager.disconnect { runOnUiThread { updateRemoteToggleUI() } }
-        } else {
-            connectMobileRemote()
-        }
-    }
-
-    private fun connectMobileRemote() {
-        val token    = getSavedToken() ?: return
-        val deviceId = DeviceIdHelper.getDeviceId(this)
-        binding.tvMobileRemoteStatus.text = "..."
-
-        lifecycleScope.launch {
-            val response = withContext(Dispatchers.IO) { callRemoteReadyEndpoint(deviceId, token) }
-            val socketToken = response?.optString("socket_token")
-            if (socketToken != null) {
-                isMobileRemoteEnabled = true
-                MobileRemoteManager.connect(socketToken) { runOnUiThread { updateRemoteToggleUI() } }
-            } else {
-                updateRemoteToggleUI()
-            }
-        }
-    }
-
-    private fun updateRemoteToggleUI() {
-        val isKa = LangPrefs.isKa(this)
-        val isWs = MobileRemoteManager.isConnected()
-        binding.tvMobileRemoteStatus.text =
-            if (isWs) (if (isKa) "ჩართულია" else "ON")
-            else      (if (isKa) "გამორთულია" else "OFF")
-        binding.tvMobileRemoteStatus.setTextColor(if (isWs) 0xFF10B981.toInt() else 0xFF3D5A7A.toInt())
-    }
-
-    private fun callRemoteReadyEndpoint(deviceId: String, token: String): JSONObject? = try {
-        val conn = URL("$BASE_API_URL/tv/remote/ready").openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.setRequestProperty("Authorization", "Bearer $token")
-        OutputStreamWriter(conn.outputStream).use { it.write(JSONObject().put("device_id", deviceId).toString()) }
-        if (conn.responseCode in 200..299) JSONObject(conn.inputStream.bufferedReader().readText()) else null
-    } catch (e: Exception) { null }
 
     // ── Focus / highlight ─────────────────────────────────────────────────────
 
     private fun highlightActionRows() {
-        binding.btnMobileRemote.setBackgroundResource(R.drawable.profile_action_row)
         binding.rowSignOut.setBackgroundResource(R.drawable.profile_danger_row)
         binding.btnBack.setBackgroundResource(R.drawable.menu_card_glass)
         binding.btnUserLang.setBackgroundResource(R.drawable.menu_card_glass)
         
         if (::planAdapter.isInitialized) {
-            planAdapter.setFocused(focusZone == 2)
+            planAdapter.setFocused(focusZone == 1)
         }
 
         when (focusZone) {
             0 -> binding.btnBack.setBackgroundResource(R.drawable.menu_card_glass_selected)
-            1 -> binding.btnMobileRemote.setBackgroundResource(R.drawable.profile_action_row_selected)
-            3 -> binding.btnUserLang.setBackgroundResource(R.drawable.menu_card_glass_selected)
-            4 -> binding.rowSignOut.setBackgroundResource(R.drawable.profile_danger_row_selected)
+            2 -> binding.btnUserLang.setBackgroundResource(R.drawable.menu_card_glass_selected)
+            3 -> binding.rowSignOut.setBackgroundResource(R.drawable.profile_danger_row_selected)
         }
     }
 
@@ -343,37 +275,35 @@ class UserActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_UP -> {
                 when (focusZone) {
                     1 -> applyFocus(0)
-                    2 -> applyFocus(1)
-                    4 -> if (planCount > 0) applyFocus(2) else applyFocus(1)
+                    3 -> if (planCount > 0) applyFocus(1) else applyFocus(0)
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 when (focusZone) {
-                    0 -> applyFocus(1)
-                    1 -> if (planCount > 0) applyFocus(2) else applyFocus(4)
-                    2 -> applyFocus(4)
-                    3 -> applyFocus(1)
+                    0 -> if (planCount > 0) applyFocus(1) else applyFocus(3)
+                    1 -> applyFocus(3)
+                    2 -> applyFocus(1)
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 when (focusZone) {
-                    2 -> {
+                    1 -> {
                         if (planFocusIndex > 0) {
                             planFocusIndex--
                             binding.rvActivePlans.smoothScrollToPosition(planFocusIndex)
                             planAdapter.setSelectedIndex(planFocusIndex)
                         }
                     }
-                    3 -> applyFocus(0)
+                    2 -> applyFocus(0)
                 }
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 when (focusZone) {
-                    0 -> applyFocus(3)
-                    2 -> {
+                    0 -> applyFocus(2)
+                    1 -> {
                         if (planFocusIndex < planCount - 1) {
                             planFocusIndex++
                             binding.rvActivePlans.smoothScrollToPosition(planFocusIndex)
@@ -386,10 +316,9 @@ class UserActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 when (focusZone) {
                     0 -> finish()
-                    1 -> toggleMobileRemote()
-                    2 -> openPlansPanel()
-                    3 -> toggleLanguage()
-                    4 -> doLogout()
+                    1 -> openPlansPanel()
+                    2 -> toggleLanguage()
+                    3 -> doLogout()
                 }
                 true
             }
@@ -465,7 +394,7 @@ class UserActivity : AppCompatActivity() {
         override fun getItemCount() = plans.size
     }
 
-    inner class PlanChannelAdapter(private val channels: List<PlanChannel>, private val isKa: Boolean) :
+    inner class PlanChannelAdapter(private val channels: List<ge.mediabox.mediabox.data.remote.PlanChannel>, private val isKa: Boolean) :
         RecyclerView.Adapter<PlanChannelAdapter.VH>() {
 
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {

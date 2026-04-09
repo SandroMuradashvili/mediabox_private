@@ -41,6 +41,7 @@ import androidx.core.content.edit
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import ge.mediabox.mediabox.ui.DeviceIdHelper
+import ge.mediabox.mediabox.ui.NotificationDisplayManager
 
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -109,8 +110,10 @@ class PlayerActivity : AppCompatActivity() {
                 return true
             }
 
-            if (isSubNotificationShowing) {
-                dismissSubNotification()
+            if (isSubNotificationShowing || NotificationDisplayManager.isShowing()) {
+                if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_BACK) {
+                    binding.subNotificationOverlay.root.findViewById<View>(R.id.btnSubNotificationOk)?.performClick()
+                }
                 return true
             }
 
@@ -467,12 +470,18 @@ class PlayerActivity : AppCompatActivity() {
         if (isInactivityPopupShowing) dismissInactivityPopup()
         inactivityHandler.removeCallbacks(inactivityRunnable)
         countdownTimer?.cancel()
+        NotificationDisplayManager.unregister()
     }
 
     override fun onResume() {
         super.onResume()
         resetInactivityTimer()
         if (!isInitialized) return
+
+        val token = authToken
+        if (token != null) {
+            NotificationDisplayManager.register(this, binding.subNotificationOverlay.root, token)
+        }
 
         controlOverlayManager.updateLocale()
         updateOverlayInfo()
@@ -557,11 +566,14 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupSubNotification() {
         binding.subNotificationOverlay.root.findViewById<Button>(R.id.btnSubNotificationOk)?.setOnClickListener {
-            dismissSubNotification()
+            if (isSubNotificationShowing) {
+                dismissSubNotification()
+            }
         }
     }
 
     private fun checkSubscriptions() {
+        if (NotificationDisplayManager.isShowing()) return
         val token = authToken ?: return
         lifecycleScope.launch {
             try {
@@ -576,6 +588,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showSubNotification(plan: MyPlan) {
+        if (NotificationDisplayManager.isShowing()) return
         isSubNotificationShowing = true
         currentNotifiedPlan = plan
         val isKa = LangPrefs.isKa(this)
@@ -676,7 +689,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showControls() {
-        if (trackSelectionManager.isVisible || isSubNotificationShowing) return
+        if (trackSelectionManager.isVisible || isSubNotificationShowing || NotificationDisplayManager.isShowing()) return
         isControlsVisible = true
         binding.root.findViewById<View>(R.id.controlOverlay)?.visibility = View.VISIBLE
         binding.root.findViewById<View>(R.id.topBar)?.visibility = View.VISIBLE
@@ -761,9 +774,9 @@ class PlayerActivity : AppCompatActivity() {
             dismissInactivityPopup()
             return true
         }
-        if (isSubNotificationShowing) {
+        if (isSubNotificationShowing || NotificationDisplayManager.isShowing()) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_BACK) {
-                dismissSubNotification()
+                binding.subNotificationOverlay.root.findViewById<View>(R.id.btnSubNotificationOk)?.performClick()
             }
             return true
         }

@@ -35,6 +35,7 @@ object MobileRemoteManager {
     fun connect(socketToken: String, onStatusChange: () -> Unit = {}) {
         if (socket != null && socket!!.connected()) {
             Log.d(TAG, "Socket already connected.")
+            onStatusChange()
             return
         }
 
@@ -42,6 +43,10 @@ object MobileRemoteManager {
             val options = IO.Options.builder()
                 .setAuth(mapOf("token" to socketToken))
                 .setTransports(arrayOf("websocket"))
+                .setReconnection(true)
+                .setReconnectionAttempts(Int.MAX_VALUE)
+                .setReconnectionDelay(1000)
+                .setReconnectionDelayMax(5000)
                 .build()
 
             socket = IO.socket(SOCKET_URL, options)
@@ -53,6 +58,11 @@ object MobileRemoteManager {
 
             socket?.on(Socket.EVENT_DISCONNECT) {
                 Log.d(TAG, "Socket.io Global Disconnected")
+                onStatusChange()
+            }
+            
+            socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
+                Log.e(TAG, "Socket.io Connect Error: ${args.getOrNull(0)}")
                 onStatusChange()
             }
 
@@ -72,16 +82,42 @@ object MobileRemoteManager {
             socket?.on("notification") { args ->
                 try {
                     val data = args[0] as JSONObject
+                    Log.d(TAG, "Socket Notification Received Raw: $data")
+                    
                     val id = data.optString("id", data.optString("_id", ""))
-                    val message = data.optString("message", "")
                     val title = data.optString("title", null)
                     
+                    // Match ApiService.fetchNotifications logic for nested payload
+                    val payload = data.optJSONObject("payload")
+                    val message = payload?.optString("message", "") ?: data.optString("message", "")
+                    
                     if (id.isNotEmpty() && message.isNotEmpty()) {
+                        val notification = ApiService.Notification(id, message, title)
+                        Log.d(TAG, "Socket Notification Dispatched: $message")
+                        onNotificationReceived?.invoke(notification)
+                    } else {
+                        Log.w(TAG, "Socket Notification missing id or message. id=$id, msg=$message")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing notification from socket", e)
+                }
+            }
+
+            socket?.on("admin_announcement") { args ->
+                try {
+                    val data = args[0] as JSONObject
+                    Log.d(TAG, "Socket Admin Announcement Received: $data")
+                    
+                    val id = data.optString("id", data.optString("_id", "admin_msg_" + System.currentTimeMillis()))
+                    val title = data.optString("title", "Mediabox Announcement")
+                    val message = data.optString("message", data.optString("text", ""))
+
+                    if (message.isNotEmpty()) {
                         val notification = ApiService.Notification(id, message, title)
                         onNotificationReceived?.invoke(notification)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing notification from socket", e)
+                    Log.e(TAG, "Error parsing admin_announcement", e)
                 }
             }
 
@@ -130,13 +166,21 @@ object MobileRemoteManager {
                     Log.d(TAG, "Successfully mapped '$action' to Number KeyCode: $code")
                     code
                 } else {
-                    Log.w(TAG, "Action looks like a number but failed to parse digit: $action")
-                    -1
+                    // Fallback: check if the string itself is just a number
+                    val n2 = action.toIntOrNull()
+                    if (n2 != null && n2 in 0..9) {
+                        KeyEvent.KEYCODE_0 + n2
+                    } else {
+                        Log.w(TAG, "Action looks like a number but failed to parse digit: $action")
+                        -1
+                    }
                 }
             }
 
             // Media Controls
             action.contains("PLAY_PAUSE", true) -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+            action.contains("PLAY", true) -> KeyEvent.KEYCODE_MEDIA_PLAY
+            action.contains("PAUSE", true) -> KeyEvent.KEYCODE_MEDIA_PAUSE
             action.contains("REWIND", true) -> KeyEvent.KEYCODE_MEDIA_REWIND
             action.contains("FAST_FORWARD", true) -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
 

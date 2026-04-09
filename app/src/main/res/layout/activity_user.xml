@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    PROFILE SCREEN — Recolored to match EPG/Dark Glass style
+    PROFILE SCREEN — Removed Mobile Remote toggle as sockets are always open
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -278,85 +278,6 @@
 
                 </LinearLayout>
 
-                <!-- ── Section label ── -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="SETTINGS"
-                    android:textColor="#4094A3B8"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.16"
-                    android:layout_marginBottom="10dp"/>
-
-                <!-- ── ACTION ROW: Mobile Remote ── -->
-                <FrameLayout
-                    android:id="@+id/btnMobileRemote"
-                    android:layout_width="match_parent"
-                    android:layout_height="64dp"
-                    android:layout_marginBottom="24dp"
-                    android:background="@drawable/profile_action_row"
-                    android:focusable="false"
-                    android:clickable="true">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingStart="24dp"
-                        android:paddingEnd="24dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_profile_remote"
-                            android:scaleType="fitCenter"
-                            android:layout_marginEnd="16dp"
-                            android:contentDescription="Remote"
-                            app:tint="#F1F5F9"/>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-                            <TextView
-                                android:id="@+id/tvMobileRemoteLabel"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Mobile Remote"
-                                android:textColor="#F1F5F9"
-                                android:textSize="14sp"
-                                android:textStyle="bold"/>
-                            <TextView
-                                android:id="@+id/tvMobileRemoteSub"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Use phone as TV remote"
-                                android:textColor="#6094A3B8"
-                                android:textSize="11sp"
-                                android:layout_marginTop="2dp"/>
-                        </LinearLayout>
-
-                        <TextView
-                            android:id="@+id/tvMobileRemoteStatus"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="OFF"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:background="@drawable/badge_archive_range"
-                            android:paddingStart="10dp"
-                            android:paddingEnd="10dp"
-                            android:paddingTop="4dp"
-                            android:paddingBottom="4dp"
-                            android:alpha="0.7"/>
-
-                    </LinearLayout>
-                </FrameLayout>
-
                 <!-- ── Section label: Active Plans ── -->
                 <TextView
                     android:id="@+id/tvActivePlansHeader"
@@ -565,25 +486,5 @@
         </FrameLayout>
 
     </LinearLayout>
-
-    <!-- ══ PLAN SELECTION OVERLAY ══ -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/planDetailsOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#F20D1117"
-        android:visibility="gone"
-        android:clickable="true"
-        android:focusable="true">
-
-        <TextView
-            android:id="@+id/tvDetailPlanNameOverlay"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"/>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </FrameLayout>
