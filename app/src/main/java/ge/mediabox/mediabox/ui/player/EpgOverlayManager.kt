@@ -911,32 +911,48 @@ class EpgOverlayManager(
 
                 val isWatching  = anchorMs in program.startTime until program.endTime
                 val isPast      = program.endTime < now
+                val isLiveProgram = now in program.startTime until program.endTime
+
 
                 time.text     = "${timeFmt.format(Date(program.startTime))}–${timeFmt.format(Date(program.endTime))}"
                 title.text    = program.title
                 dateCol?.text = rowDateFmt.format(Date(program.startTime))
 
                 itemView.isActivated  = isHighlighted
-                itemView.isSelected   = isWatching && !isHighlighted
+                itemView.isSelected   = isLiveProgram && !isHighlighted
                 accentBar?.visibility = if (isWatching) View.VISIBLE else View.INVISIBLE
 
+                val animDrawable = playingAnim?.drawable as? AnimatedVectorDrawable
+                val liveBadge = itemView.findViewById<TextView>(R.id.tvLiveBadge)
+
                 if (isWatching) {
+                    // USER IS WATCHING THIS PROGRAM (priority)
                     playingAnim?.visibility = View.VISIBLE
-                    (playingAnim?.drawable as? AnimatedVectorDrawable)?.let { if (!it.isRunning) it.start() }
-                } else {
+                    animDrawable?.let { if (!it.isRunning) it.start() }
+                    liveBadge?.visibility = View.GONE
+
+                } else if (isLiveProgram) {
+                    // PROGRAM IS LIVE (but not selected/watching)
                     playingAnim?.visibility = View.GONE
-                    (playingAnim?.drawable as? AnimatedVectorDrawable)?.stop()
+                    animDrawable?.stop()
+                    liveBadge?.visibility = View.VISIBLE
+
+                } else {
+                    // NORMAL
+                    playingAnim?.visibility = View.GONE
+                    animDrawable?.stop()
+                    liveBadge?.visibility = View.GONE
                 }
 
                 time.setTextColor(when {
-                    isHighlighted || isWatching -> 0xFFE5E7EB.toInt()
-                    isPast                      -> 0x8894A3B8.toInt()
-                    else                        -> 0x4494A3B8.toInt()
+                    isHighlighted || isWatching || isLiveProgram -> 0xFFE5E7EB.toInt()
+                    isPast                                       -> 0x8894A3B8.toInt()
+                    else                                         -> 0x4494A3B8.toInt()
                 })
                 itemView.alpha = when {
-                    isHighlighted || isWatching -> 1.0f
-                    isPast                      -> 0.85f
-                    else                        -> 0.35f
+                    isHighlighted || isWatching || isLiveProgram -> 1.0f
+                    isPast                                       -> 0.85f
+                    else                                         -> 0.35f
                 }
             }
         }
