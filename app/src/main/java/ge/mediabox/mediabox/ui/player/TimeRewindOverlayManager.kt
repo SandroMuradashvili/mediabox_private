@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -55,11 +56,11 @@ class TimeRewindOverlayManager(
         setupButtons()
     }
 
-    fun show(hoursBack: Int) {
+    fun show(hoursBack: Int, currentPlaybackMs: Long) {
         overlayView.visibility = View.VISIBLE
         val isKa = LangPrefs.isKa(activity)
         val locale = LangPrefs.getLocale(activity)
-        
+
         displayFmt = SimpleDateFormat("EEE, d MMM  HH:mm", locale)
         dayFmt     = SimpleDateFormat("EEE, d MMM", locale)
 
@@ -82,7 +83,8 @@ class TimeRewindOverlayManager(
             rvHours.alpha = 1.0f
             rvMinutes.alpha = 1.0f
 
-            buildDayList(hoursBack)
+            // Pass the current playback time here
+            buildDayList(hoursBack, currentPlaybackMs)
             refreshAdapters()
 
             focusCol = 0
@@ -102,10 +104,19 @@ class TimeRewindOverlayManager(
         KeyEvent.KEYCODE_DPAD_LEFT  -> { moveFocusLeft();  true }
         KeyEvent.KEYCODE_DPAD_RIGHT -> { moveFocusRight(); true }
         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-            if (focusCol == 3) {
-                btnConfirm.performClick()
+            // Immediately attempt to confirm when OK is pressed anywhere
+            if (btnConfirm.isEnabled) {
+                val ts = buildTimestamp()
+                dismiss()
+                onTimeSelected(ts)
             } else {
-                moveFocusRight()
+                // If it's out of range, show a toast and do not rewind
+                val isKa = LangPrefs.isKa(activity)
+                Toast.makeText(
+                    activity,
+                    if (isKa) "არქივი მიუწვდომელია" else "Out of archive range",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             true
         }
@@ -113,7 +124,7 @@ class TimeRewindOverlayManager(
         else -> false
     }
 
-    private fun buildDayList(hoursBack: Int) {
+    private fun buildDayList(hoursBack: Int, currentPlaybackMs: Long) {
         val isKa = LangPrefs.isKa(activity)
 
         tvArchiveRange.visibility = View.VISIBLE
@@ -150,10 +161,14 @@ class TimeRewindOverlayManager(
         }
         dayEntries = entries
 
-        val now = Calendar.getInstance()
-        selDay = entries.size - 1
-        selHour = now.get(Calendar.HOUR_OF_DAY)
-        selMinute = now.get(Calendar.MINUTE)
+        // SNAP TO CURRENT PLAYBACK TIME INSTEAD OF REAL TIME
+        val targetCal = Calendar.getInstance().apply { timeInMillis = currentPlaybackMs }
+
+        selDay = entries.indexOfFirst { sameDay(it.dayStart, targetCal) }
+        if (selDay == -1) selDay = entries.size - 1 // Fallback to today if not found
+
+        selHour = targetCal.get(Calendar.HOUR_OF_DAY)
+        selMinute = targetCal.get(Calendar.MINUTE)
     }
 
     private fun sameDay(a: Calendar, b: Calendar) =

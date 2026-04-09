@@ -196,25 +196,10 @@ object ChannelRepository {
         ApiService.removeFavourite(token, apiId, deviceId)
     fun getArchiveStartMs(id: Int): Long? {
         val ch = channels.find { it.id == id } ?: return null
-
-        // =======================================================
-        // 🧪 TESTING OVERRIDE: Force archive limit to exactly 2 hours
-        // =======================================================
-        val testHoursBack = 8
-        val limitMs = System.currentTimeMillis() - (testHoursBack * 3600000L)
-
-        android.util.Log.d("ARCHIVE_TEST", "Channel [${ch.name}] Limit forced to: $testHoursBack hours. Start Time Ms: $limitMs")
-
-        return limitMs
-        // =======================================================
-
-        /*
-        // 🛑 (Keep the real production code commented out for now)
         return when {
             ch.hoursBack < 0 -> System.currentTimeMillis() // explicitly unsupported
-            ch.hoursBack == 0 -> null // Unknown
+            ch.hoursBack == 0 -> null // Unknown limit
             else -> System.currentTimeMillis() - (ch.hoursBack * 3600000L)
         }
-        */
     }
 }

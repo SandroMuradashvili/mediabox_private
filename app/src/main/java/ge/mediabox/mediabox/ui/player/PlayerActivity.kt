@@ -766,7 +766,8 @@ class PlayerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val hoursBack = repository.refreshArchiveWindow(channel.id, authToken)
             isTimeRewindVisible = true
-            timeRewindManager.show(hoursBack)
+            // Pass the current stream time into the rewinder so it opens at the right spot
+            timeRewindManager.show(hoursBack, getCurrentAbsoluteTime())
         }
     }
 
