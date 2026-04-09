@@ -710,32 +710,30 @@ class PlayerActivity : AppCompatActivity() {
         hideControlsHandler.postDelayed(hideControlsRunnable, 5000)
     }
 
+    // In PlayerActivity.kt
+
     private fun showEpg() {
-        android.util.Log.e("EPG_BUG", "--> showEpg() WAS TRIGGERED!")
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
 
-        val currentTs = getCurrentAbsoluteTime()
+        // Get exact current state of the player
+        val currentTs: Long = getCurrentAbsoluteTime()
+        val playingId: Int = channels.getOrNull(currentChannelIndex)?.id ?: -1
 
-        val prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE)
-        val hasState = prefs.contains("epg_category")
-        if (hasState) {
-            epgOverlayManager.refreshData(channels)
-            epgOverlayManager.restoreState(prefs)
-            epgOverlayManager.overrideChannelFocus(channels.getOrNull(currentChannelIndex)?.id ?: -1)
-            epgOverlayManager.requestFocusOnRestored(currentTs)
-        } else {
-            epgOverlayManager.refreshData(channels)
-            epgOverlayManager.requestFocus(
-                currentChannelId = channels.getOrNull(currentChannelIndex)?.id ?: -1,
-                currentTimestampMs = currentTs
-            )
-        }
+        // Always refresh data to ensure categories/favorites are up to date
+        epgOverlayManager.refreshData(channels)
+
+        // Simply request focus. EpgOverlayManager will now:
+        // 1. Find the channel's category automatically
+        // 2. Select the channel on the left
+        // 3. Load programs on the right
+        // 4. Highlight the currently playing program (Live or Archive)
+        // 5. Put the remote control focus on the program list
+        epgOverlayManager.requestFocus(playingId, currentTs)
     }
 
     private fun hideEpg() {
-        android.util.Log.e("EPG_BUG", "--> hideEpg() executed. Setting visibility to GONE.")
-        epgOverlayManager.saveState(getSharedPreferences("AppPrefs", MODE_PRIVATE))
+        // REMOVE the saveState call here. We don't want to remember browsing history.
         isEpgVisible = false
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE
     }

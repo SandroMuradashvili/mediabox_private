@@ -37,8 +37,10 @@ class EpgOverlayManager(
     private val binding: ActivityPlayerBinding,
     private var channels: List<Channel>,
     private val onChannelSelected: (Int) -> Unit,
-    private val onArchiveSelected: (String) -> Unit
+    private val onArchiveSelected: (String) -> Unit,
 ) {
+
+    private var activeBackgroundChannelId: Int = -1
 
     // ── Sealed item type ──────────────────────────────────────────────────────
 
@@ -328,11 +330,18 @@ class EpgOverlayManager(
         val channel = filteredChannels.getOrNull(channelIndex) ?: return
         if (channel.isLocked) { showLockedChannelInfo(channel); return }
 
+        val anchorTime = if (channel.id == activeBackgroundChannelId) {
+            playbackTimestampMs
+        } else {
+            System.currentTimeMillis()
+        }
+
+
         val cached = channel.programs
         if (cached.isNotEmpty()) {
             // Cached — render immediately, focusSection already set to PROGRAMS by caller
             loadProgramsJob = scope.launch {
-                renderPrograms(channel, cached, playbackTimestampMs)
+                renderPrograms(channel, cached, anchorTime)
             }
         } else {
             // Not cached — show loading state but keep focusSection in CHANNELS until
@@ -360,7 +369,7 @@ class EpgOverlayManager(
                     // Success — now move focus into programs column
                     focusSection = FocusSection.PROGRAMS
                     updateFocusIndicator()
-                    renderPrograms(channel, programs, playbackTimestampMs)
+                    renderPrograms(channel, programs, anchorTime)
                 } else {
                     android.util.Log.e("EPG_BUG", "--> API RETURNED EMPTY PROGRAMS! Showing error text.")
                     // Failed — stay on channels side, show message
@@ -373,27 +382,25 @@ class EpgOverlayManager(
         }
     }
 
-    private suspend fun renderPrograms(
-        channel: Channel,
-        programs: List<Program>,
-        anchorTimestampMs: Long
-    ) {
+    private suspend fun renderPrograms(channel: Channel, programs: List<Program>, anchorTimestampMs: Long) {
         val items = buildProgramItemList(programs)
         currentProgramItems = items
 
+        // This finds the exact program (Live or Archive) based on player position
         var targetPos = findProgramPositionForTime(programs, anchorTimestampMs)
         while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
+
         selectedProgramIndex = targetPos
 
         val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
-
         withContext(Dispatchers.Main) {
             programAdapter.updatePrograms(items, anchorTimestampMs)
             rv.post {
-                (rv.layoutManager as? LinearLayoutManager)
-                    ?.scrollToPositionWithOffset(targetPos, 0)
+                // Scroll to the active program so it's visible
+                (rv.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(targetPos, 200)
+
                 binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
-                programPanel?.visibility       = View.VISIBLE
+                programPanel?.visibility = View.VISIBLE
                 programPlaceholder?.visibility = View.GONE
                 programAdapter.setHighlight(targetPos)
                 updateHoveredDate(targetPos)
@@ -480,45 +487,42 @@ class EpgOverlayManager(
      * @param currentChannelId  The ID of the channel currently playing
      * @param currentTimestampMs The EXACT playback time — live = now, archive = archiveBase + playerPos
      */
-    fun requestFocus(currentChannelId: Int, currentTimestampMs: Long = System.currentTimeMillis()) {
-        // Store the playback timestamp — used for cursor in renderPrograms
-        playbackTimestampMs = currentTimestampMs
+    fun requestFocus(currentChannelId: Int, currentTimestampMs: Long) {
+        this.activeBackgroundChannelId = currentChannelId
+        this.playbackTimestampMs = currentTimestampMs
 
-        val index = filteredChannels.indexOfFirst { it.id == currentChannelId }
+        // 1. Find the channel in the master list
+        val channel = channels.find { it.id == currentChannelId } ?: channels.firstOrNull() ?: return
 
-        if (index != -1) {
-            focusSection         = FocusSection.CHANNELS
-            selectedChannelIndex = index
-            channelAdapter.setHighlight(selectedChannelIndex)
-            updateFocusIndicator()
+        // 2. Determine which category this channel belongs to
+        val isKa = LangPrefs.isKa(activity)
+        val categories = repository.getCategories(isKa)
 
-            val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
-            (rv?.layoutManager as? LinearLayoutManager)
-                ?.scrollToPositionWithOffset(selectedChannelIndex, 150)
+        // Logic: Find the first category that contains this channel
+        val targetCategory = categories.find { cat ->
+            repository.getChannelsByCategory(cat, isKa).any { it.id == currentChannelId }
+        } ?: categories.firstOrNull() ?: ""
 
-            val channel = filteredChannels[index]
-            if (channel.isLocked) {
-                showLockedChannelInfo(channel)
-            } else if (channel.programs.isNotEmpty()) {
-                // Already cached — jump straight into programs column with correct cursor
-                focusSection = FocusSection.PROGRAMS
-                updateFocusIndicator()
-                loadProgramsJob?.cancel()
-                loadProgramsJob = scope.launch {
-                    renderPrograms(channel, channel.programs, playbackTimestampMs)
-                }
-            } else {
-                // Not cached yet — show placeholder with "press right" hint
-                showDefaultPlaceholder()
-            }
-        } else {
-            focusSection = FocusSection.CATEGORIES
-            highlightCategory()
-            updateFocusIndicator()
-        }
+        // 3. Set the EPG to that category
+        currentCategory = targetCategory
+        selectedCategoryIndex = categories.indexOf(targetCategory).coerceAtLeast(0)
+        filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
+        channelAdapter.updateChannels(filteredChannels)
 
-        // Silently prefetch first 10 channels in background (respects cache)
-        ioScope.launch { repository.prefetchFirstTenEpg() }
+        // 4. Find index of the channel within that category
+        selectedChannelIndex = filteredChannels.indexOfFirst { it.id == currentChannelId }.coerceAtLeast(0)
+
+        // 5. Update UI Highlights for the left side
+        highlightCategory()
+        channelAdapter.setHighlight(selectedChannelIndex)
+        scrollChannelListTo(selectedChannelIndex)
+
+        // 6. LOAD PROGRAMS AND MOVE FOCUS TO RIGHT SIDE
+        // We force focusSection to PROGRAMS because the user wants to see/scroll the schedule immediately
+        focusSection = FocusSection.PROGRAMS
+        updateFocusIndicator()
+
+        loadAndShowPrograms(selectedChannelIndex)
     }
 
     // ── Key handling ──────────────────────────────────────────────────────────
@@ -671,31 +675,44 @@ class EpgOverlayManager(
         focusSection = if (restored == FocusSection.PROGRAMS) FocusSection.CHANNELS else restored
     }
 
-    fun requestFocusOnRestored(currentTimestampMs: Long = System.currentTimeMillis()) {
-        // Update playback timestamp so cursor lands on correct program
-        playbackTimestampMs = currentTimestampMs
+    // Change the signature to accept both the Channel ID (Int) and the Timestamp (Long)
+    // In EpgOverlayManager.kt
 
+    fun requestFocusOnRestored(currentChannelId: Int, currentTimestampMs: Long = System.currentTimeMillis()) {
+        // 1. Update the 'Watching' references
+        this.activeBackgroundChannelId = currentChannelId
+        this.playbackTimestampMs = currentTimestampMs
+
+        // 2. Refresh UI highlights for Categories and Channels based on restored state
         channelAdapter.setHighlight(selectedChannelIndex)
         highlightCategory()
         updateFocusIndicator()
 
+        // 3. Scroll the channel list to the last viewed channel
         val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
         (rv?.layoutManager as? LinearLayoutManager)
-            ?.scrollToPositionWithOffset(selectedChannelIndex, 0)
+            ?.scrollToPositionWithOffset(selectedChannelIndex, 150)
 
         val channel = filteredChannels.getOrNull(selectedChannelIndex)
+
+        // 4. Handle Program Panel Restore
         if (channel == null || channel.isLocked) {
             if (channel != null) showLockedChannelInfo(channel)
             return
         }
 
         if (channel.programs.isNotEmpty()) {
-            // Cached — auto-enter programs column with correct cursor
-            focusSection = FocusSection.PROGRAMS
-            updateFocusIndicator()
+            // If we were previously looking at programs, or the restored state says we should be:
+            // Re-calculate which program is "current" right NOW on this channel
+            // to ensure the scroll position and "Watching" indicator are accurate.
             loadProgramsJob?.cancel()
             loadProgramsJob = scope.launch {
+                // This will calculate the correct targetPos based on currentTimestampMs
                 renderPrograms(channel, channel.programs, playbackTimestampMs)
+
+                // If the focus was saved as CHANNELS, we keep focus there but update the side panel.
+                // If it was PROGRAMS, the focus indicator is already set by highlightCategory() logic.
+                updateFocusIndicator()
             }
         } else {
             // Not cached — show placeholder
