@@ -155,14 +155,17 @@ object ChannelRepository {
         // 2. Fetch fresh
         val resp = ApiService.fetchArchiveUrl(ch.apiId, ts / 1000, "tv-device", token)
 
-        if (resp != null && resp.url.isNotEmpty()) {
-            ch.archiveStreamUrl = resp.url
-
-            val expiryMs = ApiService.extractExpiryFromUrl(resp.url)
-            ch.archiveStreamExpiry = expiryMs
-
-            if (resp.hoursBack > 0) ch.hoursBack = resp.hoursBack
-            return@withContext resp.url
+        if (resp != null) {
+            // CRITICAL: Cache the limit (real hours or -1 for unavailable)
+            if (resp.hoursBack != 0) {
+                ch.hoursBack = resp.hoursBack
+            }
+            if (resp.url.isNotEmpty()) {
+                ch.archiveStreamUrl = resp.url
+                val expiryMs = ApiService.extractExpiryFromUrl(resp.url)
+                ch.archiveStreamExpiry = expiryMs
+                return@withContext resp.url
+            }
         }
         null
     }
@@ -191,5 +194,27 @@ object ChannelRepository {
         ApiService.addFavourite(token, apiId, deviceId)
     fun removeFavouriteRemote(token: String, apiId: String, deviceId: String) =
         ApiService.removeFavourite(token, apiId, deviceId)
-    fun getArchiveStartMs(id: Int): Long? = channels.find { it.id == id }?.hoursBack?.let { System.currentTimeMillis() - it * 3600000L }
+    fun getArchiveStartMs(id: Int): Long? {
+        val ch = channels.find { it.id == id } ?: return null
+
+        // =======================================================
+        // 🧪 TESTING OVERRIDE: Force archive limit to exactly 2 hours
+        // =======================================================
+        val testHoursBack = 8
+        val limitMs = System.currentTimeMillis() - (testHoursBack * 3600000L)
+
+        android.util.Log.d("ARCHIVE_TEST", "Channel [${ch.name}] Limit forced to: $testHoursBack hours. Start Time Ms: $limitMs")
+
+        return limitMs
+        // =======================================================
+
+        /*
+        // 🛑 (Keep the real production code commented out for now)
+        return when {
+            ch.hoursBack < 0 -> System.currentTimeMillis() // explicitly unsupported
+            ch.hoursBack == 0 -> null // Unknown
+            else -> System.currentTimeMillis() - (ch.hoursBack * 3600000L)
+        }
+        */
+    }
 }

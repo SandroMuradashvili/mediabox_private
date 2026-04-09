@@ -656,10 +656,26 @@ class PlayerActivity : AppCompatActivity() {
     private fun returnToLive() = playChannel(currentChannelIndex)
     private fun rewindSeconds(s: Int) {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
-        val targetTs = getCurrentAbsoluteTime() - (s * 1000L)
+        var targetTs = getCurrentAbsoluteTime() - (s * 1000L)
+
+        // PREVENT REWINDING PAST ARCHIVE LIMIT
+        val archiveStart = repository.getArchiveStartMs(channel.id)
+
+        android.util.Log.d("ARCHIVE_TEST", "⏪ Rewind button pressed. Trying to jump to: $targetTs. Allowed limit is: $archiveStart")
+
+        if (archiveStart != null && targetTs < archiveStart) {
+            android.util.Log.w("ARCHIVE_TEST", "🚫 Rewind Clamped! Hit the boundary. Stopping at $archiveStart")
+            targetTs = archiveStart
+            val isKa = LangPrefs.isKa(this)
+            Toast.makeText(
+                this,
+                if (isKa) "არქივის დასაწყისი" else "Start of archive",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
         playArchiveAt(channel.id, targetTs)
     }
-
     private fun forwardSeconds(s: Int) {
         val targetTs = getCurrentAbsoluteTime() + (s * 1000L)
         if (targetTs >= System.currentTimeMillis()) returnToLive()

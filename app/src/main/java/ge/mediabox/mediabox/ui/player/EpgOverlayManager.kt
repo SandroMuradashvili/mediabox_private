@@ -114,13 +114,6 @@ class EpgOverlayManager(
         mainJob.cancel()
     }
 
-    fun overrideChannelFocus(currentChannelId: Int) {
-        val index = filteredChannels.indexOfFirst { it.id == currentChannelId }
-        if (index != -1) {
-            selectedChannelIndex = index
-        }
-    }
-
 
     // ── Pre-warm ──────────────────────────────────────────────────────────────
     fun preWarmPools() {
@@ -158,7 +151,7 @@ class EpgOverlayManager(
             setItemViewCacheSize(40)
         }
 
-        programAdapter = ProgramAdapter(activity, emptyList()) { handleProgramClick(it) }
+        programAdapter = ProgramAdapter(activity, emptyList())
         binding.root.findViewById<RecyclerView>(R.id.programList)?.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = programAdapter
@@ -415,17 +408,19 @@ class EpgOverlayManager(
         val items = buildProgramItemList(programs)
         currentProgramItems = items
 
-        // This finds the exact program (Live or Archive) based on player position
         var targetPos = findProgramPositionForTime(programs, anchorTimestampMs)
         while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
 
         selectedProgramIndex = targetPos
 
+        // NEW: Get the archive limit for this specific channel
+        val archiveStartMs = repository.getArchiveStartMs(channel.id)
+
         val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
         withContext(Dispatchers.Main) {
-            programAdapter.updatePrograms(items, anchorTimestampMs)
+            // Update call includes the new archiveStartMs parameter
+            programAdapter.updatePrograms(items, anchorTimestampMs, archiveStartMs)
             rv.post {
-                // Scroll to the active program so it's visible
                 (rv.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(targetPos, 200)
 
                 binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
@@ -476,13 +471,37 @@ class EpgOverlayManager(
     }
 
     private fun handleProgramClick(program: Program) {
-        android.util.Log.e("EPG_BUG", "--> handleProgramClick fired for: ${program.title}")
         val channel     = filteredChannels.getOrNull(selectedChannelIndex) ?: return
         val globalIndex = channels.indexOfFirst { it.id == channel.id }
         val now         = System.currentTimeMillis()
+
+        val archiveStart = repository.getArchiveStartMs(channel.id)
+
+        android.util.Log.d("ARCHIVE_TEST", "👆 EPG Clicked: [${program.title}]. Ends at: ${program.endTime}. Limit is: $archiveStart")
+
         when {
             program.isCurrentlyPlaying(now) -> if (globalIndex >= 0) onChannelSelected(globalIndex)
-            program.endTime < now           -> onArchiveSelected("ARCHIVE_ID:${channel.id}:TIME:${program.startTime}")
+            program.endTime < now -> {
+                // Prevent clicking if the program ended BEFORE the archive limit
+                if (archiveStart != null && program.endTime <= archiveStart) {
+                    android.util.Log.w("ARCHIVE_TEST", "🚫 Click REJECTED! Program is completely outside the 2-hour limit.")
+                    Toast.makeText(
+                        activity,
+                        if (LangPrefs.isKa(activity)) "არქივი მიუწვდომელია" else "Archive unavailable",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    // If it partially overlaps the boundary, clamp the start time
+                    val startTs = if (archiveStart != null && program.startTime < archiveStart) {
+                        android.util.Log.w("ARCHIVE_TEST", "⚠️ Program overlaps limit. Clamping start time to exact boundary.")
+                        archiveStart
+                    } else {
+                        program.startTime
+                    }
+                    android.util.Log.d("ARCHIVE_TEST", "✅ Playing Archive at: $startTs")
+                    onArchiveSelected("ARCHIVE_ID:${channel.id}:TIME:${startTs}")
+                }
+            }
             else -> Toast.makeText(
                 activity,
                 if (LangPrefs.isKa(activity)) "ეს პროგრამა ჯერ არ დაწყებულა"
@@ -832,9 +851,8 @@ class EpgOverlayManager(
     // ── Program Adapter ───────────────────────────────────────────────────────
 
     class ProgramAdapter(
-        private val activity: Activity,
-        private var items: List<ProgramItem>,
-        private val onProgramClick: (Program) -> Unit
+        activity: Activity,
+        private var items: List<ProgramItem>
     ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         companion object {
@@ -846,6 +864,9 @@ class EpgOverlayManager(
         private var watchingTimestampMs: Long? = null
         private var rowDateFmt = SimpleDateFormat("d MMM", LangPrefs.getLocale(activity))
         private var timeFmt    = SimpleDateFormat("HH:mm", LangPrefs.getLocale(activity))
+
+        // Stores the limit for the current channel
+        private var currentArchiveStartMs: Long? = null
 
         fun updateLocale(locale: Locale) {
             rowDateFmt = SimpleDateFormat("d MMM", locale)
@@ -861,7 +882,7 @@ class EpgOverlayManager(
             if (pos != -1 && pos < itemCount) notifyItemChanged(pos)
         }
 
-        fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null) {
+        fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null, archiveStartMs: Long? = null) {
             android.util.Log.e("EPG_BUG", "--> ProgramAdapter UPDATED with ${newItems.size} items")
             setHighlight(-1)
             val oldItems = items
@@ -881,6 +902,7 @@ class EpgOverlayManager(
 
             items = newItems
             watchingTimestampMs = overrideTimestampMs
+            currentArchiveStartMs = archiveStartMs // Save the limit
             diff.dispatchUpdatesTo(this)
         }
 
@@ -892,7 +914,7 @@ class EpgOverlayManager(
             val dateCol:     TextView?  = itemView.findViewById(R.id.tvProgramDate)
 
             init {
-                // CRITICAL FIX: Kill native focus here too
+                // Kill native focus here too
                 itemView.isFocusable = false
                 itemView.isClickable = false
                 itemView.isFocusableInTouchMode = false
@@ -910,6 +932,8 @@ class EpgOverlayManager(
                 val isPast      = program.endTime < now
                 val isLiveProgram = now in program.startTime until program.endTime
 
+                // Identify if it is totally out of bounds
+                val isOutOfArchive = currentArchiveStartMs != null && program.endTime <= currentArchiveStartMs!!
 
                 time.text     = "${timeFmt.format(Date(program.startTime))}–${timeFmt.format(Date(program.endTime))}"
                 title.text    = program.title
@@ -924,37 +948,34 @@ class EpgOverlayManager(
                 val liveAnimDrawable = liveBadge?.drawable as? AnimatedVectorDrawable
 
                 if (isLiveProgram) {
-                    // PROGRAM IS LIVE: Start broadcast animation
                     playingAnim?.visibility = View.GONE
                     animDrawable?.stop()
-
                     liveBadge?.visibility = View.VISIBLE
                     liveAnimDrawable?.let { if (!it.isRunning) it.start() }
-
                 } else if (isWatching) {
-                    // WATCHING ARCHIVE: Start playing bars animation
                     playingAnim?.visibility = View.VISIBLE
                     animDrawable?.let { if (!it.isRunning) it.start() }
-
                     liveBadge?.visibility = View.GONE
                     liveAnimDrawable?.stop()
-
                 } else {
-                    // NORMAL (Past or Future program, not being watched)
                     playingAnim?.visibility = View.GONE
                     animDrawable?.stop()
-
                     liveBadge?.visibility = View.GONE
                     liveAnimDrawable?.stop()
                 }
 
+                // Handle colors for out of bounds
                 time.setTextColor(when {
                     isHighlighted || isWatching || isLiveProgram -> 0xFFE5E7EB.toInt()
+                    isOutOfArchive                               -> 0x66EF4444.toInt() // Red tint for unavailable
                     isPast                                       -> 0x8894A3B8.toInt()
                     else                                         -> 0x4494A3B8.toInt()
                 })
+
+                // Handle opacity for out of bounds
                 itemView.alpha = when {
                     isHighlighted || isWatching || isLiveProgram -> 1.0f
+                    isOutOfArchive                               -> 0.35f // Heavier dim for unreachable
                     isPast                                       -> 0.85f
                     else                                         -> 0.35f
                 }
@@ -965,18 +986,27 @@ class EpgOverlayManager(
             val dateLabel: TextView = itemView.findViewById(R.id.tvDateDivider)
         }
 
-        override fun getItemViewType(pos: Int) = if (items[pos] is ProgramItem.ProgramData) 0 else 1
+        // USING THE CONSTANTS HERE
+        override fun getItemViewType(pos: Int) =
+            if (items[pos] is ProgramItem.ProgramData) TYPE_PROGRAM else TYPE_DIVIDER
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val inflater = LayoutInflater.from(parent.context)
-            return if (viewType == 0) ProgramVH(inflater.inflate(R.layout.item_epg_program, parent, false))
-            else DividerVH(inflater.inflate(R.layout.item_epg_date_divider, parent, false))
+            // USING THE CONSTANTS HERE
+            return if (viewType == TYPE_PROGRAM) {
+                ProgramVH(inflater.inflate(R.layout.item_epg_program, parent, false))
+            } else {
+                DividerVH(inflater.inflate(R.layout.item_epg_date_divider, parent, false))
+            }
         }
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             val item = items[position]
-            if (holder is ProgramVH && item is ProgramItem.ProgramData) holder.bind(item.program, position == highlightedPos)
-            else if (holder is DividerVH && item is ProgramItem.DateDivider) holder.dateLabel.text = item.date
+            if (holder is ProgramVH && item is ProgramItem.ProgramData) {
+                holder.bind(item.program, position == highlightedPos)
+            } else if (holder is DividerVH && item is ProgramItem.DateDivider) {
+                holder.dateLabel.text = item.date
+            }
         }
 
         override fun getItemCount() = items.size
