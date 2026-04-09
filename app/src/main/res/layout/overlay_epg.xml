@@ -74,11 +74,13 @@
                         android:letterSpacing="0.06"/>
 
                     <TextView
+                        android:id="@+id/tvEpgNavHints"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="← Back    →  Programs    OK  Watch"
                         android:textColor="#3394A3B8"
                         android:textSize="10sp"/>
+
                 </LinearLayout>
 
                 <!-- Category chips -->
@@ -111,6 +113,8 @@
                 android:layout_height="1dp"
                 android:background="@drawable/epg_divider_line"/>
 
+
+
             <!-- ============================================================
                  CONTENT — channel list + programs
                  ============================================================ -->
@@ -138,6 +142,7 @@
 
 
                     <TextView
+                        android:id="@+id/tvChannelsHeaderLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="CHANNELS"

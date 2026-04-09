@@ -172,6 +172,7 @@ class EpgOverlayManager(
 
         setupCategories()
         hideProgramPanel()
+        translateStaticLabels()
     }
 
     private fun setupCategories() {
@@ -506,6 +507,7 @@ class EpgOverlayManager(
         channelAdapter.updateChannels(filteredChannels)
         selectedChannelIndex = 0
         hideProgramPanel()
+        translateStaticLabels()
     }
 
     /**
@@ -596,6 +598,27 @@ class EpgOverlayManager(
             true
         }
         else -> false
+    }
+
+    private fun translateStaticLabels() {
+        val isKa = LangPrefs.isKa(activity)
+
+        // 1. Top Navigation Hints
+        binding.root.findViewById<TextView>(R.id.tvEpgNavHints)?.text =
+            if (isKa) "← უკან    →  გადაცემები    OK  ყურება"
+            else "← Back    →  Programs    OK  Watch"
+
+        // 2. Channels Column Header
+        binding.root.findViewById<TextView>(R.id.tvChannelsHeaderLabel)?.text =
+            if (isKa) "არხები" else "CHANNELS"
+
+        // 3. Placeholder (When no channel is selected)
+        tvPlaceholderTitle?.text = if (isKa) "აირჩიეთ არხი" else "Select a channel"
+        tvPlaceholderSubtitle?.text = if (isKa) "დააჭირეთ → გადაცემების სანახავად" else "Press → to browse programs"
+
+        // 4. Programs Panel Header
+        binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text =
+            if (isKa) "გადაცემები" else "TV Programs"
     }
 
     private fun handleChannelKeys(keyCode: Int): Boolean {
