@@ -33,6 +33,9 @@ class MainActivity : AppCompatActivity() {
     private var isSubNotificationShowing = false
     private var currentNotifiedPlan: MyPlan? = null
 
+    private var lastScrollTime = 0L
+    private val SCROLL_THROTTLE_MS = 350L // The delay in milliseconds between scrolls
+
     // Distance between card centers
     private val horizontalOffset = 450f
 
@@ -185,6 +188,15 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
             return true
+        }
+
+        val currentTime = System.currentTimeMillis()
+        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            // If the time since last scroll is less than our limit (250ms), ignore the key
+            if (currentTime - lastScrollTime < SCROLL_THROTTLE_MS) {
+                return true
+            }
+            lastScrollTime = currentTime
         }
 
         return when (keyCode) {
