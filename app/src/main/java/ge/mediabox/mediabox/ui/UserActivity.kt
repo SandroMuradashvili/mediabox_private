@@ -23,6 +23,7 @@ import ge.mediabox.mediabox.data.remote.PlanChannel
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
 import kotlinx.coroutines.launch
 import androidx.core.content.edit
+import kotlinx.coroutines.async
 
 class UserActivity : AppCompatActivity() {
 
@@ -98,19 +99,26 @@ class UserActivity : AppCompatActivity() {
         }
         updateLangUI()
 
+        val deviceId = DeviceIdHelper.getDeviceId(this)
+
         lifecycleScope.launch {
             try {
-                val user    = authApi.getUser()
+                // Using async to fetch user info and device name at the same time
+                val userDeferred = async { authApi.getUser() }
+                val deviceDeferred = async { runCatching { authApi.getDeviceName(deviceId) }.getOrNull() }
+
+                val user = userDeferred.await()
+                val deviceResponse = deviceDeferred.await()
                 val myPlans = runCatching { authApi.getMyPlans() }.getOrDefault(emptyList())
-                bindUserData(user, myPlans)
-                
-                // Prefetch channels for all plans to avoid loading state when opening
+
+                bindUserData(user, deviceResponse?.device_name, myPlans)
                 prefetchPlanChannels(myPlans)
             } catch (e: Exception) {
                 if (!isLanguageRefresh) {
                     binding.loadingIndicator.visibility = View.GONE
                     binding.contentRoot.visibility = View.VISIBLE
                 }
+                android.util.Log.e("UserActivity", "Error loading profile", e)
                 Toast.makeText(this@UserActivity, "Connection Error", Toast.LENGTH_SHORT).show()
             }
         }
@@ -130,13 +138,23 @@ class UserActivity : AppCompatActivity() {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun bindUserData(user: ge.mediabox.mediabox.data.remote.User, myPlans: List<MyPlan>) {
+    private fun bindUserData(user: ge.mediabox.mediabox.data.remote.User, deviceName: String?, myPlans: List<MyPlan>) {
         val isKa = LangPrefs.isKa(this)
+
+        // 1. Set Labels (Translations)
+        binding.tvAbonentLabel.text = if (isKa) "აბონენტის ნომერი" else "ABONENT NO."
+        binding.tvDeviceNameLabel.text = if (isKa) "მოწყობილობის სახელი" else "DEVICE NAME"
+        binding.tvEmailLabel.text = if (isKa) "ელ-ფოსტა" else "EMAIL"
+        binding.tvPhoneLabel.text = if (isKa) "ტელეფონი" else "PHONE"
+        binding.tvBalanceLabel.text = if (isKa) "ბალანსი" else "BALANCE"
+
+        // 2. Bind Values
+        binding.tvAbonentNumber.text = user.numeric_id?.toString() ?: "—"
+        binding.tvDeviceName.text = deviceName ?: (if (isKa) "უცნობი" else "Unknown")
 
         val displayName: String = user.full_name?.takeIf { it.isNotBlank() }
             ?: user.username?.takeIf { it.isNotBlank() }
             ?: user.email?.takeIf { it.isNotBlank() }
-            ?: user.phone?.takeIf { it.isNotBlank() }
             ?: if (isKa) "მომხმარებელი" else "User"
 
         binding.tvAvatarInitial.text = displayName.trim().take(1).uppercase()
@@ -146,15 +164,18 @@ class UserActivity : AppCompatActivity() {
         binding.tvPhone.text         = user.phone?.takeIf { it.isNotBlank() } ?: "—"
         binding.tvBalance.text       = "₾ ${user.account?.balance ?: "0.00"}"
 
-        val deviceId  = DeviceIdHelper.getDeviceId(this)
-        val idLabel   = if (isKa) "მოწყობილობის ID" else "Device ID"
-        binding.tvDeviceId.text = "$idLabel: $deviceId"
+        // Physical Device ID (the long serial)
+        val physicalId = DeviceIdHelper.getDeviceId(this)
+        val idLabel = if (isKa) "მოწყობილობის ID" else "Device ID"
+        binding.tvDeviceId.text = "$idLabel: $physicalId"
 
+        // 3. Translate Navigation/Static Text
         binding.tvBackLabel.text             = if (isKa) "← უკან" else "← Back"
         binding.tvActivePlansHeader.text     = if (isKa) "აქტიური პაკეტები" else "ACTIVE PLANS"
         binding.tvLogoutLabelNew.text        = if (isKa) "გამოსვლა" else "Sign Out"
         binding.tvLogoutSubNew.text          = if (isKa) "სეანსის დასრულება" else "End current session"
 
+        // 4. Handle Plans List
         planCount = myPlans.size
         if (myPlans.isEmpty()) {
             binding.tvNoPlans.visibility      = View.VISIBLE

@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    PROFILE SCREEN — Removed Mobile Remote toggle as sockets are always open
--->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -9,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/main_bg">
 
-    <!-- Loading -->
+    <!-- Loading Indicator -->
     <ProgressBar
         android:id="@+id/loadingIndicator"
         android:layout_width="wrap_content"
@@ -56,12 +53,10 @@
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:layout_marginBottom="16dp">
-
                 <View
                     android:layout_width="64dp"
                     android:layout_height="64dp"
                     android:background="@drawable/profile_avatar_bg"/>
-
                 <TextView
                     android:id="@+id/tvAvatarInitial"
                     android:layout_width="wrap_content"
@@ -94,22 +89,75 @@
                 android:textColor="#6094A3B8"
                 android:textSize="12sp"
                 android:layout_marginTop="2dp"
-                android:layout_marginBottom="20dp"/>
+                android:layout_marginBottom="16dp"/>
 
             <!-- Separator -->
             <View
                 android:layout_width="32dp"
                 android:layout_height="1dp"
                 android:background="#1AE52121"
-                android:layout_marginBottom="20dp"/>
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Abonent Number Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="12dp">
+                <TextView
+                    android:id="@+id/tvAbonentLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ABONENT NO."
+                    android:textColor="#4094A3B8"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.14"/>
+                <TextView
+                    android:id="@+id/tvAbonentNumber"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="#F1F5F9"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp"/>
+            </LinearLayout>
+
+            <!-- Device Name Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="12dp">
+                <TextView
+                    android:id="@+id/tvDeviceNameLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DEVICE NAME"
+                    android:textColor="#4094A3B8"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.14"/>
+                <TextView
+                    android:id="@+id/tvDeviceName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="#F1F5F9"
+                    android:textSize="13sp"
+                    android:layout_marginTop="2dp"
+                    android:alpha="0.8"/>
+            </LinearLayout>
 
             <!-- Email row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="14dp">
+                android:layout_marginBottom="12dp">
                 <TextView
+                    android:id="@+id/tvEmailLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="EMAIL"
@@ -124,7 +172,7 @@
                     android:text="—"
                     android:textColor="#F1F5F9"
                     android:textSize="13sp"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:alpha="0.8"/>
@@ -135,8 +183,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="14dp">
+                android:layout_marginBottom="12dp">
                 <TextView
+                    android:id="@+id/tvPhoneLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PHONE"
@@ -146,12 +195,12 @@
                     android:letterSpacing="0.14"/>
                 <TextView
                     android:id="@+id/tvPhone"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="—"
                     android:textColor="#F1F5F9"
                     android:textSize="13sp"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:alpha="0.8"/>
             </LinearLayout>
 
@@ -160,8 +209,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="14dp">
+                android:layout_marginBottom="12dp">
                 <TextView
+                    android:id="@+id/tvBalanceLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="BALANCE"
@@ -175,9 +225,9 @@
                     android:layout_height="wrap_content"
                     android:text="₾ 0.00"
                     android:textColor="#10B981"
-                    android:textSize="20sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
-                    android:layout_marginTop="4dp"/>
+                    android:layout_marginTop="2dp"/>
             </LinearLayout>
 
             <!-- Spacer -->
@@ -186,7 +236,7 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"/>
 
-            <!-- Device ID at bottom -->
+            <!-- Physical Device ID at bottom -->
             <TextView
                 android:id="@+id/tvDeviceId"
                 android:layout_width="match_parent"
@@ -196,7 +246,6 @@
                 android:textSize="9sp"
                 android:letterSpacing="0.04"
                 android:maxLines="2"/>
-
         </LinearLayout>
 
         <!-- Vertical separator -->
@@ -231,7 +280,6 @@
                     android:gravity="center_vertical"
                     android:layout_marginBottom="28dp">
 
-                    <!-- Back button -->
                     <FrameLayout
                         android:id="@+id/btnBack"
                         android:layout_width="84dp"
@@ -255,7 +303,6 @@
                         android:layout_height="0dp"
                         android:layout_weight="1"/>
 
-                    <!-- Language toggle -->
                     <FrameLayout
                         android:id="@+id/btnUserLang"
                         android:layout_width="48dp"
@@ -275,10 +322,8 @@
                             android:layout_height="0dp"
                             android:visibility="gone"/>
                     </FrameLayout>
-
                 </LinearLayout>
 
-                <!-- ── Section label: Active Plans ── -->
                 <TextView
                     android:id="@+id/tvActivePlansHeader"
                     android:layout_width="wrap_content"
@@ -290,12 +335,10 @@
                     android:letterSpacing="0.16"
                     android:layout_marginBottom="10dp"/>
 
-                <!-- ── Horizontal Plans List ── -->
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp">
-
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rvActivePlans"
                         android:layout_width="match_parent"
@@ -303,9 +346,7 @@
                         android:orientation="horizontal"
                         android:clipToPadding="false"
                         android:focusable="false"
-                        android:focusableInTouchMode="false"
                         android:scrollbars="none"/>
-
                     <TextView
                         android:id="@+id/tvNoPlans"
                         android:layout_width="match_parent"
@@ -316,16 +357,13 @@
                         android:gravity="center"
                         android:background="@drawable/profile_action_row"
                         android:visibility="gone"/>
-
                 </FrameLayout>
 
-                <!-- Spacer -->
                 <View
                     android:layout_width="0dp"
                     android:layout_height="0dp"
                     android:layout_weight="1"/>
 
-                <!-- ── DANGER SECTION LABEL ── -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -336,7 +374,6 @@
                     android:letterSpacing="0.16"
                     android:layout_marginBottom="10dp"/>
 
-                <!-- ── ACTION ROW: Sign Out ── -->
                 <LinearLayout
                     android:id="@+id/rowSignOut"
                     android:layout_width="match_parent"
@@ -349,15 +386,11 @@
                     android:background="@drawable/profile_danger_row"
                     android:focusable="false"
                     android:clickable="true">
-
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_profile_signout"
-                        android:scaleType="fitCenter"
-                        android:layout_marginEnd="16dp"
-                        android:contentDescription="Sign out"/>
-
+                        android:layout_marginEnd="16dp"/>
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -381,110 +414,63 @@
                             android:layout_marginTop="2dp"
                             android:alpha="0.4"/>
                     </LinearLayout>
-
                 </LinearLayout>
-
             </LinearLayout>
 
-            <!-- ═══════════════════════════════════════════════════════
-                 PLANS PANEL — slides in from right
-                 ═══════════════════════════════════════════════════════ -->
+            <!-- PLANS PANEL OVERLAY -->
             <LinearLayout
                 android:id="@+id/plansPanelOverlay"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:orientation="horizontal"
                 android:visibility="gone">
-
-                <!-- Dim scrim -->
                 <View
                     android:layout_width="0dp"
                     android:layout_weight="0.32"
                     android:layout_height="match_parent"
                     android:background="#99000000"/>
-
-                <!-- Panel -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_weight="0.68"
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:background="#BF0D1117"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp"
-                    android:paddingTop="28dp"
-                    android:paddingBottom="20dp">
-
-                    <!-- Panel header -->
-                    <LinearLayout
+                    android:padding="28dp">
+                    <TextView
+                        android:id="@+id/tvDetailPlanName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="6dp">
-
-                        <TextView
-                            android:id="@+id/tvDetailPlanName"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="wrap_content"
-                            android:text="Plan Details"
-                            android:textColor="#F1F5F9"
-                            android:textSize="20sp"
-                            android:textStyle="bold"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="← BACK"
-                            android:textColor="#4094A3B8"
-                            android:textSize="9sp"
-                            android:letterSpacing="0.10"
-                            android:textStyle="bold"/>
-                    </LinearLayout>
-
+                        android:textColor="#F1F5F9"
+                        android:textSize="20sp"
+                        android:textStyle="bold"/>
                     <TextView
                         android:id="@+id/tvDetailChannelCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text=""
                         android:textColor="#E52121"
                         android:textSize="12sp"
-                        android:layout_marginBottom="4dp"/>
-
+                        android:layout_marginTop="4dp"/>
                     <TextView
                         android:id="@+id/tvDetailHeaderNote"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Includes free channels and:"
                         android:textColor="#6094A3B8"
                         android:textSize="11sp"
-                        android:layout_marginBottom="14dp"/>
-
-                    <!-- Divider -->
+                        android:layout_marginTop="4dp"/>
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:background="#10FFFFFF"
-                        android:layout_marginBottom="12dp"/>
-
-                    <!-- Channel grid -->
+                        android:layout_marginVertical="12dp"/>
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rvPlanChannels"
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
                         android:layout_weight="1"
-                        android:clipToPadding="false"
-                        android:paddingBottom="8dp"
                         android:focusable="true"
-                        android:focusableInTouchMode="true"
                         android:scrollbars="vertical"/>
-
                 </LinearLayout>
             </LinearLayout>
-
         </FrameLayout>
-
     </LinearLayout>
-
 </FrameLayout>

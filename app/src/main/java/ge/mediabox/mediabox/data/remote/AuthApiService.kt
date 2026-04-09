@@ -37,6 +37,7 @@ data class User(
     val email: String?,
     val phone: String?,
     val avatar_url: String?,
+    val numeric_id: Int?,
     val role: String,
     val email_verified_at: String?,
     val phone_verified_at: String?,
@@ -45,6 +46,7 @@ data class User(
     val account: Account?
 )
 
+data class DeviceResponse(val device_name: String)
 data class PlanChannel(
     val id: String,
     val external_id: String,
@@ -66,9 +68,11 @@ interface AuthApiService {
     @GET("api/plans/my")
     suspend fun getMyPlans(): List<MyPlan>
 
-    @Headers("Accept: application/json")
     @GET("api/user")
     suspend fun getUser(): User
+
+    @GET("api/tv/device/{deviceId}")
+    suspend fun getDeviceName(@Path("deviceId") deviceId: String): DeviceResponse
 
 
     @Headers("Accept: application/json")
