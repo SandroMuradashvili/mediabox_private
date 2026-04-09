@@ -349,6 +349,22 @@ class PlayerActivity : AppCompatActivity() {
                 scheduleStreamRefresh()
                 updateOverlayInfo()
                 updateLiveIndicatorState()
+            } else {
+                // FIX: Gracefully handle missing streams/archives instead of a black screen
+                withContext(Dispatchers.Main) {
+                    binding.videoPlaceholder.visibility = View.GONE
+                    val isKa = LangPrefs.isKa(this@PlayerActivity)
+                    Toast.makeText(
+                        this@PlayerActivity,
+                        if (isKa) "არქივი მიუწვდომელია" else "Stream unavailable",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    // If we tried to load an archive and failed, bounce back to Live TV
+                    if (!isLiveMode) {
+                        returnToLive()
+                    }
+                }
             }
         }
     }
@@ -402,6 +418,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
+        android.util.Log.e("EPG_BUG", "--> playArchiveAt called! ID: $channelId")
         if (timestampMs >= System.currentTimeMillis()) {
             returnToLive()
             return
@@ -424,6 +441,8 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun fetchProgramsForCurrentChannel() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
+        android.util.Log.e("EPG_BUG", "--> fetchProgramsForCurrentChannel called for channel: ${channel.name}")
+
         pendingProgramJob?.cancel()
         pendingProgramJob = lifecycleScope.launch {
             val programs = repository.getProgramsForChannel(channel.id)
@@ -485,9 +504,17 @@ class PlayerActivity : AppCompatActivity() {
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
-                val parts = instruction.split(":")
-                if (parts.size >= 4) playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
-                hideEpg()
+                android.util.Log.e("EPG_BUG", "--> onArchiveSelected triggered! Instruction: $instruction")
+                try {
+                    val parts = instruction.split(":")
+                    if (parts.size >= 4) {
+                        playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
+                    }
+                    android.util.Log.e("EPG_BUG", "--> Calling hideEpg() now")
+                    hideEpg()
+                } catch (e: Exception) {
+                    android.util.Log.e("EPG_BUG", "--> CRASH in onArchiveSelected: ${e.message}")
+                }
             }
         )
 
@@ -671,10 +698,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showEpg() {
+        android.util.Log.e("EPG_BUG", "--> showEpg() WAS TRIGGERED!")
         isEpgVisible = true
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.VISIBLE
 
-        // Pass the EXACT current playback time — archive-aware
         val currentTs = getCurrentAbsoluteTime()
 
         val prefs = getSharedPreferences("AppPrefs", MODE_PRIVATE)
@@ -682,7 +709,6 @@ class PlayerActivity : AppCompatActivity() {
         if (hasState) {
             epgOverlayManager.refreshData(channels)
             epgOverlayManager.restoreState(prefs)
-            // Update playback timestamp even on restore so cursor is correct
             epgOverlayManager.requestFocusOnRestored(currentTs)
         } else {
             epgOverlayManager.refreshData(channels)
@@ -694,6 +720,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun hideEpg() {
+        android.util.Log.e("EPG_BUG", "--> hideEpg() executed. Setting visibility to GONE.")
         epgOverlayManager.saveState(getSharedPreferences("AppPrefs", MODE_PRIVATE))
         isEpgVisible = false
         binding.root.findViewById<View>(R.id.epgOverlay)?.visibility = View.GONE

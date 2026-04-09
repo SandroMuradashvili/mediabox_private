@@ -275,6 +275,7 @@ class EpgOverlayManager(
     }
 
     private fun hideProgramPanel() {
+        android.util.Log.e("EPG_BUG", "--> hideProgramPanel() WAS CALLED!")
         programPanel?.visibility       = View.GONE
         programPlaceholder?.visibility = View.GONE
         tvHoveredDate?.visibility      = View.GONE
@@ -285,6 +286,7 @@ class EpgOverlayManager(
      * Called when highlight moves to a new channel but user hasn't pressed right yet.
      */
     private fun showDefaultPlaceholder() {
+        android.util.Log.e("EPG_BUG", "--> showDefaultPlaceholder() WAS CALLED!")
         val isKa = LangPrefs.isKa(activity)
         programPanel?.visibility       = View.GONE
         tvHoveredDate?.visibility      = View.GONE
@@ -352,6 +354,7 @@ class EpgOverlayManager(
                     updateFocusIndicator()
                     renderPrograms(channel, programs, playbackTimestampMs)
                 } else {
+                    android.util.Log.e("EPG_BUG", "--> API RETURNED EMPTY PROGRAMS! Showing error text.")
                     // Failed — stay on channels side, show message
                     val msg = if (LangPrefs.isKa(activity)) "პროგრამები მიუწვდომელია"
                     else "No programs available"
@@ -429,6 +432,7 @@ class EpgOverlayManager(
     }
 
     private fun handleProgramClick(program: Program) {
+        android.util.Log.e("EPG_BUG", "--> handleProgramClick fired for: ${program.title}")
         val channel     = filteredChannels.getOrNull(selectedChannelIndex) ?: return
         val globalIndex = channels.indexOfFirst { it.id == channel.id }
         val now         = System.currentTimeMillis()
@@ -511,10 +515,13 @@ class EpgOverlayManager(
 
     // ── Key handling ──────────────────────────────────────────────────────────
 
-    fun handleKeyEvent(keyCode: Int): Boolean = when (focusSection) {
-        FocusSection.CATEGORIES -> handleCategoryKeys(keyCode)
-        FocusSection.CHANNELS   -> handleChannelKeys(keyCode)
-        FocusSection.PROGRAMS   -> handleProgramKeys(keyCode)
+    fun handleKeyEvent(keyCode: Int): Boolean {
+        android.util.Log.e("EPG_BUG", "--> KEY PRESSED IN EPG: $keyCode")
+        return when (focusSection) {
+            FocusSection.CATEGORIES -> handleCategoryKeys(keyCode)
+            FocusSection.CHANNELS   -> handleChannelKeys(keyCode)
+            FocusSection.PROGRAMS   -> handleProgramKeys(keyCode)
+        }
     }
 
     private fun handleCategoryKeys(keyCode: Int): Boolean = when (keyCode) {
@@ -747,13 +754,13 @@ class EpgOverlayManager(
             val selectionOutline: View      = itemView.findViewById(R.id.selectionOutline)
 
             init {
-                itemView.setOnClickListener {
-                    val pos = bindingAdapterPosition
-                    if (pos != RecyclerView.NO_POSITION) {
-                        setHighlight(pos)
-                        onChannelClick(pos)
-                    }
-                }
+                // CRITICAL FIX: Kill native focus so Android doesn't hijack the OK button
+                itemView.isFocusable = false
+                itemView.isClickable = false
+                itemView.isFocusableInTouchMode = false
+
+                // DELETED the setOnClickListener entirely.
+                // We handle DPAD_CENTER manually in handleChannelKeys now.
             }
 
             fun bind(channel: Channel, isHighlighted: Boolean) {
@@ -850,6 +857,7 @@ class EpgOverlayManager(
         }
 
         fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null) {
+            android.util.Log.e("EPG_BUG", "--> ProgramAdapter UPDATED with ${newItems.size} items")
             val oldItems = items
             val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
                 override fun getOldListSize() = oldItems.size
@@ -877,6 +885,13 @@ class EpgOverlayManager(
             val accentBar:   View?      = itemView.findViewById(R.id.programAccentBar)
             val playingAnim: ImageView? = itemView.findViewById(R.id.ivPlayingAnim)
             val dateCol:     TextView?  = itemView.findViewById(R.id.tvProgramDate)
+
+            init {
+                // CRITICAL FIX: Kill native focus here too
+                itemView.isFocusable = false
+                itemView.isClickable = false
+                itemView.isFocusableInTouchMode = false
+            }
 
             fun bind(program: Program, isHighlighted: Boolean) {
 
