@@ -3,5 +3,5 @@
     <font
         app:fontStyle="normal"
         app:fontWeight="400"
-        app:font="@font/bpg_calibri" />
+        app:font="@font/mark_geo" />
 </font-family>
