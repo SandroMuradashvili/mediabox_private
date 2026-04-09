@@ -265,28 +265,25 @@
                     android:layout_marginStart="12dp"
                     android:background="@drawable/control_button_background"
                     android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:nextFocusUp="@+id/btnPlayPause"
-                    android:nextFocusRight="@+id/btnTimeRewind">
+                    android:focusableInTouchMode="true">
 
-                    <!-- Playing animation (shown when live) -->
-                    <ImageView
-                        android:id="@+id/ivLivePlayingAnim"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_playing_bars"
-                        android:visibility="visible"/>
-
-                    <!-- Broadcast icon (shown when in archive) -->
+                    <!-- LIVE Icon: Use app:srcCompat -->
                     <ImageView
                         android:id="@+id/ivLiveBroadcastIcon"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
                         android:layout_gravity="center"
-                        android:src="@drawable/ic_broadcast"
-                        android:visibility="gone"
-                        android:contentDescription="Return to Live"/>
+                        app:srcCompat="@drawable/ic_broadcast_animated_white"
+                        android:visibility="visible"/>
+
+                    <!-- ARCHIVE Icon: Use app:srcCompat -->
+                    <ImageView
+                        android:id="@+id/ivLivePlayingAnim"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:layout_gravity="center"
+                        app:srcCompat="@drawable/ic_playing_bars"
+                        android:visibility="gone"/>
                 </FrameLayout>
 
                 <!-- Jump to time -->

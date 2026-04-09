@@ -2,8 +2,6 @@ package ge.mediabox.mediabox.ui.player
 
 import android.app.Activity
 import android.graphics.drawable.AnimatedVectorDrawable
-import android.os.Handler
-import android.os.Looper
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -38,6 +36,7 @@ class EpgOverlayManager(
     private var channels: List<Channel>,
     private val onChannelSelected: (Int) -> Unit,
     private val onArchiveSelected: (String) -> Unit,
+
 ) {
 
     private var activeBackgroundChannelId: Int = -1
@@ -48,6 +47,8 @@ class EpgOverlayManager(
         data class ProgramData(val program: Program) : ProgramItem()
         data class DateDivider(val date: String) : ProgramItem()
     }
+
+    private val epgHeaderDot by lazy { binding.root.findViewById<View>(R.id.epgHeaderDot) }
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,6 @@ class EpgOverlayManager(
 
     private val ioJob   = kotlinx.coroutines.SupervisorJob()
     private val mainJob = kotlinx.coroutines.SupervisorJob()
-    private val ioScope = CoroutineScope(Dispatchers.IO + ioJob)
     private val scope   = CoroutineScope(Dispatchers.Main + mainJob)
 
     private enum class FocusSection { CATEGORIES, CHANNELS, PROGRAMS }
@@ -255,13 +255,41 @@ class EpgOverlayManager(
 
     private fun updateFocusIndicator() {
         when (focusSection) {
-            FocusSection.CATEGORIES, FocusSection.CHANNELS -> {
+            FocusSection.CATEGORIES -> {
+                // 1. Hide both lines
+                channelFocusLine?.visibility = View.INVISIBLE
+                programFocusLine?.visibility = View.INVISIBLE
+
+                // 2. Grow the header dot (2x size)
+                epgHeaderDot?.animate()
+                    ?.scaleX(2.0f)
+                    ?.scaleY(2.0f)
+                    ?.setDuration(200)
+                    ?.start()
+            }
+            FocusSection.CHANNELS -> {
+                // 1. Show channel line
                 channelFocusLine?.visibility = View.VISIBLE
                 programFocusLine?.visibility = View.INVISIBLE
+
+                // 2. Shrink header dot to normal
+                epgHeaderDot?.animate()
+                    ?.scaleX(1.0f)
+                    ?.scaleY(1.0f)
+                    ?.setDuration(200)
+                    ?.start()
             }
             FocusSection.PROGRAMS -> {
+                // 1. Show program line
                 channelFocusLine?.visibility = View.INVISIBLE
                 programFocusLine?.visibility = View.VISIBLE
+
+                // 2. Shrink header dot to normal
+                epgHeaderDot?.animate()
+                    ?.scaleX(1.0f)
+                    ?.scaleY(1.0f)
+                    ?.setDuration(200)
+                    ?.start()
             }
         }
     }
@@ -649,77 +677,6 @@ class EpgOverlayManager(
             .putString("epg_focus_section", sectionToSave.name)
             .apply()
     }
-
-    fun restoreState(prefs: android.content.SharedPreferences) {
-        val savedCategory = prefs.getString("epg_category", "") ?: ""
-        val isKa = LangPrefs.isKa(activity)
-        val categories = repository.getCategories(isKa)
-
-        if (savedCategory.isNotEmpty() && categories.contains(savedCategory)) {
-            selectedCategoryIndex = prefs.getInt("epg_category_index", 0)
-            currentCategory = savedCategory
-            filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
-            channelAdapter.updateChannels(filteredChannels)
-        }
-
-        val savedChannelIndex = prefs.getInt("epg_channel_index", 0)
-        selectedChannelIndex = savedChannelIndex.coerceIn(0, (filteredChannels.size - 1).coerceAtLeast(0))
-        selectedProgramIndex = prefs.getInt("epg_program_index", 0)
-
-        val sectionName = prefs.getString("epg_focus_section", FocusSection.CHANNELS.name)
-        val restored = try {
-            FocusSection.valueOf(sectionName ?: FocusSection.CHANNELS.name)
-        } catch (e: Exception) {
-            FocusSection.CHANNELS
-        }
-        focusSection = if (restored == FocusSection.PROGRAMS) FocusSection.CHANNELS else restored
-    }
-
-    // Change the signature to accept both the Channel ID (Int) and the Timestamp (Long)
-    // In EpgOverlayManager.kt
-
-    fun requestFocusOnRestored(currentChannelId: Int, currentTimestampMs: Long = System.currentTimeMillis()) {
-        // 1. Update the 'Watching' references
-        this.activeBackgroundChannelId = currentChannelId
-        this.playbackTimestampMs = currentTimestampMs
-
-        // 2. Refresh UI highlights for Categories and Channels based on restored state
-        channelAdapter.setHighlight(selectedChannelIndex)
-        highlightCategory()
-        updateFocusIndicator()
-
-        // 3. Scroll the channel list to the last viewed channel
-        val rv = binding.root.findViewById<RecyclerView>(R.id.channelList)
-        (rv?.layoutManager as? LinearLayoutManager)
-            ?.scrollToPositionWithOffset(selectedChannelIndex, 150)
-
-        val channel = filteredChannels.getOrNull(selectedChannelIndex)
-
-        // 4. Handle Program Panel Restore
-        if (channel == null || channel.isLocked) {
-            if (channel != null) showLockedChannelInfo(channel)
-            return
-        }
-
-        if (channel.programs.isNotEmpty()) {
-            // If we were previously looking at programs, or the restored state says we should be:
-            // Re-calculate which program is "current" right NOW on this channel
-            // to ensure the scroll position and "Watching" indicator are accurate.
-            loadProgramsJob?.cancel()
-            loadProgramsJob = scope.launch {
-                // This will calculate the correct targetPos based on currentTimestampMs
-                renderPrograms(channel, channel.programs, playbackTimestampMs)
-
-                // If the focus was saved as CHANNELS, we keep focus there but update the side panel.
-                // If it was PROGRAMS, the focus indicator is already set by highlightCategory() logic.
-                updateFocusIndicator()
-            }
-        } else {
-            // Not cached — show placeholder
-            showDefaultPlaceholder()
-        }
-    }
-
     private fun handleProgramKeys(keyCode: Int): Boolean {
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return false
         return when (keyCode) {

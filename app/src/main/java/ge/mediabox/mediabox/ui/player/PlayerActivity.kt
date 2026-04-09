@@ -292,8 +292,6 @@ class PlayerActivity : AppCompatActivity() {
             isPlayerPlaying = playing
             if (isLiveMode && !playing && livePausedAt == null && userIntentionallyPaused) {
                 livePausedAt = System.currentTimeMillis()
-            } else if (playing && livePausedAt != null) {
-                livePausedAt = null
             }
             updateLiveIndicatorState()
         }
@@ -675,9 +673,17 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun updateLiveIndicatorState() {
+        // A stream is ONLY "truly live" if:
+        // 1. We are using the Live URL (isLiveMode)
+        // 2. The player is actually playing
+        // 3. The user has NEVER paused since the channel started (livePausedAt == null)
         val trulyLive = isLiveMode && isPlayerPlaying && livePausedAt == null
+
         controlOverlayManager.updateLiveIndicator(trulyLive, isPlayerPlaying)
-        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(if (isPlayerPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+
+        binding.root.findViewById<ImageButton>(R.id.btnPlayPause)?.setImageResource(
+            if (isPlayerPlaying) R.drawable.ic_pause else R.drawable.ic_play
+        )
     }
 
     private fun showTopBarTemporarily() {

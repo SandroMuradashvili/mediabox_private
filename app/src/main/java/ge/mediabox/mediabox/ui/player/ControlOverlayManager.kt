@@ -68,17 +68,16 @@ class ControlOverlayManager(
     fun updateLiveIndicator(isLive: Boolean, isPlaying: Boolean = true) {
         val root = binding.root
         val btnLive = root.findViewById<View>(R.id.btnLive) ?: return
-        val ivPlayingAnim = root.findViewById<ImageView>(R.id.ivLivePlayingAnim)
-        val ivBroadcastIcon = root.findViewById<ImageView>(R.id.ivLiveBroadcastIcon)
+        val ivBarsAnim = root.findViewById<ImageView>(R.id.ivLivePlayingAnim)
+        val ivBroadcastAnim = root.findViewById<ImageView>(R.id.ivLiveBroadcastIcon)
 
         if (isLive) {
-            // Live mode: Show animation
-            ivPlayingAnim?.visibility = View.VISIBLE
-            ivBroadcastIcon?.visibility = View.GONE
-            
-            val drawable = ivPlayingAnim?.drawable
+            // 🟢 TRULY LIVE: Show Pulsing Antenna
+            ivBroadcastAnim?.visibility = View.VISIBLE
+            ivBarsAnim?.visibility = View.GONE
+
+            val drawable = ivBroadcastAnim?.drawable
             if (drawable is AnimatedVectorDrawable) {
-                // Ensure the animation is running if playing, or stopped at a frame if not
                 if (isPlaying) {
                     if (!drawable.isRunning) drawable.start()
                 } else {
@@ -87,14 +86,22 @@ class ControlOverlayManager(
             }
             btnLive.alpha = 1.0f
         } else {
-            // Archive/Delayed mode: Show broadcast icon to return to live
-            ivPlayingAnim?.visibility = View.GONE
-            ivBroadcastIcon?.visibility = View.VISIBLE
-            
-            val drawable = ivPlayingAnim?.drawable
-            if (drawable is AnimatedVectorDrawable) drawable.stop()
-            
-            btnLive.alpha = 0.8f // Slightly dimmed but still indicates action
+            // 🟠 DELAYED / ARCHIVE: Show Playing Bars
+            ivBroadcastAnim?.visibility = View.GONE
+            ivBarsAnim?.visibility = View.VISIBLE
+
+            val drawable = ivBarsAnim?.drawable
+            if (drawable is AnimatedVectorDrawable) {
+                // Only bounce the bars if the video is actually moving
+                if (isPlaying) {
+                    if (!drawable.isRunning) drawable.start()
+                } else {
+                    drawable.stop()
+                }
+            }
+
+            // Show the button as "active" (clickable) to return to live
+            btnLive.alpha = 0.8f
         }
     }
 
