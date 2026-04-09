@@ -753,16 +753,33 @@ class PlayerActivity : AppCompatActivity() {
         val channel = channels.getOrNull(currentChannelIndex)?.takeIf { !it.isLocked } ?: return
         val deviceId = DeviceIdHelper.getDeviceId(this)
         val willBeFavorite = !channel.isFavorite
+
+        // Optimistic UI update (feels instant locally)
         repository.setFavoriteLocal(channel.id, willBeFavorite)
         controlOverlayManager.updateFavoriteButton(willBeFavorite)
+
         lifecycleScope.launch(Dispatchers.IO) {
-            val success = if (willBeFavorite)
+            val success = if (willBeFavorite) {
                 repository.addFavouriteRemote(token, channel.apiId, deviceId)
-            else
+            } else {
                 repository.removeFavouriteRemote(token, channel.apiId, deviceId)
-            if (!success) withContext(Dispatchers.Main) {
-                repository.setFavoriteLocal(channel.id, !willBeFavorite)
-                controlOverlayManager.updateFavoriteButton(!willBeFavorite)
+            }
+
+            if (!success) {
+                withContext(Dispatchers.Main) {
+                    // Revert locally on failure
+                    repository.setFavoriteLocal(channel.id, !willBeFavorite)
+                    controlOverlayManager.updateFavoriteButton(!willBeFavorite)
+
+                    val isKa = LangPrefs.isKa(this@PlayerActivity)
+                    Toast.makeText(
+                        this@PlayerActivity,
+                        if (isKa) "ფავორიტის სინქრონიზაცია ვერ მოხერხდა" else "Failed to sync favorite",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                android.util.Log.d("FAVORITES_DEBUG", "✅ Favorite synced successfully for channel ${channel.name} (${channel.apiId})")
             }
         }
     }

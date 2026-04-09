@@ -192,35 +192,85 @@ object ApiService {
 
     fun fetchFavourites(token: String, deviceId: String): List<String> {
         val ids = mutableListOf<String>()
+        val url = "$BASE_URL/user/preferences/favourite-channels?device_id=$deviceId"
+        Log.d("FAVORITES_DEBUG", "📡 GET Favourites: $url")
         try {
-            val conn = openGet("$BASE_URL/user/preferences/favourite-channels?device_id=$deviceId", token)
-            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val conn = openGet(url, token)
+            conn.useCaches = false // Prevent HTTP cache response
+
+            val code = conn.responseCode
+            Log.d("FAVORITES_DEBUG", "📡 GET Response Code: $code")
+
+            if (code == HttpURLConnection.HTTP_OK) {
+                val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+                Log.d("FAVORITES_DEBUG", "📡 GET JSON Body: $jsonText")
+                val json = JSONObject(jsonText)
                 json.optJSONArray("favouriteChannelIds")?.let { arr ->
                     for (i in 0 until arr.length()) ids.add(arr.getString(i))
                 }
+            } else {
+                val errorText = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                Log.e("FAVORITES_DEBUG", "❌ GET Error: $errorText")
             }
-        } catch (e: Exception) { Log.e(TAG, "fetchFavourites error", e) }
+        } catch (e: Exception) {
+            Log.e("FAVORITES_DEBUG", "❌ fetchFavourites error", e)
+        }
+        Log.d("FAVORITES_DEBUG", "⭐ Loaded Favourite IDs: $ids")
         return ids
     }
 
     fun addFavourite(token: String, externalId: String, deviceId: String): Boolean = try {
-        val conn = openPost("$BASE_URL/user/preferences/favourite-channels", token)
-        OutputStreamWriter(conn.outputStream).use {
-            it.write(JSONObject().put("channelId", externalId).put("device_id", deviceId).toString())
+        val url = "$BASE_URL/user/preferences/favourite-channels"
+        Log.d("FAVORITES_DEBUG", "📡 POST Add Favourite: $url")
+        val conn = openPost(url, token)
+
+        val payload = JSONObject().put("channelId", externalId).put("device_id", deviceId).toString()
+        Log.d("FAVORITES_DEBUG", "📡 POST Payload: $payload")
+
+        OutputStreamWriter(conn.outputStream, "UTF-8").use {
+            it.write(payload)
+            it.flush() // Ensure it goes out
         }
-        conn.responseCode in 200..299
-    } catch (e: Exception) { false }
+
+        val code = conn.responseCode
+        Log.d("FAVORITES_DEBUG", "📡 POST Response Code: $code")
+
+        if (code in 200..299) {
+            true
+        } else {
+            val errorText = conn.errorStream?.bufferedReader()?.use { it.readText() }
+            Log.e("FAVORITES_DEBUG", "❌ POST Error Body: $errorText")
+            false
+        }
+    } catch (e: Exception) {
+        Log.e("FAVORITES_DEBUG", "❌ addFavourite exception", e)
+        false
+    }
 
     fun removeFavourite(token: String, externalId: String, deviceId: String): Boolean = try {
-        val conn = (URL("$BASE_URL/user/preferences/favourites/$externalId?device_id=$deviceId")
-            .openConnection() as HttpURLConnection).apply {
+        val url = "$BASE_URL/user/preferences/favourites/$externalId?device_id=$deviceId"
+        Log.d("FAVORITES_DEBUG", "📡 DELETE Favourite: $url")
+
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "DELETE"
             setRequestProperty("Authorization", "Bearer $token")
             setRequestProperty("Accept", "application/json")
         }
-        conn.responseCode in 200..299
-    } catch (e: Exception) { false }
+
+        val code = conn.responseCode
+        Log.d("FAVORITES_DEBUG", "📡 DELETE Response Code: $code")
+
+        if (code in 200..299) {
+            true
+        } else {
+            val errorText = conn.errorStream?.bufferedReader()?.use { it.readText() }
+            Log.e("FAVORITES_DEBUG", "❌ DELETE Error Body: $errorText")
+            false
+        }
+    } catch (e: Exception) {
+        Log.e("FAVORITES_DEBUG", "❌ removeFavourite exception", e)
+        false
+    }
 
     fun fetchStreamUrl(channelId: String, deviceId: String, token: String? = null): StreamResponse? = try {
         val conn = openGet("$BASE_URL/channels/$channelId/stream?device_id=$deviceId", token)
