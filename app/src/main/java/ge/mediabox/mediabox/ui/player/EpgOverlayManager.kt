@@ -816,9 +816,9 @@ class EpgOverlayManager(
         override fun getItemCount() = list.size
 
         fun updateChannels(newChannels: List<Channel>) {
+            setHighlight(-1)
             val old = list
             list = newChannels
-            highlightedPos = -1
             val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
                 override fun getOldListSize() = old.size
                 override fun getNewListSize() = newChannels.size
@@ -866,6 +866,7 @@ class EpgOverlayManager(
 
         fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null) {
             android.util.Log.e("EPG_BUG", "--> ProgramAdapter UPDATED with ${newItems.size} items")
+            setHighlight(-1)
             val oldItems = items
             val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
                 override fun getOldListSize() = oldItems.size
@@ -882,7 +883,6 @@ class EpgOverlayManager(
             }, false)
 
             items = newItems
-            highlightedPos = -1
             watchingTimestampMs = overrideTimestampMs
             diff.dispatchUpdatesTo(this)
         }
