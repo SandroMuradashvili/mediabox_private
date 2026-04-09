@@ -27,14 +27,9 @@ class RadioActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRadioBinding
     private var player: ExoPlayer? = null
-
     private var stations: List<RadioStation> = emptyList()
     private var currentIndex = -1
-    private var isRadioPlaying = false  // renamed to avoid conflict with ExoPlayer.isPlaying
-
-    private var focusZone = 0
     private var highlightedStationIndex = 0
-
     private lateinit var stationAdapter: StationAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,13 +41,9 @@ class RadioActivity : AppCompatActivity() {
 
         initPlayer()
         setupStationList()
-        setupControlButtons()
         loadStations()
     }
 
-    // ── Player ────────────────────────────────────────────────────────────────
-
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun initPlayer() {
         player = ExoPlayer.Builder(this).build().apply {
             addListener(object : Player.Listener {
@@ -60,22 +51,12 @@ class RadioActivity : AppCompatActivity() {
                     binding.radioLoadingBar.visibility =
                         if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
                     if (state == Player.STATE_READY) {
-                        isRadioPlaying = true
-                        updatePlayPauseButton()
                         binding.tvLiveBadge.visibility = View.VISIBLE
                     }
                 }
-                override fun onIsPlayingChanged(playing: Boolean) {
-                    isRadioPlaying = playing
-                    updatePlayPauseButton()
-                }
                 override fun onPlayerError(error: PlaybackException) {
                     binding.radioLoadingBar.visibility = View.GONE
-                    Toast.makeText(
-                        this@RadioActivity,
-                        "Stream unavailable for this station",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this@RadioActivity, "Stream error", Toast.LENGTH_SHORT).show()
                 }
             })
         }
@@ -83,7 +64,16 @@ class RadioActivity : AppCompatActivity() {
 
     private fun playStation(index: Int) {
         val station = stations.getOrNull(index) ?: return
+
+        // Check Access
+        if (!station.hasAccess) {
+            val isKa = LangPrefs.isKa(this)
+            Toast.makeText(this, if(isKa) "წვდომა შეზღუდულია" else "Access Denied", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         currentIndex = index
+        val token = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
 
         binding.layoutNothingPlaying.visibility = View.GONE
         binding.layoutNowPlaying.visibility = View.VISIBLE
@@ -93,99 +83,51 @@ class RadioActivity : AppCompatActivity() {
         binding.radioLoadingBar.visibility = View.VISIBLE
 
         if (!station.logoUrl.isNullOrEmpty()) {
-            Glide.with(this)
-                .load(station.logoUrl)
-                .placeholder(R.drawable.ic_radio)
-                .error(R.drawable.ic_radio)
-                .into(binding.ivStationLogo)
-        } else {
-            binding.ivStationLogo.setImageResource(R.drawable.ic_radio)
+            Glide.with(this).load(station.logoUrl).placeholder(R.drawable.ic_radio).into(binding.ivStationLogo)
         }
 
-        val exo = player ?: return
-        exo.stop()
-        exo.setMediaItem(MediaItem.fromUri(station.streamUrl))
-        exo.prepare()
-        exo.play()
-
-        stationAdapter.setNowPlaying(index)
-    }
-
-    private fun updatePlayPauseButton() {
-        binding.btnPlayPauseRadio.setImageResource(
-            if (isRadioPlaying) R.drawable.ic_pause else R.drawable.ic_play
-        )
-    }
-
-    // ── List ──────────────────────────────────────────────────────────────────
-
-    private fun setupStationList() {
-        stationAdapter = StationAdapter(emptyList()) { index ->
-            highlightedStationIndex = index
-            playStation(index)
-            focusZone = 1
-            updateControlFocus()
-        }
-        binding.rvRadioStations.apply {
-            layoutManager = LinearLayoutManager(this@RadioActivity)
-            adapter = stationAdapter
-            itemAnimator = null
-            isFocusable = false
-            isFocusableInTouchMode = false
-        }
-    }
-
-    private fun setupControlButtons() {
-        binding.btnPlayPauseRadio.setOnClickListener { togglePlayPause() }
-        binding.btnPrevStation.setOnClickListener { changeStation(-1) }
-        binding.btnNextStation.setOnClickListener { changeStation(1) }
-    }
-
-    private fun loadStations() {
-        binding.radioLoadingBar.visibility = View.VISIBLE
         lifecycleScope.launch {
-            stations = RadioRepository.getStations()
-            stationAdapter.updateStations(stations)
-            binding.radioLoadingBar.visibility = View.GONE
-            if (stations.isNotEmpty()) {
-                stationAdapter.setHighlight(0)
-                highlightedStationIndex = 0
+            val url = RadioRepository.getStreamUrl(station.id, token)
+            if (url != null) {
+                player?.stop()
+                player?.setMediaItem(MediaItem.fromUri(url))
+                player?.prepare()
+                player?.play()
+                stationAdapter.setNowPlaying(index)
+            } else {
+                binding.radioLoadingBar.visibility = View.GONE
+                Toast.makeText(this@RadioActivity, "Stream unavailable", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // ── Controls ──────────────────────────────────────────────────────────────
-
-    private fun togglePlayPause() {
-        val exo = player ?: return
-        if (exo.isPlaying) exo.pause() else exo.play()
-    }
-
-    private fun changeStation(direction: Int) {
-        if (stations.isEmpty()) return
-        val next = (currentIndex + direction).coerceIn(0, stations.size - 1)
-        if (next != currentIndex) {
-            highlightedStationIndex = next
-            stationAdapter.setHighlight(next)
-            binding.rvRadioStations.smoothScrollToPosition(next)
-            playStation(next)
+    private fun setupStationList() {
+        stationAdapter = StationAdapter(emptyList()) { index ->
+            playStation(index)
+        }
+        binding.rvRadioStations.apply {
+            layoutManager = LinearLayoutManager(this@RadioActivity)
+            adapter = stationAdapter
+            setHasFixedSize(true)
         }
     }
 
-    private fun updateControlFocus() {
-        val alpha = if (focusZone == 1) 1f else 0.5f
-        binding.btnPlayPauseRadio.alpha = alpha
-        binding.btnPrevStation.alpha    = alpha
-        binding.btnNextStation.alpha    = alpha
+    private fun loadStations() {
+        val token = getSharedPreferences("AuthPrefs", MODE_PRIVATE).getString("auth_token", null)
+        lifecycleScope.launch {
+            stations = RadioRepository.getStations(token)
+            stationAdapter.updateStations(stations)
+            if (stations.isNotEmpty()) {
+                highlightedStationIndex = 0
+                stationAdapter.setHighlight(0)
+            }
+        }
     }
-
-    // ── Keys ──────────────────────────────────────────────────────────────────
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         return when (keyCode) {
-            KeyEvent.KEYCODE_BACK -> { finish(); true }
             KeyEvent.KEYCODE_DPAD_UP -> {
-                if (focusZone == 0 && highlightedStationIndex > 0) {
+                if (highlightedStationIndex > 0) {
                     highlightedStationIndex--
                     stationAdapter.setHighlight(highlightedStationIndex)
                     binding.rvRadioStations.smoothScrollToPosition(highlightedStationIndex)
@@ -193,49 +135,23 @@ class RadioActivity : AppCompatActivity() {
                 true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (focusZone == 0 && highlightedStationIndex < stations.size - 1) {
+                if (highlightedStationIndex < stations.size - 1) {
                     highlightedStationIndex++
                     stationAdapter.setHighlight(highlightedStationIndex)
                     binding.rvRadioStations.smoothScrollToPosition(highlightedStationIndex)
                 }
                 true
             }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (focusZone == 0 && currentIndex >= 0) {
-                    focusZone = 1
-                    updateControlFocus()
-                    binding.btnPlayPauseRadio.requestFocus()
-                }
-                true
-            }
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (focusZone == 1) {
-                    focusZone = 0
-                    updateControlFocus()
-                }
-                true
-            }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                when (focusZone) {
-                    0 -> playStation(highlightedStationIndex)
-                    1 -> togglePlayPause()
-                }
+                playStation(highlightedStationIndex)
+                true
+            }
+            KeyEvent.KEYCODE_BACK -> {
+                finish()
                 true
             }
             else -> super.onKeyDown(keyCode, event)
         }
-    }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
-    override fun onPause() {
-        super.onPause()
-        player?.pause()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (currentIndex >= 0) player?.play()
     }
 
     override fun onDestroy() {
@@ -244,8 +160,7 @@ class RadioActivity : AppCompatActivity() {
         player = null
     }
 
-    // ── Adapter ───────────────────────────────────────────────────────────────
-
+    // ── STATION ADAPTER INNER CLASS ──
     inner class StationAdapter(
         private var stations: List<RadioStation>,
         private val onClick: (Int) -> Unit
@@ -261,32 +176,27 @@ class RadioActivity : AppCompatActivity() {
             val outline: View      = itemView.findViewById(R.id.radioSelectionOutline)
             val nowDot:  TextView  = itemView.findViewById(R.id.tvNowPlayingDot)
 
-            init {
-                itemView.setOnClickListener {
-                    val pos = adapterPosition
-                    if (pos != RecyclerView.NO_POSITION) onClick(pos)
-                }
-            }
-
             fun bind(station: RadioStation, isHighlighted: Boolean, isNowPlaying: Boolean) {
                 name.text  = station.name
                 genre.text = station.genre
 
                 if (!station.logoUrl.isNullOrEmpty()) {
-                    Glide.with(itemView.context)
-                        .load(station.logoUrl)
-                        .placeholder(R.drawable.ic_radio)
-                        .into(logo)
+                    Glide.with(itemView.context).load(station.logoUrl).placeholder(R.drawable.ic_radio).into(logo)
                 } else {
                     logo.setImageResource(R.drawable.ic_radio)
                 }
 
                 outline.visibility = if (isHighlighted) View.VISIBLE else View.GONE
                 nowDot.visibility  = if (isNowPlaying) View.VISIBLE else View.GONE
-                name.setTextColor(
-                    if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt()
-                )
-                itemView.alpha = if (isHighlighted || isNowPlaying) 1f else 0.85f
+
+                // Handle Access
+                if (!station.hasAccess) {
+                    itemView.alpha = 0.35f
+                    name.setTextColor(0xFF94A3B8.toInt())
+                } else {
+                    itemView.alpha = if (isHighlighted || isNowPlaying) 1f else 0.85f
+                    name.setTextColor(if (isHighlighted) 0xFFF1F5F9.toInt() else 0xDDF1F5F9.toInt())
+                }
             }
         }
 
@@ -300,7 +210,7 @@ class RadioActivity : AppCompatActivity() {
         fun setNowPlaying(pos: Int) {
             val old = nowPlayingPos
             nowPlayingPos  = pos
-            highlightedPos = pos
+            highlightedPos = pos // Automatically highlight what we just played
             if (old in 0 until itemCount) notifyItemChanged(old)
             if (pos in 0 until itemCount) notifyItemChanged(pos)
         }
@@ -311,18 +221,13 @@ class RadioActivity : AppCompatActivity() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
-            LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_radio_station, parent, false)
+            LayoutInflater.from(parent.context).inflate(R.layout.item_radio_station, parent, false)
         )
 
         override fun getItemCount() = stations.size
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.bind(
-                station       = stations[position],
-                isHighlighted = position == highlightedPos,
-                isNowPlaying  = position == nowPlayingPos
-            )
+            holder.bind(stations[position], position == highlightedPos, position == nowPlayingPos)
         }
     }
 }

@@ -2,6 +2,7 @@ package ge.mediabox.mediabox.data.api
 import android.util.Log
 import ge.mediabox.mediabox.BuildConfig
 import ge.mediabox.mediabox.data.model.Program
+import ge.mediabox.mediabox.data.model.RadioStation
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -21,6 +22,65 @@ object ApiService {
     data class LogoResponse(val logo_light: String, val logo_dark: String)
 
     data class Notification(val id: String, val message: String, val title: String? = null)
+
+    data class RadioStreamResponse(val url: String, val type: String)
+
+    fun fetchRadioStations(token: String? = null): List<RadioStation> {
+        val stations = mutableListOf<RadioStation>()
+        try {
+            val conn = openGet("${BuildConfig.BASE_API_URL}/radio", token)
+            if (conn.responseCode == 200) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val arr = org.json.JSONArray(text)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    stations.add(RadioStation(
+                        id = obj.getString("id"),
+                        name = obj.getString("name"),
+                        logoUrl = obj.optString("logo", null),
+                        isFree = obj.optBoolean("is_free", true),
+                        hasAccess = obj.optBoolean("has_access", true)
+                    ))
+                }
+            }
+        } catch (e: Exception) { Log.e("ApiService", "fetchRadioStations error", e) }
+        return stations
+    }
+
+    // Inside ApiService.kt
+
+    fun fetchRadioStream(id: String, token: String? = null): RadioStreamResponse? = try {
+        val url = "${BuildConfig.BASE_API_URL}/radio/$id/stream"
+        android.util.Log.d("RADIO_DEBUG", "📡 Calling Stream API: $url")
+        android.util.Log.d("RADIO_DEBUG", "🔑 Using Token: ${token?.take(10)}...")
+
+        val conn = openGet(url, token)
+        android.util.Log.d("RADIO_DEBUG", "📡 Response Code: ${conn.responseCode}")
+
+        if (conn.responseCode == 200) {
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            android.util.Log.d("RADIO_DEBUG", "📡 Raw JSON Response: $text")
+
+            val obj = JSONObject(text)
+            // We use optString to prevent crashing if a key is missing
+            val streamUrl = obj.optString("url", "")
+            val streamType = obj.optString("type", "mp3")
+
+            if (streamUrl.isEmpty()) {
+                android.util.Log.e("RADIO_DEBUG", "❌ JSON parsed but 'url' field is empty!")
+            }
+
+            RadioStreamResponse(streamUrl, streamType)
+        } else {
+            val errorText = conn.errorStream?.bufferedReader()?.use { it.readText() }
+            android.util.Log.e("RADIO_DEBUG", "❌ Server Error: $errorText")
+            null
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("RADIO_DEBUG", "❌ Network/Parsing Exception: ${e.message}")
+        e.printStackTrace()
+        null
+    }
 
     // Full Function to fetch logos with LOGO_TEST logs
     fun fetchLogos(token: String? = null): LogoResponse? = try {

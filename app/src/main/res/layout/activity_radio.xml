@@ -183,53 +183,6 @@
                     android:layout_marginTop="16dp"
                     android:visibility="gone"/>
 
-                <!-- Controls row -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginTop="36dp">
-
-                    <!-- Previous -->
-                    <ImageButton
-                        android:id="@+id/btnPrevStation"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
-                        android:background="@drawable/control_button_background"
-                        android:src="@drawable/ic_rewind"
-                        android:scaleType="centerInside"
-                        android:padding="12dp"
-                        android:contentDescription="Previous station"
-                        android:focusable="true"
-                        android:layout_marginEnd="16dp"/>
-
-                    <!-- Play/Pause -->
-                    <ImageButton
-                        android:id="@+id/btnPlayPauseRadio"
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
-                        android:background="@drawable/control_button_background"
-                        android:src="@drawable/ic_pause"
-                        android:scaleType="centerInside"
-                        android:padding="14dp"
-                        android:contentDescription="Play/Pause"
-                        android:focusable="true"
-                        android:layout_marginEnd="16dp"/>
-
-                    <!-- Next -->
-                    <ImageButton
-                        android:id="@+id/btnNextStation"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
-                        android:background="@drawable/control_button_background"
-                        android:src="@drawable/ic_fast_forward"
-                        android:scaleType="centerInside"
-                        android:padding="12dp"
-                        android:contentDescription="Next station"
-                        android:focusable="true"/>
-
-                </LinearLayout>
 
             </LinearLayout>
 
