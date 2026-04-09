@@ -788,8 +788,17 @@ class PlayerActivity : AppCompatActivity() {
             else -> when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> { changeChannel(1); true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> { changeChannel(-1); true }
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { showEpg(); true }
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { showControls(); true }
+
+                // Reversing these two:
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    showControls() // Now opens Player Controls
+                    true
+                }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    showEpg()      // Now opens EPG
+                    true
+                }
+
                 KeyEvent.KEYCODE_BACK -> { finish(); true }
                 else -> false
             }
