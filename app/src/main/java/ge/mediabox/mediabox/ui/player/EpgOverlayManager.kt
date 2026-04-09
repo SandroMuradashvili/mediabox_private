@@ -940,25 +940,32 @@ class EpgOverlayManager(
                 accentBar?.visibility = if (isWatching) View.VISIBLE else View.INVISIBLE
 
                 val animDrawable = playingAnim?.drawable as? AnimatedVectorDrawable
-                val liveBadge = itemView.findViewById<TextView>(R.id.tvLiveBadge)
+                val liveBadge = itemView.findViewById<ImageView>(R.id.ivLiveBadge)
+                val liveAnimDrawable = liveBadge?.drawable as? AnimatedVectorDrawable
 
-                if (isWatching) {
-                    // USER IS WATCHING THIS PROGRAM (priority)
+                if (isLiveProgram) {
+                    // PROGRAM IS LIVE: Start broadcast animation
+                    playingAnim?.visibility = View.GONE
+                    animDrawable?.stop()
+
+                    liveBadge?.visibility = View.VISIBLE
+                    liveAnimDrawable?.let { if (!it.isRunning) it.start() }
+
+                } else if (isWatching) {
+                    // WATCHING ARCHIVE: Start playing bars animation
                     playingAnim?.visibility = View.VISIBLE
                     animDrawable?.let { if (!it.isRunning) it.start() }
-                    liveBadge?.visibility = View.GONE
 
-                } else if (isLiveProgram) {
-                    // PROGRAM IS LIVE (but not selected/watching)
-                    playingAnim?.visibility = View.GONE
-                    animDrawable?.stop()
-                    liveBadge?.visibility = View.VISIBLE
+                    liveBadge?.visibility = View.GONE
+                    liveAnimDrawable?.stop()
 
                 } else {
-                    // NORMAL
+                    // NORMAL (Past or Future program, not being watched)
                     playingAnim?.visibility = View.GONE
                     animDrawable?.stop()
+
                     liveBadge?.visibility = View.GONE
+                    liveAnimDrawable?.stop()
                 }
 
                 time.setTextColor(when {

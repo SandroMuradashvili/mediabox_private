@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="24dp"
+            android:height="24dp"
+            android:viewportWidth="24"
+            android:viewportHeight="24">
+
+            <!-- Center Dot (Nested to avoid <set> animation) -->
+            <group android:name="center_dot_x" android:pivotX="12" android:pivotY="12">
+                <group android:name="center_dot_y" android:pivotX="12" android:pivotY="12">
+                    <path
+                        android:fillColor="#EF4444"
+                        android:pathData="M12,10.5 A1.5,1.5 0 1,1 12,13.5 A1.5,1.5 0 1,1 12,10.5Z"/>
+                </group>
+            </group>
+
+            <!-- Inner Arcs -->
+            <group android:name="inner_arcs_x" android:pivotX="12" android:pivotY="12">
+                <group android:name="inner_arcs_y" android:pivotX="12" android:pivotY="12">
+                    <path
+                        android:strokeColor="#EF4444"
+                        android:strokeWidth="1.6"
+                        android:strokeLineCap="round"
+                        android:pathData="M9.5,9.5 A3.5,3.5 0 0,0 9.5,14.5"/>
+                    <path
+                        android:strokeColor="#EF4444"
+                        android:strokeWidth="1.6"
+                        android:strokeLineCap="round"
+                        android:pathData="M14.5,9.5 A3.5,3.5 0 0,1 14.5,14.5"/>
+                </group>
+            </group>
+
+            <!-- Outer Arcs -->
+            <group android:name="outer_arcs_x" android:pivotX="12" android:pivotY="12">
+                <group android:name="outer_arcs_y" android:pivotX="12" android:pivotY="12">
+                    <path
+                        android:strokeColor="#EF4444"
+                        android:strokeWidth="1.6"
+                        android:strokeLineCap="round"
+                        android:pathData="M6.8,6.8 A7.3,7.3 0 0,0 6.8,17.2"/>
+                    <path
+                        android:strokeColor="#EF4444"
+                        android:strokeWidth="1.6"
+                        android:strokeLineCap="round"
+                        android:pathData="M17.2,6.8 A7.3,7.3 0 0,1 17.2,17.2"/>
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- 1. Center Dot Animations -->
+    <target android:name="center_dot_x">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="scaleX"
+                android:duration="600"
+                android:valueFrom="0.5"
+                android:valueTo="1.2"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+    <target android:name="center_dot_y">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="scaleY"
+                android:duration="600"
+                android:valueFrom="0.5"
+                android:valueTo="1.2"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+
+    <!-- 2. Inner Arcs Animations (Staggered by 150ms) -->
+    <target android:name="inner_arcs_x">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="scaleX"
+                android:duration="600"
+                android:startOffset="150"
+                android:valueFrom="0.7"
+                android:valueTo="1.0"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+    <target android:name="inner_arcs_y">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="scaleY"
+                android:duration="600"
+                android:startOffset="150"
+                android:valueFrom="0.7"
+                android:valueTo="1.0"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+
+    <!-- 3. Outer Arcs Animations (Staggered by 300ms) -->
+    <target android:name="outer_arcs_x">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="scaleX"
+                android:duration="600"
+                android:startOffset="300"
+                android:valueFrom="0.85"
+                android:valueTo="1.0"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+    <target android:name="outer_arcs_y">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="scaleY"
+                android:duration="600"
+                android:startOffset="300"
+                android:valueFrom="0.85"
+                android:valueTo="1.0"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+
+</animated-vector>

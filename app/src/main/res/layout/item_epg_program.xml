@@ -51,22 +51,14 @@
         android:visibility="gone"/>
 
     <!-- LIVE pill badge — only shown when program is live AND playing live (not archive) -->
-    <TextView
-        android:id="@+id/tvLiveBadge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <!-- Animated Broadcast Icon (Replaces the text pill) -->
+    <ImageView
+        android:id="@+id/ivLiveBadge"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:layout_marginStart="8dp"
-        android:text="LIVE"
-        android:textSize="9sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:background="@drawable/epg_now_badge"
-        android:backgroundTint="#EF4444"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
-        android:letterSpacing="0.08"
+        android:translationX="5dp"
+        android:src="@drawable/ic_broadcast_animated"
         android:visibility="gone"/>
 
     <!-- Playing Animation — shown for both live AND archive-watched program -->
