@@ -83,8 +83,6 @@
                         android:src="@drawable/ic_menu_watch" app:tint="#F1F5F9" />
                     <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:textColor="#F1F5F9" android:textSize="20sp" android:textStyle="bold" android:layout_marginTop="15dp"/>
-                    <TextView android:tag="sublabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:textColor="#94A3B8" android:textSize="11sp" android:alpha="0" android:gravity="center" />
                 </LinearLayout>
             </FrameLayout>
 
@@ -103,8 +101,6 @@
                         android:src="@drawable/ic_radio" app:tint="#F1F5F9" />
                     <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:textColor="#F1F5F9" android:textSize="20sp" android:textStyle="bold" android:layout_marginTop="15dp"/>
-                    <TextView android:tag="sublabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:textColor="#94A3B8" android:textSize="11sp" android:alpha="0" android:gravity="center" />
                 </LinearLayout>
             </FrameLayout>
 
@@ -123,8 +119,6 @@
                         android:src="@drawable/ic_menu_profile" app:tint="#F1F5F9" />
                     <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:textColor="#F1F5F9" android:textSize="20sp" android:textStyle="bold" android:layout_marginTop="15dp"/>
-                    <TextView android:tag="sublabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:textColor="#94A3B8" android:textSize="11sp" android:alpha="0" android:gravity="center" />
                 </LinearLayout>
             </FrameLayout>
         </FrameLayout>

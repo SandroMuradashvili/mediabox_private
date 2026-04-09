@@ -166,7 +166,6 @@ class MainActivity : AppCompatActivity() {
             // Sub-elements visibility
             card.findViewWithTag<ImageView>("icon")?.animate()?.alpha(if (isSelected) 1.0f else 0.5f)?.setDuration(duration)?.start()
             card.findViewWithTag<TextView>("label")?.animate()?.alpha(if (isSelected) 1.0f else 0.6f)?.setDuration(duration)?.start()
-            card.findViewWithTag<TextView>("sublabel")?.animate()?.alpha(if (isSelected) 0.6f else 0f)?.setDuration(duration)?.start()
         }
 
         updateHintText()
@@ -275,11 +274,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateCardLabels() {
         val isKa = LangPrefs.isKa(this)
         binding.cardWatchTv.findViewWithTag<TextView>("label")?.text   = if (isKa) "ტელევიზია" else "Watch TV"
-        binding.cardWatchTv.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "პირდაპირი · არქივი · HD" else "Live · Archive · HD"
         binding.cardRadio.findViewWithTag<TextView>("label")?.text     = if (isKa) "რადიო" else "Radio"
-        binding.cardRadio.findViewWithTag<TextView>("sublabel")?.text  = if (isKa) "სადგურები · მუსიკა" else "Stations · Music"
         binding.cardProfile.findViewWithTag<TextView>("label")?.text   = if (isKa) "პროფილი" else "Profile"
-        binding.cardProfile.findViewWithTag<TextView>("sublabel")?.text = if (isKa) "ანგარიში · გამოწერა" else "Account · Subscription"
     }
 
     private fun launchTv() {
