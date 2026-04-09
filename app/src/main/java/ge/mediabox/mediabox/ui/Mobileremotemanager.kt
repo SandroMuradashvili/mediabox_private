@@ -103,6 +103,25 @@ object MobileRemoteManager {
                 }
             }
 
+            socket?.on("notification_received") { args ->
+                try {
+                    val data = args[0] as JSONObject
+                    Log.d(TAG, "Socket user notification received: $data")
+                    
+                    val id = data.optString("id", data.optString("_id", ""))
+                    val title = data.optString("title", null)
+                    val payload = data.optJSONObject("payload")
+                    val message = payload?.optString("message", "") ?: data.optString("message", "")
+
+                    if (id.isNotEmpty() && message.isNotEmpty()) {
+                        val notification = ApiService.Notification(id, message, title)
+                        onNotificationReceived?.invoke(notification)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing notification_received", e)
+                }
+            }
+
             socket?.on("admin_announcement") { args ->
                 try {
                     val data = args[0] as JSONObject

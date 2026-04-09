@@ -722,6 +722,7 @@ class PlayerActivity : AppCompatActivity() {
         if (hasState) {
             epgOverlayManager.refreshData(channels)
             epgOverlayManager.restoreState(prefs)
+            epgOverlayManager.overrideChannelFocus(channels.getOrNull(currentChannelIndex)?.id ?: -1)
             epgOverlayManager.requestFocusOnRestored(currentTs)
         } else {
             epgOverlayManager.refreshData(channels)

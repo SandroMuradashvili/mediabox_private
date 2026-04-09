@@ -112,6 +112,14 @@ class EpgOverlayManager(
         mainJob.cancel()
     }
 
+    fun overrideChannelFocus(currentChannelId: Int) {
+        val index = filteredChannels.indexOfFirst { it.id == currentChannelId }
+        if (index != -1) {
+            selectedChannelIndex = index
+        }
+    }
+
+
     // ── Pre-warm ──────────────────────────────────────────────────────────────
     fun preWarmPools() {
         activity.runOnUiThread {
