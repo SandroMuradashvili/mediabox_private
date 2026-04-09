@@ -128,25 +128,25 @@
             </FrameLayout>
         </FrameLayout>
 
-        <!-- EDGE GRADIENTS (Placed ABOVE the cards) -->
+        <!-- EDGE GRADIENTS (Full Height) -->
         <View
             android:id="@+id/fadeLeft"
             android:layout_width="200dp"
-            android:layout_height="350dp"
+            android:layout_height="match_parent"
             android:background="@drawable/side_fade_left"
             android:elevation="15dp"
-            app:layout_constraintTop_toTopOf="@id/cardsCarousel"
-            app:layout_constraintBottom_toBottomOf="@id/cardsCarousel"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
         <View
             android:id="@+id/fadeRight"
             android:layout_width="200dp"
-            android:layout_height="350dp"
+            android:layout_height="match_parent"
             android:background="@drawable/side_fade_right"
             android:elevation="15dp"
-            app:layout_constraintTop_toTopOf="@id/cardsCarousel"
-            app:layout_constraintBottom_toBottomOf="@id/cardsCarousel"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- HINT BAR -->
