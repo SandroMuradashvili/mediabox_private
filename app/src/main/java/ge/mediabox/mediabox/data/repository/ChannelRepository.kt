@@ -170,7 +170,7 @@ object ChannelRepository {
         null
     }
 
-    suspend fun refreshArchiveWindow(id: Int, token: String?): Int = withContext(Dispatchers.IO) {
+    suspend fun getArchiveWindow(id: Int, token: String?): Int = withContext(Dispatchers.IO) {
         val ch = channels.find { it.id == id } ?: return@withContext 0
         val dummyTs = (System.currentTimeMillis() / 1000) - 3600
         val resp = ApiService.fetchArchiveUrl(ch.apiId, dummyTs, "tv-device", token)

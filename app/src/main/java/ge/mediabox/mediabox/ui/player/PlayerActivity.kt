@@ -509,6 +509,7 @@ class PlayerActivity : AppCompatActivity() {
         if (topLogo != null) LogoManager.loadLogo(topLogo)
 
         epgOverlayManager = EpgOverlayManager(activity = this, binding = binding, channels = channels,
+            getToken = { authToken },
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
                 android.util.Log.e("EPG_BUG", "--> onArchiveSelected triggered! Instruction: $instruction")
@@ -764,9 +765,9 @@ class PlayerActivity : AppCompatActivity() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
         hideControls()
         lifecycleScope.launch {
-            val hoursBack = repository.refreshArchiveWindow(channel.id, authToken)
+            // Use the new cached method!
+            val hoursBack = repository.getArchiveWindow(channel.id, authToken)
             isTimeRewindVisible = true
-            // Pass the current stream time into the rewinder so it opens at the right spot
             timeRewindManager.show(hoursBack, getCurrentAbsoluteTime())
         }
     }

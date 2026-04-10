@@ -128,12 +128,14 @@ class TimeRewindOverlayManager(
         val isKa = LangPrefs.isKa(activity)
 
         tvArchiveRange.visibility = View.VISIBLE
+
+        // Calculate days and hide excess hours as requested
         val d = hoursBack / 24
-        val h = hoursBack % 24
+
         tvArchiveRange.text = if (isKa) {
-            if (h == 0) "${d} დღიანი არქივი" else "${d}დ ${h}ს არქივი"
+            if (d > 0) "${d} დღიანი არქივი" else "${hoursBack} საათიანი არქივი"
         } else {
-            if (h == 0) "${d}d archive" else "${d}d ${h}h archive"
+            if (d > 0) "${d} day archive" else "${hoursBack} hour archive"
         }
 
         val today = Calendar.getInstance().apply {

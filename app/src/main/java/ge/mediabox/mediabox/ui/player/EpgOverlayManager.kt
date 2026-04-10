@@ -29,14 +29,15 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.async
 
 class EpgOverlayManager(
     private val activity: Activity,
     private val binding: ActivityPlayerBinding,
     private var channels: List<Channel>,
+    private val getToken: () -> String?, // <--- ADD THIS
     private val onChannelSelected: (Int) -> Unit,
     private val onArchiveSelected: (String) -> Unit,
-
 ) {
 
     private var activeBackgroundChannelId: Int = -1
@@ -358,17 +359,8 @@ class EpgOverlayManager(
             System.currentTimeMillis()
         }
 
-
-        val cached = channel.programs
-        if (cached.isNotEmpty()) {
-            // Cached — render immediately, focusSection already set to PROGRAMS by caller
-            loadProgramsJob = scope.launch {
-                renderPrograms(channel, cached, anchorTime)
-            }
-        } else {
-            // Not cached — show loading state but keep focusSection in CHANNELS until
-            // programs actually load successfully. This prevents the cursor getting
-            // stuck in an empty programs column.
+        // Show loading state immediately if programs aren't cached
+        if (channel.programs.isEmpty()) {
             focusSection = FocusSection.CHANNELS
             updateFocusIndicator()
 
@@ -380,26 +372,29 @@ class EpgOverlayManager(
             tvPlaceholderTitle?.setTextColor(0xCCF1F5F9.toInt())
             tvPlaceholderSubtitle?.text    = if (isKa) "იტვირთება..." else "Loading..."
             tvPlaceholderSubtitle?.setTextColor(0x8894A3B8.toInt())
+        }
 
-            loadProgramsJob = scope.launch {
-                val programs = withContext(Dispatchers.IO) {
-                    ChannelRepository.getProgramsForChannel(channel.id)
-                }
-                if (selectedChannelIndex != channelIndex) return@launch // user moved away
+        loadProgramsJob = scope.launch {
+            val programs = withContext(Dispatchers.IO) {
+                // Fetch programs and ensure the archive window limit is cached concurrently!
+                val defPrograms = async { ChannelRepository.getProgramsForChannel(channel.id) }
+                val defWindow   = async { ChannelRepository.getArchiveWindow(channel.id, getToken()) }
 
-                if (programs.isNotEmpty()) {
-                    // Success — now move focus into programs column
-                    focusSection = FocusSection.PROGRAMS
-                    updateFocusIndicator()
-                    renderPrograms(channel, programs, anchorTime)
-                } else {
-                    android.util.Log.e("EPG_BUG", "--> API RETURNED EMPTY PROGRAMS! Showing error text.")
-                    // Failed — stay on channels side, show message
-                    val msg = if (LangPrefs.isKa(activity)) "პროგრამები მიუწვდომელია"
-                    else "No programs available"
-                    tvPlaceholderSubtitle?.text = msg
-                    tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt())
-                }
+                defWindow.await() // Ensure limit is ready
+                defPrograms.await() // Return programs
+            }
+
+            if (selectedChannelIndex != channelIndex) return@launch // user moved away
+
+            if (programs.isNotEmpty()) {
+                focusSection = FocusSection.PROGRAMS
+                updateFocusIndicator()
+                renderPrograms(channel, programs, anchorTime)
+            } else {
+                android.util.Log.e("EPG_BUG", "--> API RETURNED EMPTY PROGRAMS! Showing error text.")
+                val isKa = LangPrefs.isKa(activity)
+                tvPlaceholderSubtitle?.text = if (isKa) "პროგრამები მიუწვდომელია" else "No programs available"
+                tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt())
             }
         }
     }
