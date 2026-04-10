@@ -22,6 +22,7 @@ import ge.mediabox.mediabox.data.model.RadioStation
 import ge.mediabox.mediabox.data.repository.RadioRepository
 import ge.mediabox.mediabox.databinding.ActivityRadioBinding
 import kotlinx.coroutines.launch
+import android.graphics.drawable.Animatable
 
 class RadioActivity : AppCompatActivity() {
 
@@ -44,18 +45,41 @@ class RadioActivity : AppCompatActivity() {
         loadStations()
     }
 
+    private fun toggleBeatsAnimation(show: Boolean) {
+        binding.ivRadioBeats.visibility = if (show) View.VISIBLE else View.GONE
+        val drawable = binding.ivRadioBeats.drawable
+        if (drawable is Animatable) {
+            if (show) {
+                drawable.start()
+            } else {
+                drawable.stop()
+            }
+        }
+    }
+
     private fun initPlayer() {
         player = ExoPlayer.Builder(this).build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
                     binding.radioLoadingBar.visibility =
                         if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
-                    if (state == Player.STATE_READY) {
-                        binding.tvLiveBadge.visibility = View.VISIBLE
+
+                    if (state == Player.STATE_READY && playWhenReady) {
+                        // Start the animation when music actually starts playing
+                        toggleBeatsAnimation(true)
+                    } else if (state == Player.STATE_ENDED || state == Player.STATE_IDLE) {
+                        toggleBeatsAnimation(false)
                     }
                 }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    // This ensures the animation stops if the user pauses
+                    toggleBeatsAnimation(isPlaying)
+                }
+
                 override fun onPlayerError(error: PlaybackException) {
                     binding.radioLoadingBar.visibility = View.GONE
+                    toggleBeatsAnimation(false) // Stop animation on error
                     Toast.makeText(this@RadioActivity, "Stream error", Toast.LENGTH_SHORT).show()
                 }
             })
@@ -79,7 +103,8 @@ class RadioActivity : AppCompatActivity() {
         binding.layoutNowPlaying.visibility = View.VISIBLE
         binding.tvStationName.text = station.name
         binding.tvStationGenre.text = station.genre
-        binding.tvLiveBadge.visibility = View.GONE
+        toggleBeatsAnimation(false)
+        binding.ivRadioBeats.visibility = View.GONE
         binding.radioLoadingBar.visibility = View.VISIBLE
 
         if (!station.logoUrl.isNullOrEmpty()) {

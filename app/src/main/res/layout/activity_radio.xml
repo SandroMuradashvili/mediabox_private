@@ -41,14 +41,6 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="RADIO"
-                    android:textColor="#3394A3B8"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.18"/>
 
             </LinearLayout>
 
@@ -157,6 +149,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Genre"
+                    android:visibility="gone"
                     android:textColor="#3394A3B8"
                     android:textSize="14sp"
                     android:layout_marginTop="6dp"
@@ -166,21 +159,13 @@
                     android:paddingTop="4dp"
                     android:paddingBottom="4dp"/>
 
-                <!-- LIVE badge -->
-                <TextView
-                    android:id="@+id/tvLiveBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="● LIVE"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:background="@drawable/epg_now_badge"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:paddingTop="5dp"
-                    android:paddingBottom="5dp"
-                    android:layout_marginTop="16dp"
+
+                <ImageView
+                    android:id="@+id/ivRadioBeats"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:layout_marginTop="32dp"
+                    android:src="@drawable/ic_radio_beats"
                     android:visibility="gone"/>
 
 
@@ -192,7 +177,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:indeterminateTint="#6366F1"
+                android:indeterminateTint="#E52121"
                 android:visibility="gone"/>
 
         </FrameLayout>

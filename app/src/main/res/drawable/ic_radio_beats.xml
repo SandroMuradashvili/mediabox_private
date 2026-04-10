@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector android:width="40dp" android:height="40dp" android:viewportWidth="40" android:viewportHeight="40">
+            <!-- X positions: 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34 -->
+            <path android:name="b1" android:pathData="M6,30 L6,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b2" android:pathData="M8,30 L8,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b3" android:pathData="M10,30 L10,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b4" android:pathData="M12,30 L12,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b5" android:pathData="M14,30 L14,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b6" android:pathData="M16,30 L16,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b7" android:pathData="M18,30 L18,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b8" android:pathData="M20,30 L20,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b9" android:pathData="M22,30 L22,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b10" android:pathData="M24,30 L24,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b11" android:pathData="M26,30 L26,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b12" android:pathData="M28,30 L28,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b13" android:pathData="M30,30 L30,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b14" android:pathData="M32,30 L32,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+            <path android:name="b15" android:pathData="M34,30 L34,10" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"/>
+        </vector>
+    </aapt:attr>
+
+    <!-- Animations with varied durations and heights for a natural look -->
+    <target android:name="b1"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="400" android:valueFrom="0.1" android:valueTo="0.6" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b2"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="650" android:valueFrom="0.2" android:valueTo="0.9" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b3"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="500" android:valueFrom="0.1" android:valueTo="0.5" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b4"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="800" android:valueFrom="0.3" android:valueTo="1.0" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b5"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="450" android:valueFrom="0.2" android:valueTo="0.7" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b6"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="700" android:valueFrom="0.1" android:valueTo="0.9" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b7"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="550" android:valueFrom="0.4" android:valueTo="1.0" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b8"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="350" android:valueFrom="0.2" android:valueTo="0.6" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b9"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="600" android:valueFrom="0.1" android:valueTo="0.8" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b10"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="750" android:valueFrom="0.3" android:valueTo="0.9" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b11"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="420" android:valueFrom="0.2" android:valueTo="0.7" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b12"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="680" android:valueFrom="0.1" android:valueTo="1.0" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b13"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="520" android:valueFrom="0.2" android:valueTo="0.6" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b14"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="470" android:valueFrom="0.1" android:valueTo="0.9" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+    <target android:name="b15"><aapt:attr name="android:animation">
+        <objectAnimator android:propertyName="trimPathEnd" android:duration="720" android:valueFrom="0.3" android:valueTo="0.8" android:repeatCount="infinite" android:repeatMode="reverse" /></aapt:attr></target>
+</animated-vector>
