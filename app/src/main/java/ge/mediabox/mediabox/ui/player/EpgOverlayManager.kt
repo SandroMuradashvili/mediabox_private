@@ -130,7 +130,6 @@ class EpgOverlayManager(
                     sharedProgramPool.putRecycledView(vh)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("EPG_OPTIMIZE", "Prewarm failed: ${e.message}")
             }
         }
     }
@@ -308,7 +307,6 @@ class EpgOverlayManager(
     }
 
     private fun hideProgramPanel() {
-        android.util.Log.e("EPG_BUG", "--> hideProgramPanel() WAS CALLED!")
         programPanel?.visibility       = View.GONE
         programPlaceholder?.visibility = View.GONE
         tvHoveredDate?.visibility      = View.GONE
@@ -319,7 +317,6 @@ class EpgOverlayManager(
      * Called when highlight moves to a new channel but user hasn't pressed right yet.
      */
     private fun showDefaultPlaceholder() {
-        android.util.Log.e("EPG_BUG", "--> showDefaultPlaceholder() WAS CALLED!")
         val isKa = LangPrefs.isKa(activity)
         programPanel?.visibility       = View.GONE
         tvHoveredDate?.visibility      = View.GONE
@@ -391,7 +388,6 @@ class EpgOverlayManager(
                 updateFocusIndicator()
                 renderPrograms(channel, programs, anchorTime)
             } else {
-                android.util.Log.e("EPG_BUG", "--> API RETURNED EMPTY PROGRAMS! Showing error text.")
                 val isKa = LangPrefs.isKa(activity)
                 tvPlaceholderSubtitle?.text = if (isKa) "პროგრამები მიუწვდომელია" else "No programs available"
                 tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt())
@@ -472,14 +468,12 @@ class EpgOverlayManager(
 
         val archiveStart = repository.getArchiveStartMs(channel.id)
 
-        android.util.Log.d("ARCHIVE_TEST", "👆 EPG Clicked: [${program.title}]. Ends at: ${program.endTime}. Limit is: $archiveStart")
 
         when {
             program.isCurrentlyPlaying(now) -> if (globalIndex >= 0) onChannelSelected(globalIndex)
             program.endTime < now -> {
                 // Prevent clicking if the program ended BEFORE the archive limit
                 if (archiveStart != null && program.endTime <= archiveStart) {
-                    android.util.Log.w("ARCHIVE_TEST", "🚫 Click REJECTED! Program is completely outside the 2-hour limit.")
                     Toast.makeText(
                         activity,
                         if (LangPrefs.isKa(activity)) "არქივი მიუწვდომელია" else "Archive unavailable",
@@ -488,12 +482,10 @@ class EpgOverlayManager(
                 } else {
                     // If it partially overlaps the boundary, clamp the start time
                     val startTs = if (archiveStart != null && program.startTime < archiveStart) {
-                        android.util.Log.w("ARCHIVE_TEST", "⚠️ Program overlaps limit. Clamping start time to exact boundary.")
                         archiveStart
                     } else {
                         program.startTime
                     }
-                    android.util.Log.d("ARCHIVE_TEST", "✅ Playing Archive at: $startTs")
                     onArchiveSelected("ARCHIVE_ID:${channel.id}:TIME:${startTs}")
                 }
             }
@@ -572,7 +564,6 @@ class EpgOverlayManager(
     // ── Key handling ──────────────────────────────────────────────────────────
 
     fun handleKeyEvent(keyCode: Int): Boolean {
-        android.util.Log.e("EPG_BUG", "--> KEY PRESSED IN EPG: $keyCode")
         return when (focusSection) {
             FocusSection.CATEGORIES -> handleCategoryKeys(keyCode)
             FocusSection.CHANNELS   -> handleChannelKeys(keyCode)
@@ -703,17 +694,7 @@ class EpgOverlayManager(
         }
     }
 
-    fun saveState(prefs: android.content.SharedPreferences) {
-        val sectionToSave = if (focusSection == FocusSection.PROGRAMS)
-            FocusSection.CHANNELS else focusSection
-        prefs.edit()
-            .putInt("epg_category_index", selectedCategoryIndex)
-            .putInt("epg_channel_index", selectedChannelIndex)
-            .putInt("epg_program_index", selectedProgramIndex)
-            .putString("epg_category", currentCategory)
-            .putString("epg_focus_section", sectionToSave.name)
-            .apply()
-    }
+
     private fun handleProgramKeys(keyCode: Int): Boolean {
         val programList = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return false
         return when (keyCode) {
@@ -878,7 +859,6 @@ class EpgOverlayManager(
         }
 
         fun updatePrograms(newItems: List<ProgramItem>, overrideTimestampMs: Long? = null, archiveStartMs: Long? = null) {
-            android.util.Log.e("EPG_BUG", "--> ProgramAdapter UPDATED with ${newItems.size} items")
             setHighlight(-1)
             val oldItems = items
             val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
@@ -946,12 +926,18 @@ class EpgOverlayManager(
                     playingAnim?.visibility = View.GONE
                     animDrawable?.stop()
                     liveBadge?.visibility = View.VISIBLE
-                    liveAnimDrawable?.let { if (!it.isRunning) it.start() }
+                    liveBadge?.post {
+                        liveAnimDrawable?.stop()
+                        liveAnimDrawable?.start()
+                    }
                 } else if (isWatching) {
                     playingAnim?.visibility = View.VISIBLE
                     animDrawable?.let { if (!it.isRunning) it.start() }
                     liveBadge?.visibility = View.GONE
-                    liveAnimDrawable?.stop()
+                    playingAnim?.post {
+                        animDrawable?.stop()
+                        animDrawable?.start()
+                    }
                 } else {
                     playingAnim?.visibility = View.GONE
                     animDrawable?.stop()

@@ -2,46 +2,68 @@
 <animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt">
 
-    <!-- The Vector Graphic: centered and using more of the 24x24 viewport -->
     <aapt:attr name="android:drawable">
         <vector
             android:width="24dp"
             android:height="24dp"
             android:viewportWidth="24"
             android:viewportHeight="24">
-            <!-- Bar 1 -->
-            <group android:name="g1" android:pivotX="4" android:pivotY="19">
-                <path
-                    android:pathData="M4,5 L4,19"
-                    android:strokeColor="#FFFFFF"
-                    android:strokeWidth="4"
-                    android:strokeLineCap="round"/>
-            </group>
-            <!-- Bar 2 -->
-            <group android:name="g2" android:pivotX="12" android:pivotY="19">
-                <path
-                    android:pathData="M12,5 L12,19"
-                    android:strokeColor="#FFFFFF"
-                    android:strokeWidth="4"
-                    android:strokeLineCap="round"/>
-            </group>
-            <!-- Bar 3 -->
-            <group android:name="g3" android:pivotX="20" android:pivotY="19">
-                <path
-                    android:pathData="M20,5 L20,19"
-                    android:strokeColor="#FFFFFF"
-                    android:strokeWidth="4"
-                    android:strokeLineCap="round"/>
-            </group>
+
+            <!-- We start at Y=20 and go to Y=4 so it grows UPWARDS -->
+            <!-- StrokeWidth 3 fits 5 bars nicely in a 24dp width -->
+            <path
+                android:name="b1"
+                android:pathData="M4,20 L4,4"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"/>
+            <path
+                android:name="b2"
+                android:pathData="M8,20 L8,4"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"/>
+            <path
+                android:name="b3"
+                android:pathData="M12,20 L12,4"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"/>
+            <path
+                android:name="b4"
+                android:pathData="M16,20 L16,4"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"/>
+            <path
+                android:name="b5"
+                android:pathData="M20,20 L20,4"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"/>
         </vector>
     </aapt:attr>
 
-    <!-- The Animations for each bar -->
-    <target android:name="g1">
+    <!-- Animation for Bar 1 -->
+    <target android:name="b1">
         <aapt:attr name="android:animation">
             <objectAnimator
-                android:propertyName="scaleY"
+                android:propertyName="trimPathEnd"
                 android:duration="400"
+                android:valueFrom="0.2"
+                android:valueTo="0.9"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+
+    <!-- Animation for Bar 2 -->
+    <target android:name="b2">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:duration="600"
                 android:valueFrom="0.3"
                 android:valueTo="1.0"
                 android:repeatCount="infinite"
@@ -50,26 +72,42 @@
         </aapt:attr>
     </target>
 
-    <target android:name="g2">
+    <!-- Animation for Bar 3 -->
+    <target android:name="b3">
         <aapt:attr name="android:animation">
             <objectAnimator
-                android:propertyName="scaleY"
-                android:duration="600"
+                android:propertyName="trimPathEnd"
+                android:duration="500"
                 android:valueFrom="0.2"
-                android:valueTo="1.0"
+                android:valueTo="0.7"
                 android:repeatCount="infinite"
                 android:repeatMode="reverse"
                 android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
         </aapt:attr>
     </target>
 
-    <target android:name="g3">
+    <!-- Animation for Bar 4 -->
+    <target android:name="b4">
         <aapt:attr name="android:animation">
             <objectAnimator
-                android:propertyName="scaleY"
-                android:duration="500"
+                android:propertyName="trimPathEnd"
+                android:duration="750"
                 android:valueFrom="0.4"
-                android:valueTo="1.0"
+                android:valueTo="0.9"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>
+        </aapt:attr>
+    </target>
+
+    <!-- Animation for Bar 5 -->
+    <target android:name="b5">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:duration="450"
+                android:valueFrom="0.1"
+                android:valueTo="0.6"
                 android:repeatCount="infinite"
                 android:repeatMode="reverse"
                 android:interpolator="@android:anim/accelerate_decelerate_interpolator"/>

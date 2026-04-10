@@ -419,7 +419,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun playArchiveAt(channelId: Int, timestampMs: Long) {
-        android.util.Log.e("EPG_BUG", "--> playArchiveAt called! ID: $channelId")
         if (timestampMs >= System.currentTimeMillis()) {
             returnToLive()
             return
@@ -442,7 +441,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun fetchProgramsForCurrentChannel() {
         val channel = channels.getOrNull(currentChannelIndex) ?: return
-        android.util.Log.e("EPG_BUG", "--> fetchProgramsForCurrentChannel called for channel: ${channel.name}")
 
         pendingProgramJob?.cancel()
         pendingProgramJob = lifecycleScope.launch {
@@ -512,16 +510,13 @@ class PlayerActivity : AppCompatActivity() {
             getToken = { authToken },
             onChannelSelected = { index -> currentChannelIndex = index; playChannel(index); hideEpg() },
             onArchiveSelected = { instruction ->
-                android.util.Log.e("EPG_BUG", "--> onArchiveSelected triggered! Instruction: $instruction")
                 try {
                     val parts = instruction.split(":")
                     if (parts.size >= 4) {
                         playArchiveAt(parts[1].toIntOrNull() ?: -1, parts[3].toLongOrNull() ?: 0L)
                     }
-                    android.util.Log.e("EPG_BUG", "--> Calling hideEpg() now")
                     hideEpg()
                 } catch (e: Exception) {
-                    android.util.Log.e("EPG_BUG", "--> CRASH in onArchiveSelected: ${e.message}")
                 }
             }
         )
@@ -662,10 +657,8 @@ class PlayerActivity : AppCompatActivity() {
         // PREVENT REWINDING PAST ARCHIVE LIMIT
         val archiveStart = repository.getArchiveStartMs(channel.id)
 
-        android.util.Log.d("ARCHIVE_TEST", "⏪ Rewind button pressed. Trying to jump to: $targetTs. Allowed limit is: $archiveStart")
 
         if (archiveStart != null && targetTs < archiveStart) {
-            android.util.Log.w("ARCHIVE_TEST", "🚫 Rewind Clamped! Hit the boundary. Stopping at $archiveStart")
             targetTs = archiveStart
             val isKa = LangPrefs.isKa(this)
             Toast.makeText(
@@ -803,7 +796,6 @@ class PlayerActivity : AppCompatActivity() {
                     ).show()
                 }
             } else {
-                android.util.Log.d("FAVORITES_DEBUG", "✅ Favorite synced successfully for channel ${channel.name} (${channel.apiId})")
             }
         }
     }
