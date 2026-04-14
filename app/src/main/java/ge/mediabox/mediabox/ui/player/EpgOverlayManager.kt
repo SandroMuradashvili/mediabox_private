@@ -344,7 +344,8 @@ class EpgOverlayManager(
      * This is called ONLY when the user explicitly presses right on a channel.
      * Uses cache if available (4h duration), otherwise fetches from network.
      */
-    private fun loadAndShowPrograms(channelIndex: Int) {
+    // Find this function in EpgOverlayManager.kt
+    private fun loadAndShowPrograms(channelIndex: Int, moveFocus: Boolean = true) { // Added default true
         loadProgramsJob?.cancel()
 
         val channel = filteredChannels.getOrNull(channelIndex) ?: return
@@ -356,9 +357,9 @@ class EpgOverlayManager(
             System.currentTimeMillis()
         }
 
-        // Show loading state immediately if programs aren't cached
         if (channel.programs.isEmpty()) {
-            focusSection = FocusSection.CHANNELS
+            // We stay in CHANNELS section while loading if we aren't explicitly moving focus
+            if (moveFocus) focusSection = FocusSection.CHANNELS
             updateFocusIndicator()
 
             val isKa = LangPrefs.isKa(activity)
@@ -373,24 +374,23 @@ class EpgOverlayManager(
 
         loadProgramsJob = scope.launch {
             val programs = withContext(Dispatchers.IO) {
-                // Fetch programs and ensure the archive window limit is cached concurrently!
                 val defPrograms = async { ChannelRepository.getProgramsForChannel(channel.id) }
                 val defWindow   = async { ChannelRepository.getArchiveWindow(channel.id, getToken()) }
-
-                defWindow.await() // Ensure limit is ready
-                defPrograms.await() // Return programs
+                defWindow.await()
+                defPrograms.await()
             }
 
-            if (selectedChannelIndex != channelIndex) return@launch // user moved away
+            if (selectedChannelIndex != channelIndex) return@launch
 
             if (programs.isNotEmpty()) {
-                focusSection = FocusSection.PROGRAMS
-                updateFocusIndicator()
+                if (moveFocus) {
+                    focusSection = FocusSection.PROGRAMS
+                    updateFocusIndicator()
+                } else {
+                    // Ensure no "ghost" highlight appears on the right while browsing left
+                    programAdapter.setHighlight(-1)
+                }
                 renderPrograms(channel, programs, anchorTime)
-            } else {
-                val isKa = LangPrefs.isKa(activity)
-                tvPlaceholderSubtitle?.text = if (isKa) "პროგრამები მიუწვდომელია" else "No programs available"
-                tvPlaceholderSubtitle?.setTextColor(0xBBF87171.toInt())
             }
         }
     }
@@ -399,25 +399,29 @@ class EpgOverlayManager(
         val items = buildProgramItemList(programs)
         currentProgramItems = items
 
-        var targetPos = findProgramPositionForTime(programs, anchorTimestampMs)
-        while (targetPos < items.size && items[targetPos] is ProgramItem.DateDivider) targetPos++
-
+        val targetPos = findProgramPositionForTime(programs, anchorTimestampMs)
         selectedProgramIndex = targetPos
 
-        // NEW: Get the archive limit for this specific channel
         val archiveStartMs = repository.getArchiveStartMs(channel.id)
 
         val rv = binding.root.findViewById<RecyclerView>(R.id.programList) ?: return
         withContext(Dispatchers.Main) {
-            // Update call includes the new archiveStartMs parameter
             programAdapter.updatePrograms(items, anchorTimestampMs, archiveStartMs)
             rv.post {
+                // Perform the scroll to the live (or latest) program
                 (rv.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(targetPos, 200)
 
                 binding.root.findViewById<TextView>(R.id.tvSelectedChannelName)?.text = channel.name
                 programPanel?.visibility = View.VISIBLE
                 programPlaceholder?.visibility = View.GONE
-                programAdapter.setHighlight(targetPos)
+
+                // Highlight the row ONLY if the user is actually focused on the right panel
+                if (focusSection == FocusSection.PROGRAMS) {
+                    programAdapter.setHighlight(targetPos)
+                } else {
+                    programAdapter.setHighlight(-1)
+                }
+
                 updateHoveredDate(targetPos)
             }
         }
@@ -436,16 +440,32 @@ class EpgOverlayManager(
 
     private fun findProgramPositionForTime(programs: List<Program>, timestampMs: Long): Int {
         if (programs.isEmpty()) return 0
-        val targetIndex = programs.indexOfFirst { timestampMs in it.startTime until it.endTime }
-        val idx = if (targetIndex >= 0) targetIndex else
-            programs.indexOfLast { it.endTime <= timestampMs }.coerceAtLeast(0)
+
+        // 1. Try to find the currently playing program
+        var targetIndex = programs.indexOfFirst { timestampMs in it.startTime until it.endTime }
+
+        // 2. If nothing is live right now:
+        if (targetIndex == -1) {
+            if (timestampMs > programs.last().endTime) {
+                // If we are past the end of the schedule, scroll to the latest available program
+                targetIndex = programs.size - 1
+            } else if (timestampMs < programs.first().startTime) {
+                // If we are before the schedule starts, go to the first
+                targetIndex = 0
+            } else {
+                // Otherwise find the program that ended most recently
+                targetIndex = programs.indexOfLast { it.endTime <= timestampMs }.coerceAtLeast(0)
+            }
+        }
+
+        // 3. Convert the program index into the RecyclerView position (counting Date Dividers)
         var dividers = 0
-        for (i in 0 until idx) {
+        for (i in 0 until targetIndex) {
             val cur  = fullDateFmt.format(Date(programs[i].startTime))
             val prev = if (i > 0) fullDateFmt.format(Date(programs[i - 1].startTime)) else null
             if (cur != prev) dividers++
         }
-        return idx + dividers
+        return targetIndex + dividers
     }
 
     private fun updateHoveredDate(position: Int) {
@@ -523,42 +543,36 @@ class EpgOverlayManager(
      * @param currentChannelId  The ID of the channel currently playing
      * @param currentTimestampMs The EXACT playback time — live = now, archive = archiveBase + playerPos
      */
+    // Find this function in EpgOverlayManager.kt
     fun requestFocus(currentChannelId: Int, currentTimestampMs: Long) {
         this.activeBackgroundChannelId = currentChannelId
         this.playbackTimestampMs = currentTimestampMs
 
-        // 1. Find the channel in the master list
         val channel = channels.find { it.id == currentChannelId } ?: channels.firstOrNull() ?: return
-
-        // 2. Determine which category this channel belongs to
         val isKa = LangPrefs.isKa(activity)
         val categories = repository.getCategories(isKa)
 
-        // Logic: Find the first category that contains this channel
         val targetCategory = categories.find { cat ->
             repository.getChannelsByCategory(cat, isKa).any { it.id == currentChannelId }
         } ?: categories.firstOrNull() ?: ""
 
-        // 3. Set the EPG to that category
         currentCategory = targetCategory
         selectedCategoryIndex = categories.indexOf(targetCategory).coerceAtLeast(0)
         filteredChannels = repository.getChannelsByCategory(currentCategory, isKa)
         channelAdapter.updateChannels(filteredChannels)
 
-        // 4. Find index of the channel within that category
         selectedChannelIndex = filteredChannels.indexOfFirst { it.id == currentChannelId }.coerceAtLeast(0)
 
-        // 5. Update UI Highlights for the left side
         highlightCategory()
         channelAdapter.setHighlight(selectedChannelIndex)
         scrollChannelListTo(selectedChannelIndex)
 
-        // 6. LOAD PROGRAMS AND MOVE FOCUS TO RIGHT SIDE
-        // We force focusSection to PROGRAMS because the user wants to see/scroll the schedule immediately
-        focusSection = FocusSection.PROGRAMS
+        // CHANGE: Start focus on CHANNELS (left side)
+        focusSection = FocusSection.CHANNELS
         updateFocusIndicator()
 
-        loadAndShowPrograms(selectedChannelIndex)
+        // CHANGE: Load programs in the background but do NOT move focus to the right side
+        loadAndShowPrograms(selectedChannelIndex, moveFocus = false)
     }
 
     // ── Key handling ──────────────────────────────────────────────────────────
@@ -581,12 +595,18 @@ class EpgOverlayManager(
             }
             true
         }
+        // Inside handleChannelKeys function in EpgOverlayManager.kt
         KeyEvent.KEYCODE_DPAD_RIGHT -> {
-            if (selectedCategoryIndex < categoryButtons.size - 1) {
-                selectedCategoryIndex++
-                selectCategory(categoryButtons[selectedCategoryIndex].text.toString())
-                highlightCategory()
-                scrollCategoryIntoView(selectedCategoryIndex)
+            val ch = filteredChannels.getOrNull(selectedChannelIndex)
+            if (ch?.isLocked == true) {
+                showLockedChannelInfo(ch)
+            } else {
+                // If they press right, we DO want to move focus
+                if (ch != null && ch.programs.isNotEmpty()) {
+                    focusSection = FocusSection.PROGRAMS
+                    updateFocusIndicator()
+                }
+                loadAndShowPrograms(selectedChannelIndex, moveFocus = true)
             }
             true
         }
