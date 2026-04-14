@@ -272,6 +272,7 @@ class LoginActivity : AppCompatActivity() {
                 currentStatus = PairingStatus.CLAIM_FAILED
                 updateStatusText()
                 btnRefresh.visibility = View.VISIBLE
+                btnRefresh.requestFocus()
             }
         }
     }

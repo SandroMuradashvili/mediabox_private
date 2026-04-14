@@ -214,16 +214,20 @@
                 android:focusable="false"
                 android:clickable="false"/>
 
-            <!-- Refresh Button -->
+            <!-- Replace the existing btnRefresh FrameLayout with this updated version -->
             <FrameLayout
                 android:id="@+id/btnRefresh"
-                android:layout_width="160dp"
-                android:layout_height="44dp"
-                android:layout_marginTop="20dp"
+                android:layout_width="180dp"
+                android:layout_height="52dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="10dp"
                 android:background="@drawable/login_button_selector"
                 android:focusable="true"
                 android:clickable="true"
-                android:visibility="gone">
+                android:visibility="gone"
+                android:clipToPadding="false"
+                android:clipChildren="false">
+
                 <TextView
                     android:id="@+id/tvRefreshLabel"
                     android:layout_width="wrap_content"
@@ -231,8 +235,9 @@
                     android:layout_gravity="center"
                     android:text="REFRESH"
                     android:textColor="#F1F5F9"
-                    android:textSize="12sp"
-                    android:textStyle="bold"/>
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"/>
             </FrameLayout>
         </LinearLayout>
     </FrameLayout>
