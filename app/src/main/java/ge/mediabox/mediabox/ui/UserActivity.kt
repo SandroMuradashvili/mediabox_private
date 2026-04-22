@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import ge.mediabox.mediabox.BuildConfig
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
@@ -23,6 +25,8 @@ import ge.mediabox.mediabox.data.remote.PlanChannel
 import ge.mediabox.mediabox.databinding.ActivityUserBinding
 import kotlinx.coroutines.launch
 import androidx.core.content.edit
+import androidx.media3.common.util.Log
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.async
 
 class UserActivity : AppCompatActivity() {
@@ -92,34 +96,40 @@ class UserActivity : AppCompatActivity() {
 
     // ── Data loading ──────────────────────────────────────────────────────────
 
-    private fun loadData(isLanguageRefresh: Boolean = false) {
+    @OptIn(UnstableApi::class) private fun loadData(isLanguageRefresh: Boolean = false) {
+        Log.d("DEBUG_PROFILE", "🚀 Starting loadData. URL: ${BuildConfig.BASE_URL}")
+
         if (!isLanguageRefresh) {
             binding.loadingIndicator.visibility = View.VISIBLE
             binding.contentRoot.visibility = View.GONE
         }
-        updateLangUI()
-
-        val deviceId = DeviceIdHelper.getDeviceId(this)
 
         lifecycleScope.launch {
             try {
-                // Using async to fetch user info and device name at the same time
-                val userDeferred = async { authApi.getUser() }
-                val deviceDeferred = async { runCatching { authApi.getDeviceName(deviceId) }.getOrNull() }
+                Log.d("DEBUG_PROFILE", "📡 Fetching User Profile...")
+                val user = authApi.getUser()
+                Log.d("DEBUG_PROFILE", "✅ User received: ${user.username}")
 
-                val user = userDeferred.await()
-                val deviceResponse = deviceDeferred.await()
-                val myPlans = runCatching { authApi.getMyPlans() }.getOrDefault(emptyList())
+                Log.d("DEBUG_PROFILE", "📡 Fetching Plans...")
+                val myPlans = authApi.getMyPlans()
+                Log.d("DEBUG_PROFILE", "✅ Plans received: ${myPlans.size} items")
 
-                bindUserData(user, deviceResponse?.device_name, myPlans)
-                prefetchPlanChannels(myPlans)
+                bindUserData(user, null, myPlans)
+                Log.d("DEBUG_PROFILE", "🎨 UI Binding Complete")
+
+            } catch (e: retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                Log.e("DEBUG_PROFILE", "❌ HTTP Error ${e.code()}: $errorBody")
+                Toast.makeText(this@UserActivity, "Server Error: ${e.code()}", Toast.LENGTH_LONG).show()
+            } catch (e: java.net.UnknownHostException) {
+                Log.e("DEBUG_PROFILE", "❌ DNS Error: Could not find server. Check your URL.")
             } catch (e: Exception) {
-                if (!isLanguageRefresh) {
-                    binding.loadingIndicator.visibility = View.GONE
-                    binding.contentRoot.visibility = View.VISIBLE
-                }
-                android.util.Log.e("UserActivity", "Error loading profile", e)
-                Toast.makeText(this@UserActivity, "Connection Error", Toast.LENGTH_SHORT).show()
+                Log.e("DEBUG_PROFILE", "❌ CRASH ATTEMPT: ${e.javaClass.simpleName}")
+                Log.e("DEBUG_PROFILE", "Message: ${e.message}")
+                e.printStackTrace() // This puts the full red error in Logcat
+            } finally {
+                binding.loadingIndicator.visibility = View.GONE
+                binding.contentRoot.visibility = View.VISIBLE
             }
         }
     }

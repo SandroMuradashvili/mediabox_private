@@ -3,6 +3,8 @@ package ge.mediabox.mediabox.ui
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
@@ -13,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.zxing.BarcodeFormat
 import com.journeyapps.barcodescanner.BarcodeEncoder
 import ge.mediabox.mediabox.R
+import ge.mediabox.mediabox.BuildConfig // Ensure this is imported
 import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
@@ -34,14 +37,20 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnLoginLang: FrameLayout
     private lateinit var tvSignInTitle: TextView
     private lateinit var tvSignInSub: TextView
-
     private lateinit var deviceId: String
-
     private lateinit var tvManualUrl: TextView
     private var mSocket: Socket? = null
 
-    private val BASE_URL = "https://tv-api.telecomm1.com/api"
-    private val SOCKET_URL = "https://tv-api.telecomm1.com"
+    // 1. DYNAMIC URLS - These will change automatically when you change Gradle
+    private val BASE_URL = BuildConfig.BASE_API_URL
+    private val SOCKET_URL = BuildConfig.BASE_URL.removeSuffix("/")
+
+    // 2. AUTO-REFRESH - Automatically generates a new code every 5 minutes
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private val autoRefreshRunnable = Runnable {
+        Log.d(TAG, "⏰ Code expired (5m), auto-refreshing...")
+        startPairing()
+    }
 
     private enum class PairingStatus { INITIALIZING, SCAN_READY, INIT_FAILED, NETWORK_ERROR, CONNECTED, CLAIM_FAILED }
     private var currentStatus = PairingStatus.INITIALIZING
@@ -80,7 +89,7 @@ class LoginActivity : AppCompatActivity() {
 
         btnRefresh.setOnClickListener { startPairing() }
         btnLoginLang.setOnClickListener { toggleLanguage() }
-        
+
         updateTexts()
         startPairing()
     }
@@ -89,7 +98,7 @@ class LoginActivity : AppCompatActivity() {
         val isKa = LangPrefs.isKa(this)
         tvSignInTitle.text = if (isKa) "ავტორიზაცია" else "Sign In"
         tvSignInSub.text   = if (isKa) "დაასკანერეთ კოდი მოწყობილობის დასარეგისტრირებლად" else "Scan the code to register this device"
-        
+
         findViewById<TextView>(R.id.tvRefreshLabel)?.let {
             it.text = if (isKa) "განახლება" else "REFRESH"
         }
@@ -111,11 +120,10 @@ class LoginActivity : AppCompatActivity() {
     private fun toggleLanguage() {
         LangPrefs.toggle(this)
         updateTexts()
-        // REMOVED startPairing() call to prevent QR code refresh on language change
     }
 
     private fun startPairing() {
-        disconnectSocket()
+        disconnectSocket() // Stop previous socket and timer
         btnRefresh.visibility = View.GONE
         currentStatus = PairingStatus.INITIALIZING
         updateStatusText()
@@ -130,20 +138,30 @@ class LoginActivity : AppCompatActivity() {
                     val pCode = result.first
                     val sToken = result.second
 
-                    val displayUrl = "tv-api.telecomm1.com/tv-register?code=$pCode"
+                    // 3. DYNAMIC DOMAIN EXTRACTION
+                    // This turns "https://new.mediabox.ge/" into "new.mediabox.ge"
+                    val domain = BuildConfig.BASE_URL
+                        .replace("https://", "")
+                        .replace("http://", "")
+                        .removeSuffix("/")
+
+                    val displayUrl = "$domain/tv-register?code=$pCode"
                     val qrUrl = "https://$displayUrl"
 
                     tvManualUrl.text = displayUrl
 
                     val bitmap = BarcodeEncoder().encodeBitmap(qrUrl, BarcodeFormat.QR_CODE, 400, 400)
-
                     ivQrCode.setImageBitmap(bitmap)
                     tvPairingCode.text = pCode
-                    
+
                     currentStatus = PairingStatus.SCAN_READY
                     updateStatusText()
 
                     connectToSocket(sToken)
+
+                    // 4. START 5-MINUTE AUTO REFRESH TIMER
+                    refreshHandler.postDelayed(autoRefreshRunnable, 300000)
+
                 } else {
                     currentStatus = PairingStatus.INIT_FAILED
                     updateStatusText()
@@ -195,7 +213,7 @@ class LoginActivity : AppCompatActivity() {
 
             mSocket?.on(Socket.EVENT_CONNECT) {
                 Log.d(TAG, "Socket Connected ✓")
-                runOnUiThread { 
+                runOnUiThread {
                     currentStatus = PairingStatus.CONNECTED
                     updateStatusText()
                 }
@@ -208,21 +226,11 @@ class LoginActivity : AppCompatActivity() {
             mSocket?.on("pairing_ready") { args ->
                 val data = args.getOrNull(0) as? JSONObject
                 Log.d(TAG, "Socket Message [pairing_ready]: $data")
-                
+
                 val claimToken = data?.optString("claim_token")
                 if (!claimToken.isNullOrEmpty()) {
-                    // Removed disconnectSocket() so it stays open
                     lifecycleScope.launch { claimSession(claimToken) }
                 }
-            }
-
-            // Listen for any other potential messages for testing
-            mSocket?.on("message") { args ->
-                Log.d(TAG, "Socket Message [message]: ${args.getOrNull(0)}")
-            }
-            
-            mSocket?.on("command") { args ->
-                Log.d(TAG, "Socket Message [command]: ${args.getOrNull(0)}")
             }
 
             mSocket?.on(Socket.EVENT_DISCONNECT) {
@@ -265,6 +273,8 @@ class LoginActivity : AppCompatActivity() {
         }
 
         if (result != null) {
+            // Success! Stop the auto-refresh timer
+            refreshHandler.removeCallbacks(autoRefreshRunnable)
             getPrefs().edit().putString("auth_token", result).apply()
             goToMain()
         } else {
@@ -278,6 +288,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun disconnectSocket() {
+        refreshHandler.removeCallbacks(autoRefreshRunnable) // Stop timer
         mSocket?.disconnect()
         mSocket?.off()
         mSocket = null

@@ -25,12 +25,12 @@ android {
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"https://tv-api.telecomm1.com/\""
+                "\"https://new.mediabox.ge/\""
             )
             buildConfigField(
                 "String",
                 "BASE_API_URL",
-                "\"https://tv-api.telecomm1.com/api\""
+                "\"https://new.mediabox.ge/api\""
             )
         }
         release {
@@ -39,12 +39,12 @@ android {
             buildConfigField(
                 "String",
                 "BASE_URL",
-                "\"https://tv-api.telecomm1.com/\""
+                "\"https://new.mediabox.ge/\""
             )
             buildConfigField(
                 "String",
                 "BASE_API_URL",
-                "\"https://tv-api.telecomm1.com/api\""
+                "\"https://new.mediabox.ge/api\""
             )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
